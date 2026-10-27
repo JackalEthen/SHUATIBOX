@@ -404,9 +404,10 @@ pub fn question_from_row(row: &Row<'_>) -> rusqlite::Result<QuestionDto> {
             None
         },
         has_image: row.get::<_, i64>(16)? == 1,
+        image_missing: row.get::<_, i64>(17)? == 1,
     })
 }
 
 pub const QUESTION_COLUMNS: &str =
     "q.id, q.qid, q.module, q.type, p.year, p.region, q.paper, q.paper_key, q.stem, q.options,
-     q.answer, q.explanation, q.material_title, q.material_content, q.status, q.explanation_answer, q.has_image";
+     q.answer, q.explanation, q.material_title, q.material_content, q.status, q.explanation_answer, q.has_image, q.image_missing";

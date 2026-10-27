@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { errorText, importBank, type ImportSummary } from '../api';
+import { ImportFormatHelp } from '../ImportFormatHelp';
 import { MobileSheet } from '../MobileSheet';
 
 interface Props {
@@ -133,6 +134,8 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
               {error}
             </div>
           ) : null}
+
+          <ImportFormatHelp />
 
           <button className="btn btn-primary btn-block mt-3" disabled={!path || busy} onClick={() => void run()}>
             {busy ? '正在导入…' : '开始导入'}

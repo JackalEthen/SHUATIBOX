@@ -34,6 +34,7 @@ pub struct QuestionDto {
     pub material_content: Option<String>,
     pub review: Option<ReviewDto>,
     pub has_image: bool,
+    pub image_missing: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

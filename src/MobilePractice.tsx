@@ -321,6 +321,12 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
 
         <div className="qtext mt-4" dangerouslySetInnerHTML={{ __html: question.stemHtml }} />
 
+        {question.imageMissing ? (
+          <div className="mt-3 text-[11px] text-[var(--warn)] leading-5">
+            本题原始图片缺失，题干或选项中的图无法显示；不影响作答。
+          </div>
+        ) : null}
+
         <div className="mt-4 space-y-2.5">
           {question.options.map((option) => {
             const selected = current?.selected?.includes(option.label) ?? false;

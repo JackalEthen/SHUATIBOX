@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { errorText, importBank, type ImportSummary } from './api';
+import { ImportFormatHelp } from './ImportFormatHelp';
 import { Modal } from './Modal';
 
 interface Props {
@@ -97,6 +98,8 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice }: Props)
         <input type="checkbox" checked={setActive} onChange={(event) => setSetActive(event.target.checked)} />
         导入后设为当前题库
       </label>
+
+      <ImportFormatHelp />
 
       {busy ? (
         <div className="mt-4 rounded-xl bg-[var(--accent-soft)] p-4 text-[11.5px] text-[var(--accent-ink)]">

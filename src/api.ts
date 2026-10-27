@@ -27,8 +27,9 @@ export interface QuestionDto {
   multi: boolean;
   materialTitle?: string | null;
   materialContent?: string | null;
-  review?: ReviewDto | null;
+review?: ReviewDto | null;
   hasImage: boolean;
+  imageMissing: boolean;
 }
 
 export interface ModuleStat {
@@ -292,7 +293,8 @@ export function toQuestion(raw: QuestionDto, assetDir: string): PracticeQuestion
           html: renderMarkdown(localize(raw.materialContent, assetDir)),
         }
       : undefined,
-    hasImage: raw.hasImage,
+hasImage: raw.hasImage,
+    imageMissing: raw.imageMissing,
   };
 }
 

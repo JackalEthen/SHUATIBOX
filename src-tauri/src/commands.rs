@@ -127,7 +127,7 @@ fn streak_stats(conn: &Connection, bank_id: &str) -> Result<StreakDto, String> {
 fn module_stats(bank: &Connection, user: &Connection, bank_id: &str) -> Result<Vec<ModuleStat>, String> {
     let mut stmt = bank
         .prepare(
-            "SELECT module, COUNT(*), SUM(CASE WHEN can_grade=1 AND image_missing=0 THEN 1 ELSE 0 END)
+            "SELECT module, COUNT(*), SUM(CASE WHEN can_grade=1 THEN 1 ELSE 0 END)
              FROM questions GROUP BY module ORDER BY module",
         )
         .map_err(|error| error.to_string())?;
@@ -485,7 +485,7 @@ fn build_session(
             .map_err(|error| error.to_string())?;
         let mut stmt = bank
             .prepare(
-                "SELECT id FROM questions WHERE paper_key=?1 AND can_grade=1 AND image_missing=0
+                "SELECT id FROM questions WHERE paper_key=?1 AND can_grade=1
                  ORDER BY module, number",
             )
             .map_err(|error| error.to_string())?;
@@ -503,7 +503,7 @@ fn build_session(
         };
         duration = spec.duration_sec.unwrap_or(if mode == "exam" { 7200 } else { 0 });
     } else if mode == "custom" {
-        let mut conditions = vec!["q.can_grade=1".to_string(), "q.image_missing=0".to_string()];
+        let mut conditions = vec!["q.can_grade=1".to_string()];
         let mut values: Vec<Value> = Vec::new();
         if let Some(modules) = &spec.modules {
             if !modules.is_empty() {
@@ -555,7 +555,7 @@ fn build_session(
         let module_name = spec.module.clone().unwrap_or_default();
         let mut stmt = bank
             .prepare(
-                "SELECT id FROM questions WHERE can_grade=1 AND image_missing=0
+                "SELECT id FROM questions WHERE can_grade=1
                  AND (?1='' OR module=?1) ORDER BY RANDOM() LIMIT ?2",
             )
             .map_err(|error| error.to_string())?;
@@ -810,7 +810,7 @@ pub fn list_papers(
     let offset_index = values.len();
     let sql = format!(
         "SELECT p.key,p.title,p.year,p.region,p.exam_type,p.question_count,p.module_count,
-          (SELECT COUNT(*) FROM questions x WHERE x.paper_key=p.key AND x.can_grade=1 AND x.image_missing=0),
+          (SELECT COUNT(*) FROM questions x WHERE x.paper_key=p.key AND x.can_grade=1),
           (SELECT COUNT(*) FROM questions x WHERE x.paper_key=p.key AND x.has_image=1)
          FROM papers p WHERE {where_sql} ORDER BY p.year DESC, p.title LIMIT ?{limit_index} OFFSET ?{offset_index}"
     );
@@ -1429,7 +1429,7 @@ pub fn load_practice_questions(
     let mut stmt = bank_db
         .prepare(&format!(
             "SELECT {QUESTION_COLUMNS} FROM questions q JOIN papers p ON p.key=q.paper_key
-             WHERE q.can_grade=1 AND q.image_missing=0 AND (?2 IS NULL OR q.module=?2)
+             WHERE q.can_grade=1 AND (?2 IS NULL OR q.module=?2)
              ORDER BY q.paper_key, q.module, q.number LIMIT ?1"
         ))
         .map_err(|error| error.to_string())?;

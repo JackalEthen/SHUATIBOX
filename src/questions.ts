@@ -12,6 +12,7 @@ export interface PracticeQuestion {
   paperTitle?: string;
   paperKey?: string;
   hasImage?: boolean;
+  imageMissing?: boolean;
   stemHtml: string;
   options: PracticeOption[];
   answer: string[];
