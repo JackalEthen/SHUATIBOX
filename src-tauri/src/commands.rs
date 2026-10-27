@@ -21,7 +21,32 @@ fn module_code(module: &str) -> String {
         "资料分析" => "06",
         _ => "00",
     }
-    .to_string()
+.to_string()
+}
+
+// ponytail: 用户提供的文件路径只校验扩展名，位置由系统文件选择器授权；数据库备份限定 .db
+fn require_ext(path: &Path, allowed: &[&str]) -> Result<(), String> {
+    let ext = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .unwrap_or_default();
+    if allowed.contains(&ext.as_str()) {
+        Ok(())
+    } else {
+        Err(format!("不支持的文件类型（仅允许 {}）", allowed.join(" / ")))
+    }
+}
+
+// ponytail: DB 内 JSON 解析失败时记日志再兜底，避免静默丢弃用户数据
+pub(crate) fn parse_json_or_warn<T: serde::de::DeserializeOwned + Default>(raw: &str, field: &str) -> T {
+    match serde_json::from_str(raw) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("[shuatibox] 字段 {field} 的 JSON 解析失败：{error}；原始值已丢弃");
+            T::default()
+        }
+    }
 }
 
 
@@ -175,7 +200,7 @@ fn session_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionDto> {
         title: row.get("title")?,
         paper_key: row.get("paper_key")?,
         module: row.get("module")?,
-        question_ids: serde_json::from_str(&question_ids).unwrap_or_default(),
+        question_ids: parse_json_or_warn(&question_ids, "sessions.question_ids"),
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         completed_at: row.get("completed_at")?,
@@ -185,7 +210,7 @@ fn session_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionDto> {
         total: row.get("total")?,
         answered: row.get("answered")?,
         correct: row.get("correct")?,
-        spec: serde_json::from_str(&spec_json).unwrap_or_default(),
+        spec: parse_json_or_warn(&spec_json, "sessions.spec_json"),
     })
 }
 
@@ -269,7 +294,7 @@ fn load_session_view(app: &tauri::AppHandle, session_id: &str) -> Result<Session
             let selected: String = row.get(1)?;
             Ok(AnswerDto {
                 question_id: row.get(0)?,
-                selected: serde_json::from_str(&selected).unwrap_or_default(),
+                selected: parse_json_or_warn(&selected, "attempts.selected"),
                 submitted: row.get::<_, i64>(2)? == 1,
                 correct: row.get::<_, i64>(3)? == 1,
                 flagged: row.get::<_, i64>(4)? == 1,
@@ -1015,7 +1040,8 @@ pub fn list_wrong(
             })
         })
         .collect::<Vec<_>>();
-    let total = items.len() as i64;
+    // ponytail: items 受 LIMIT 截断，total 报真实错题总数（pending+mastered），前端据此提示
+    let total = pending + mastered;
     Ok(WrongPage { items, total, pending, mastered })
 }
 
@@ -1328,6 +1354,14 @@ pub fn delete_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
 pub fn export_backup(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let user = open_user(&app)?;
     let target = PathBuf::from(path);
+    require_ext(&target, &["db"])?;
+    // ponytail: 禁止把备份写到应用数据目录内，避免覆盖 user.db 或题库
+    let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
+    if let Some(parent) = target.parent() {
+        if parent.canonicalize().map(|p| p.starts_with(&root)).unwrap_or(false) {
+            return Err("备份不能写入应用数据目录".to_string());
+        }
+    }
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
@@ -1342,6 +1376,7 @@ pub fn export_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
 #[tauri::command]
 pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let source = PathBuf::from(path);
+    require_ext(&source, &["db"])?;
     if !source.exists() {
         return Err("备份文件不存在".to_string());
     }
@@ -1366,6 +1401,30 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     }
     std::fs::copy(source, target).map_err(|error| error.to_string())?;
     init_user(&app)?;
+    // ponytail: 备份可能被篡改，剔除 banks 表中指向数据目录之外的条目，避免后续删库误伤
+    let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
+    let user = open_user(&app)?;
+    let paths: Vec<(String, String)> = {
+        let mut stmt = user
+            .prepare("SELECT id, path FROM banks")
+            .map_err(|error| error.to_string())?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|error| error.to_string())?;
+        rows.flatten().collect()
+    };
+    for (id, path) in paths {
+        let legal = Path::new(&path)
+            .canonicalize()
+            .map(|p| p.starts_with(&root))
+            .unwrap_or(false);
+        if !legal {
+            user.execute("DELETE FROM banks WHERE id=?1", params![id])
+                .map_err(|error| error.to_string())?;
+            user.execute("DELETE FROM settings WHERE key='active_bank' AND value=?1", params![id])
+                .map_err(|error| error.to_string())?;
+        }
+    }
     Ok(())
 }
 
@@ -1397,11 +1456,14 @@ pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String
     if !source.is_file() {
         return Err("图片不存在".to_string());
     }
+    // ponytail: 只接受图片扩展名，杜绝 user-avatar.<任意后缀> 污染应用目录
+    let allowed = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
+    require_ext(&source, &allowed)?;
     let ext = source
         .extension()
         .and_then(|value| value.to_str())
-        .unwrap_or("png")
-        .to_ascii_lowercase();
+        .map(|value| value.to_ascii_lowercase())
+        .unwrap_or_default();
     let dir = crate::db::base_dir(&app)?;
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     let target = dir.join(format!("user-avatar.{ext}"));

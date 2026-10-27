@@ -257,6 +257,8 @@ export interface ImportSummary {
 function localize(html: string, assetDir: string): string {
   if (!assetDir || !html.includes('asset:')) return html;
   return html.replace(/asset:([^"'\s<>]+)/g, (_match, file: string) => {
+    // ponytail: 拒绝路径穿越，只允许 assets 目录内的单层文件名
+    if (file.includes('..') || file.includes('/') || file.includes('\\')) return '';
     try {
       return convertFileSrc(`${assetDir}/${file}`);
     } catch {

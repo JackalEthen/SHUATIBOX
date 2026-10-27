@@ -389,7 +389,7 @@ pub fn question_from_row(row: &Row<'_>) -> rusqlite::Result<QuestionDto> {
         paper_title: row.get(6)?,
         paper_key: row.get(7)?,
         stem: row.get(8)?,
-        options: serde_json::from_str(&options_json).unwrap_or_default(),
+        options: crate::commands::parse_json_or_warn(&options_json, "questions.options"),
         multi: answer.len() > 1,
         answer: answer.clone(),
         explanation: row.get(11)?,
