@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "../data/shuatibox.db": "shuatibox.db"
+    }
+  }
+}
