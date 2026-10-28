@@ -11,3 +11,9 @@ src-tauri/gen/
 
 .DS_Store
 *.local
+release/
+
+# Android signing material
+*.keystore
+*.jks
+keystore.properties
