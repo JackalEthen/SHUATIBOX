@@ -1,0 +1,157 @@
+# 刷题盒子 SHUATIBOX
+
+<p align="center">
+  <b>本地优先的离线刷题应用</b><br>
+  Windows / Android  · 自行导入题库
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19">
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9">
+  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 8">
+  <img src="https://img.shields.io/badge/Rust-1.88+-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=black" alt="Android">
+  <img src="https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/Server-none-2ea043?style=flat-square" alt="No server">
+  <img src="https://img.shields.io/badge/Offline-100%25-2ea043?style=flat-square" alt="Offline">
+</p>
+
+<p align="center">
+  <b>中文</b> · <a href="README-en">English</a>
+</p>
+
+---
+
+## 功能
+
+- 练习模式：随机练习、整卷练习、模拟考试、自定义组卷、错题重做、收藏练习
+- 判分：逐题即时判分或交卷统一判分；支持单选、多选、判断、2–8 个选项
+- 学习管理：错题本（待攻克 / 已掌握）、收藏、笔记
+- 检索：题干、选项、解析、qid、试卷名全文搜索，材料内容可预览
+- 统计：每日题量、正确率、薄弱题型、历史考试
+- 题库管理：多题库导入与切换，导入报告列出无效题与缺图
+- 题目编辑：做题时直接修改题干、选项、答案、解析，保存写回本地题库，错题本与搜索同步更新
+- 数据备份：学习记录可导出 / 导入（不含题库图片）
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| 应用壳 | Tauri 2 |
+| 前端 | React 19 + TypeScript + Vite + Tailwind CSS |
+| 内容渲染 | marked + DOMPurify |
+| 后端 | Rust + rusqlite (SQLite) + zip + sha2 |
+| 平台 | Windows、Android |
+
+## 快速开始
+
+要求：Node.js 20+、Rust 1.88+；Windows 需要 WebView2 运行时。
+
+```bash
+npm install
+npm run tauri dev      # 开发模式
+npm run tauri build    # 构建安装包
+```
+
+Android 构建（需要 Android SDK、NDK 与 JDK 21）：
+
+```powershell
+$env:ANDROID_HOME = "C:\path\to\Android\Sdk"
+$env:NDK_HOME = "$env:ANDROID_HOME\ndk\<version>"
+npm run tauri -- android build --debug --target aarch64 --apk
+```
+
+## 题库格式
+
+导入一个 Markdown 文件夹或 zip。每个 `.md` 文件是一张试卷的一个模块，文件头使用 frontmatter：
+
+```markdown
+---
+试卷: "2023年国考《行测》题"
+年份: "2023"
+地区: "国考"
+模块: "言语理解与表达"
+考试类型: "国考"
+---
+
+## 第 1 题 · 逻辑填空
+
+题干正文，可包含 Markdown、HTML 与图片。
+
+- **A**. 选项一
+- **B**. 选项二
+- **C**. 选项三
+
+**答案**：B
+
+**官方解析**
+
+解析正文……故正确答案为B。
+```
+
+规则摘要：
+
+- 选项标签只能是 `A`–`H`，必须从 A 开始连续，数量 2–8
+- 多选答案写 `A,C`，也接受 `A、C`、`A C`、`AC`
+- 判断题可写一行 `- （选项）[]`，答案 A 表示正确、B 表示错误
+- 材料题使用 `## 材料 1` + `### 第 1 题`
+- 图片使用相对路径 `![描述](images/1.png)`，支持 `png jpg jpeg jfif gif webp`
+- 答案缺失时题目仍导入，但不参与判分
+- `README.md` 自动跳过
+
+目录示例：
+
+```text
+题库/
+  01-言语理解与表达/
+    2023年国考行测.md
+    90-图片/
+      q1.png
+  02-数量关系/
+    2023年国考行测.md
+  README.md
+```
+
+完整格式契约见 [`import-format.md`](import-format.md)。
+
+## 数据存放
+
+| 环境 | 路径 |
+| --- | --- |
+| 开发模式 | 项目根目录 `data/` |
+| Windows 安装版 | `%APPDATA%\com.shuatibox.app` |
+| Android | 应用私有目录 |
+
+题库数据库与图片都保存在该目录，卸载应用不会自动删除学习记录。
+
+## 目录结构
+
+```text
+src/                    前端源码（Desktop*.tsx 与 Mobile*.tsx 两套界面）
+src-tauri/src/          Rust 后端：commands / db / importer / models / saf
+src-tauri/gen/android/  Android 工程与 SAF 原生插件
+tools/import-parser/    Markdown 解析器与命令行导入工具
+import-format.md        题库导入格式完整契约
+docs/                   验收与设计记录（本地）
+```
+
+## 测试
+
+```bash
+npm run test:parser    # 导入解析
+npm run test:grade     # 判分逻辑
+npx tsc --noEmit       # 类型检查
+cd src-tauri && cargo check
+```
+
+## 说明
+
+- 无服务端、无账号、无网络请求
+- 题库与图片全部本地存储，导入时按内容 SHA-256 去重
+- 同一道题可能出现在多张试卷中，编辑只影响当前试卷里的这一条记录
+- 编辑题目时不支持新增图片，已有图片引用保持不变

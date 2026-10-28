@@ -1,0 +1,157 @@
+# SHUATIBOX
+
+<p align="center">
+  <b>A local-first, offline practice app</b><br>
+  Windows / Android · no server · no account · bring your own question banks
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19">
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9">
+  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 8">
+  <img src="https://img.shields.io/badge/Rust-1.88+-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=black" alt="Android">
+  <img src="https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/Server-none-2ea043?style=flat-square" alt="No server">
+  <img src="https://img.shields.io/badge/Offline-100%25-2ea043?style=flat-square" alt="Offline">
+</p>
+
+<p align="center">
+  <a href="README">中文</a> · <b>English</b>
+</p>
+
+---
+
+## Features
+
+- Practice modes: random, full paper, mock exam, custom set, wrong-question retry, favorites
+- Grading: instant per-question grading or grade after submission; single-choice, multi-choice, true/false, 2–8 options
+- Study tools: wrong-question book (pending / mastered), favorites, notes
+- Search: full text over stems, options, explanations, qid and paper titles, with material preview
+- Statistics: daily volume, accuracy, weak question types, exam history
+- Bank management: import and switch between multiple question banks; import report lists invalid questions and missing images
+- In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
+- Backup: export / import study records (question images excluded)
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Shell | Tauri 2 |
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
+| Rendering | marked + DOMPurify |
+| Backend | Rust + rusqlite (SQLite) + zip + sha2 |
+| Platforms | Windows, Android |
+
+## Quick Start
+
+Requirements: Node.js 20+, Rust 1.88+; WebView2 runtime on Windows.
+
+```bash
+npm install
+npm run tauri dev      # development
+npm run tauri build    # build installers
+```
+
+Android build (requires Android SDK, NDK and JDK 21):
+
+```powershell
+$env:ANDROID_HOME = "C:\path\to\Android\Sdk"
+$env:NDK_HOME = "$env:ANDROID_HOME\ndk\<version>"
+npm run tauri -- android build --debug --target aarch64 --apk
+```
+
+## Question Bank Format
+
+Import a folder of Markdown files or a zip. Each `.md` file is one module of one paper, starting with frontmatter:
+
+```markdown
+---
+试卷: "2023年国考《行测》题"
+年份: "2023"
+地区: "国考"
+模块: "言语理解与表达"
+考试类型: "国考"
+---
+
+## 第 1 题 · 逻辑填空
+
+Stem text. Markdown, HTML and images are supported.
+
+- **A**. Option one
+- **B**. Option two
+- **C**. Option three
+
+**答案**：B
+
+**官方解析**
+
+Explanation text.
+```
+
+Key rules:
+
+- Option labels are `A`–`H`, must start at A and stay contiguous, 2–8 options
+- Multiple answers: `A,C` (also accepts `A、C`, `A C`, `AC`)
+- True/false questions may use a single `- （选项）[]` line; answer A = true, B = false
+- Material questions use `## 材料 1` followed by `### 第 1 题`
+- Images use relative paths, e.g. `![alt](images/1.png)`; supported: `png jpg jpeg jfif gif webp`
+- Questions with a missing answer are still imported but are not graded
+- `README.md` is skipped automatically
+
+Folder example:
+
+```text
+bank/
+  01-言语理解与表达/
+    2023年国考行测.md
+    90-图片/
+      q1.png
+  02-数量关系/
+    2023年国考行测.md
+  README.md
+```
+
+The full format contract lives in [`import-format.md`](import-format.md).
+
+## Data Location
+
+| Environment | Path |
+| --- | --- |
+| Development | `data/` in the project root |
+| Installed (Windows) | `%APPDATA%\com.shuatibox.app` |
+| Android | App private storage |
+
+Question bank databases and images live in that directory. Uninstalling the app does not automatically delete study records.
+
+## Project Layout
+
+```text
+src/                    Frontend (Desktop*.tsx and Mobile*.tsx UIs)
+src-tauri/src/          Rust backend: commands / db / importer / models / saf
+src-tauri/gen/android/  Android project and SAF native plugin
+tools/import-parser/    Markdown parser and CLI import tools
+import-format.md        Full import format contract
+docs/                   Acceptance and design notes (local)
+```
+
+## Testing
+
+```bash
+npm run test:parser    # import parser
+npm run test:grade     # grading logic
+npx tsc --noEmit       # type check
+cd src-tauri && cargo check
+```
+
+## Notes
+
+- No server, no account, no network requests
+- Banks and images are stored locally; imported images are deduplicated by SHA-256
+- The same question can appear in several papers; editing affects only the record in the current paper
+- Editing cannot add new images; existing image references are preserved
