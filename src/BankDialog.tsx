@@ -32,7 +32,7 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
           <>
             <button className="btn btn-ghost" onClick={onClose}>关闭</button>
             <button className="btn btn-primary" onClick={() => { onClose(); onImport(); }}>
-              导入新题库
+              导入题库
             </button>
           </>
         }

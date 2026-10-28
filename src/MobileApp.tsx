@@ -332,6 +332,8 @@ export function MobileApp({ appearance, onNotice }: Props) {
           setImportOpen(false);
           refresh();
         }}
+        bank={data.bank}
+        banks={data.banks}
       />
 
       </div>

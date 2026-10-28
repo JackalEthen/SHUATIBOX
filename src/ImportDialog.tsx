@@ -6,6 +6,7 @@ import {
   errorText,
   importBank,
   type AiImportSummary,
+  type BankDto,
   type ImportProgress,
   type ImportSummary,
 } from './api';
@@ -17,6 +18,8 @@ interface Props {
   onClose: () => void;
   onDone: () => void;
   onNotice: (message: string) => void;
+  bank?: BankDto;
+  banks?: BankDto[];
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -42,9 +45,11 @@ function statusColor(status: string) {
   return 'var(--accent-ink)';
 }
 
-export function ImportDialog({ open: isOpen, onClose, onDone, onNotice }: Props) {
+export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, banks }: Props) {
   const [path, setPath] = useState('');
   const [setActive, setSetActive] = useState(true);
+  const [targetId, setTargetId] = useState('current');
+  const [newTitle, setNewTitle] = useState('');
   const [useAi, setUseAi] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -97,14 +102,18 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice }: Props)
     setSummary(null);
     setAiResult(null);
     setProgress(null);
+    const target =
+      !bank || targetId === 'new'
+        ? { bankId: null, title: newTitle.trim() || null }
+        : { bankId: targetId === 'current' ? bank.id : targetId, title: null };
     try {
       if (useAi) {
-        const result = await aiImport(path, setActive);
+        const result = await aiImport(path, setActive, target);
         setAiResult(result);
         setSummary(result.summary);
         onNotice(result.failed > 0 ? `导入完成，${result.failed} 个文件转换失败` : 'AI 转换导入完成');
       } else {
-        const value = await importBank(path, setActive);
+        const value = await importBank(path, setActive, target);
         setSummary(value);
         onNotice('题库导入完成');
       }
@@ -123,6 +132,8 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice }: Props)
     setAiResult(null);
     setError('');
     setPath('');
+    setTargetId('current');
+    setNewTitle('');
     setProgress(null);
     onClose();
   };
@@ -167,6 +178,43 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice }: Props)
         </div>
         {path ? <div className="text-[10.5px] text-[var(--accent-ink)] mt-3 break-all">{path}</div> : null}
       </div>
+
+      {bank ? (
+        <div className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[var(--muted)] shrink-0">导入到</span>
+            <select
+              className="flex-1 min-w-0 rounded-lg border border-[var(--line)] bg-[var(--card)] px-2 py-1.5 text-[11.5px] text-[var(--ink)] outline-none"
+              value={targetId}
+              disabled={busy}
+              onChange={(event) => setTargetId(event.target.value)}
+            >
+              <option value="current">当前题库 · {bank.title}</option>
+              {(banks ?? [])
+                .filter((item) => item.id !== bank.id)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              <option value="new">新建题库…</option>
+            </select>
+          </div>
+          {targetId === 'new' ? (
+            <input
+              className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
+              placeholder="题库名称（留空自动命名）"
+              value={newTitle}
+              maxLength={40}
+              disabled={busy}
+              onChange={(event) => setNewTitle(event.target.value)}
+            />
+          ) : null}
+          <div className="text-[10px] text-[var(--muted)] mt-2">已存在的试卷会跳过，不会覆盖。</div>
+        </div>
+      ) : (
+        <div className="mt-3 text-[10.5px] text-[var(--muted)]">首次导入将创建新题库。</div>
+      )}
 
       <label className="flex items-center gap-2 mt-3 text-[11.5px] text-[var(--ink-2)]">
         <input type="checkbox" checked={setActive} onChange={(event) => setSetActive(event.target.checked)} />

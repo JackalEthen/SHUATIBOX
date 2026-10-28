@@ -11,6 +11,7 @@ import { DesktopStats } from './DesktopStats';
 import { DesktopWrong } from './DesktopWrong';
 import { ExamPicker } from './ExamPicker';
 import { Icon, type IconName } from './icons';
+import { APP_VERSION } from './version';
 import { ImportDialog } from './ImportDialog';
 import type { Appearance, Accent } from './theme';
 
@@ -223,7 +224,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             <span>{dark ? '浅色模式' : '深色模式'}</span>
           </button>
           <div className="mt-4 text-[10px] text-[var(--muted)] flex items-center justify-between">
-            <span>v0.1 · 本地离线</span>
+            <span>v{APP_VERSION} · 本地离线</span>
             <span className="flex items-center gap-1">
               <i className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block" />
               数据已保存
@@ -316,7 +317,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
 
       <CustomPaperDialog open={customOpen} data={data} onClose={() => setCustomOpen(false)} onStart={(spec) => void begin(spec)} />
       <ExamPicker open={examOpen} onClose={() => setExamOpen(false)} onStart={(spec) => void begin(spec)} onNotice={onNotice} />
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onDone={refresh} onNotice={onNotice} />
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onDone={refresh} onNotice={onNotice} bank={data.bank} banks={data.banks} />
       <BankDialog
         open={bankOpen}
         data={data}

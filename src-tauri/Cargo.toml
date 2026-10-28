@@ -1,6 +1,6 @@
 [package]
 name = "shuatibox"
-version = "1.1.0"
+version = "1.2.0"
 description = "刷题盒子"
 edition = "2021"
 

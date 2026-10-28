@@ -1,4 +1,4 @@
-﻿use crate::db::{base_dir, open_user, register_bank};
+﻿use crate::db::{asset_dir, bank_by_id, base_dir, open_user, register_bank};
 use crate::models::{ImportProgress, ImportSummary};
 use regex::Regex;
 use rusqlite::{params, Connection};
@@ -1111,10 +1111,56 @@ pub(crate) fn make_temp_dir(base: &Path, tag: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+const BANK_SCHEMA: &str = "
+    CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS papers (
+      key TEXT PRIMARY KEY, title TEXT NOT NULL, year TEXT NOT NULL, region TEXT NOT NULL,
+      exam_type TEXT NOT NULL, question_count INTEGER NOT NULL, module_count INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS materials (
+      key TEXT PRIMARY KEY, paper_key TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+      source_file TEXT NOT NULL, line INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS questions (
+      id TEXT PRIMARY KEY, paper_key TEXT NOT NULL, paper TEXT NOT NULL, module TEXT NOT NULL,
+      number INTEGER NOT NULL, qid TEXT NOT NULL, qid_source TEXT NOT NULL, type TEXT NOT NULL,
+      is_judgment INTEGER NOT NULL, stem TEXT NOT NULL, options TEXT NOT NULL, answer TEXT NOT NULL,
+      answer_raw TEXT NOT NULL, explanation TEXT NOT NULL, material_key TEXT, material_title TEXT,
+      material_content TEXT, status TEXT NOT NULL, can_grade INTEGER NOT NULL,
+      answer_conflict INTEGER NOT NULL, explanation_answer TEXT, has_image INTEGER NOT NULL,
+      image_missing INTEGER NOT NULL DEFAULT 0, source_file TEXT NOT NULL, source_line INTEGER NOT NULL
+    );
+    ";
+
+const REFRESH_COUNTS_SQL: &str = "UPDATE papers SET
+       question_count=(SELECT COUNT(*) FROM questions WHERE questions.paper_key=papers.key),
+       module_count=(SELECT COUNT(DISTINCT module) FROM questions WHERE questions.paper_key=papers.key);";
+
 pub fn import_bank(
     app: &tauri::AppHandle,
     input: &str,
     set_active: bool,
+) -> Result<ImportSummary, String> {
+    import_bank_ex(app, input, None, None, set_active, false)
+}
+
+pub fn import_into_bank(
+    app: &tauri::AppHandle,
+    input: &str,
+    bank_id: Option<String>,
+    title: Option<String>,
+    set_active: bool,
+) -> Result<ImportSummary, String> {
+    import_bank_ex(app, input, bank_id, title, set_active, true)
+}
+
+fn import_bank_ex(
+    app: &tauri::AppHandle,
+    input: &str,
+    target_bank_id: Option<String>,
+    title_hint: Option<String>,
+    set_active: bool,
+    append: bool,
 ) -> Result<ImportSummary, String> {
     let source = PathBuf::from(input);
     if !source.exists() {
@@ -1135,41 +1181,71 @@ pub fn import_bank(
         return Err("请选择 Markdown 文件夹或 zip".to_string());
     };
 
-    let id_hash = hex(&Sha256::digest(root.to_string_lossy().as_bytes()));
-    let bank_id = format!("bank-{}", &id_hash[..12]);
-    let final_db = banks_dir.join(format!("{bank_id}.db"));
-    let temp_db = banks_dir.join(format!("{bank_id}.importing.db"));
-    let assets = final_db.with_extension("assets");
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = fs::remove_file(format!("{}{}", temp_db.to_string_lossy(), suffix));
+    let existing_bank = match target_bank_id.as_deref() {
+        Some(id) if append => {
+            let user = open_user(app)?;
+            Some(bank_by_id(&user, id)?)
+        }
+        _ => None,
+    };
+    let (bank_id, final_db, assets, existing_title, existing_source) = match &existing_bank {
+        Some(bank) => (
+            bank.id.clone(),
+            PathBuf::from(&bank.path),
+            asset_dir(bank),
+            Some(bank.title.clone()),
+            bank.source_root.clone(),
+        ),
+        None => {
+            let bank_id = match target_bank_id {
+                Some(id) => id,
+                None if append => {
+                    let nanos = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|value| value.as_nanos())
+                        .unwrap_or(0);
+                    let seed = format!("{}|{nanos}", title_hint.clone().unwrap_or_default());
+                    format!("bank-{}", &hex(&Sha256::digest(seed.as_bytes()))[..12])
+                }
+                None => {
+                    let id_hash = hex(&Sha256::digest(root.to_string_lossy().as_bytes()));
+                    format!("bank-{}", &id_hash[..12])
+                }
+            };
+            let db = banks_dir.join(format!("{bank_id}.db"));
+            let assets = db.with_extension("assets");
+            (bank_id, db, assets, None, None)
+        }
+    };
+    let temp_db = if existing_bank.is_some() {
+        None
+    } else {
+        Some(banks_dir.join(format!("{bank_id}.importing.db")))
+    };
+    let db_path = temp_db.clone().unwrap_or_else(|| final_db.clone());
+    if let Some(temp) = &temp_db {
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = fs::remove_file(format!("{}{}", temp.to_string_lossy(), suffix));
+        }
     }
+    let source_root = existing_source.unwrap_or_else(|| root.to_string_lossy().to_string());
 
     let result = (|| -> Result<ImportSummary, String> {
-        let db = Connection::open(&temp_db).map_err(|error| error.to_string())?;
+        let db = Connection::open(&db_path).map_err(|error| error.to_string())?;
         db.pragma_update(None, "journal_mode", "WAL").map_err(|error| error.to_string())?;
-        db.execute_batch(
-            "
-            CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE papers (
-              key TEXT PRIMARY KEY, title TEXT NOT NULL, year TEXT NOT NULL, region TEXT NOT NULL,
-              exam_type TEXT NOT NULL, question_count INTEGER NOT NULL, module_count INTEGER NOT NULL
-            );
-            CREATE TABLE materials (
-              key TEXT PRIMARY KEY, paper_key TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
-              source_file TEXT NOT NULL, line INTEGER NOT NULL
-            );
-            CREATE TABLE questions (
-              id TEXT PRIMARY KEY, paper_key TEXT NOT NULL, paper TEXT NOT NULL, module TEXT NOT NULL,
-              number INTEGER NOT NULL, qid TEXT NOT NULL, qid_source TEXT NOT NULL, type TEXT NOT NULL,
-              is_judgment INTEGER NOT NULL, stem TEXT NOT NULL, options TEXT NOT NULL, answer TEXT NOT NULL,
-              answer_raw TEXT NOT NULL, explanation TEXT NOT NULL, material_key TEXT, material_title TEXT,
-              material_content TEXT, status TEXT NOT NULL, can_grade INTEGER NOT NULL,
-              answer_conflict INTEGER NOT NULL, explanation_answer TEXT, has_image INTEGER NOT NULL,
-              image_missing INTEGER NOT NULL DEFAULT 0, source_file TEXT NOT NULL, source_line INTEGER NOT NULL
-            );
-            ",
-        )
+        db.execute_batch(BANK_SCHEMA)
         .map_err(|error| error.to_string())?;
+
+        let skip_papers: HashSet<String> = if existing_bank.is_some() {
+            let mut stmt = db.prepare("SELECT key FROM papers").map_err(|error| error.to_string())?;
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(|error| error.to_string())?;
+            rows.flatten().collect()
+        } else {
+            HashSet::new()
+        };
+
 
         let mut insert_paper = db.prepare("INSERT OR REPLACE INTO papers (key,title,year,region,exam_type,question_count,module_count) VALUES (?,?,?,?,?,?,?)").map_err(|error| error.to_string())?;
         let mut insert_material = db.prepare("INSERT OR REPLACE INTO materials (key,paper_key,title,content,source_file,line) VALUES (?,?,?,?,?,?)").map_err(|error| error.to_string())?;
@@ -1221,6 +1297,13 @@ pub fn import_bank(
                 file_errors += 1;
                 for issue in parsed.issues.iter().filter(|issue| issue.level == "file") {
                     issues_out.push(format!("{}:{} {}", issue.file, issue.line, issue.message));
+                }
+                continue;
+            }
+            if skip_papers.contains(&parsed.paper_key) {
+                skipped += 1;
+                if issues_out.len() < 500 {
+                    issues_out.push(format!("{}:0 试卷已存在，已跳过：{}", relative, parsed.paper));
                 }
                 continue;
             }
@@ -1357,36 +1440,51 @@ pub fn import_bank(
                 .execute(params![key, title, year, region, exam_type, *count as i64, modules.len() as i64])
                 .map_err(|error| error.to_string())?;
         }
+        db.execute_batch(REFRESH_COUNTS_SQL)
+        .map_err(|error| error.to_string())?;
         db.execute_batch(
-            "CREATE INDEX idx_questions_module ON questions(module);
-             CREATE INDEX idx_questions_paper ON questions(paper_key);
-             CREATE INDEX idx_questions_paper_practice ON questions(paper_key, can_grade, image_missing);
-             CREATE INDEX idx_questions_practice ON questions(can_grade, image_missing);
-             CREATE INDEX idx_questions_status ON questions(status);",
+            "CREATE INDEX IF NOT EXISTS idx_questions_module ON questions(module);
+             CREATE INDEX IF NOT EXISTS idx_questions_paper ON questions(paper_key);
+             CREATE INDEX IF NOT EXISTS idx_questions_paper_practice ON questions(paper_key, can_grade, image_missing);
+             CREATE INDEX IF NOT EXISTS idx_questions_practice ON questions(can_grade, image_missing);
+             CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);",
         )
         .map_err(|error| error.to_string())?;
         let year_min = papers.values().map(|value| value.1.as_str()).filter(|value| !value.is_empty()).min().unwrap_or("");
         let year_max = papers.values().map(|value| value.1.as_str()).filter(|value| !value.is_empty()).max().unwrap_or("");
-        let title = if year_min.is_empty() {
-            source.file_name().map(|value| value.to_string_lossy().to_string()).unwrap_or_else(|| "本地题库".to_string())
-        } else {
-            format!("行测真题 {year_min}–{year_max}")
+        let title = existing_title
+            .clone()
+            .or_else(|| title_hint.clone().filter(|value| !value.trim().is_empty()))
+            .unwrap_or_else(|| {
+                if year_min.is_empty() {
+                    source.file_name().map(|value| value.to_string_lossy().to_string()).unwrap_or_else(|| "本地题库".to_string())
+                } else {
+                    format!("行测真题 {year_min}–{year_max}")
+                }
+            });
+        let count_sql = |sql: &str| -> Result<i64, String> {
+            db.query_row(sql, [], |row| row.get(0)).map_err(|error| error.to_string())
         };
+        let total_questions = count_sql("SELECT COUNT(*) FROM questions")?;
+        let total_review = count_sql("SELECT COUNT(*) FROM questions WHERE status='review'")?;
+        let total_papers = count_sql("SELECT COUNT(*) FROM papers")?;
+        let total_materials = count_sql("SELECT COUNT(*) FROM materials")?;
+        let total_image_questions = count_sql("SELECT COALESCE(SUM(has_image),0) FROM questions")?;
         for (key, value) in [
-            ("imported", imported.to_string()),
-            ("review", review.to_string()),
-            ("papers", papers.len().to_string()),
-            ("materials", materials_count.to_string()),
-            ("image_questions", image_questions.to_string()),
+            ("imported", total_questions.to_string()),
+            ("review", total_review.to_string()),
+            ("papers", total_papers.to_string()),
+            ("materials", total_materials.to_string()),
+            ("image_questions", total_image_questions.to_string()),
             ("images", image_store.images.len().to_string()),
             ("image_missing", image_missing_total.to_string()),
             ("invalid", invalid.to_string()),
             ("file_errors", file_errors.to_string()),
             ("skipped", skipped.to_string()),
-            ("source_root", root.to_string_lossy().to_string()),
+            ("source_root", source_root.clone()),
             ("title", title.clone()),
         ] {
-            db.execute("INSERT INTO meta (key,value) VALUES (?1,?2)", params![key, value])
+            db.execute("INSERT INTO meta (key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![key, value])
                 .map_err(|error| error.to_string())?;
         }
         db.execute_batch("COMMIT").map_err(|error| error.to_string())?;
@@ -1394,12 +1492,15 @@ pub fn import_bank(
         drop(insert_material);
         drop(insert_question);
         if let Err((_, error)) = db.close() { return Err(error.to_string()); }
-        if final_db.exists() {
-            fs::remove_file(&final_db).map_err(|error| error.to_string())?;
+        if let Some(temp) = &temp_db {
+            if final_db.exists() {
+                fs::remove_file(&final_db).map_err(|error| error.to_string())?;
+            }
+            fs::rename(temp, &final_db).map_err(|error| error.to_string())?;
         }
-        fs::rename(&temp_db, &final_db).map_err(|error| error.to_string())?;
         let user = open_user(app)?;
-        register_bank(&user, &bank_id, &title, &final_db, Some(&root.to_string_lossy()), set_active)?;
+        let keep_active = set_active || existing_bank.as_ref().map(|bank| bank.active).unwrap_or(false);
+        register_bank(&user, &bank_id, &title, &final_db, Some(&source_root), keep_active)?;
         let payload = serde_json::json!({ "issues": issues_out });
         user.execute(
             "INSERT INTO import_reports (bank_id,payload,created_at) VALUES (?1,?2,datetime('now','localtime'))
@@ -1426,10 +1527,59 @@ pub fn import_bank(
         let _ = fs::remove_dir_all(dir);
     }
     if result.is_err() {
-        for suffix in ["", "-wal", "-shm"] {
-            let _ = fs::remove_file(format!("{}{}", temp_db.to_string_lossy(), suffix));
+        if let Some(temp) = &temp_db {
+            for suffix in ["", "-wal", "-shm"] {
+                let _ = fs::remove_file(format!("{}{}", temp.to_string_lossy(), suffix));
+            }
         }
     }
     result
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_refresh_after_append() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(BANK_SCHEMA).unwrap();
+        for key in ["p1", "p2"] {
+            db.execute(
+                "INSERT INTO papers (key,title,year,region,exam_type,question_count,module_count) VALUES (?1,?1,'','','省考',0,0)",
+                params![key],
+            )
+            .unwrap();
+        }
+        for (id, paper, module) in [("a", "p1", "数量"), ("b", "p1", "判断"), ("c", "p2", "数量")] {
+            db.execute(
+                "INSERT INTO questions (id,paper_key,paper,module,number,qid,qid_source,type,is_judgment,stem,options,answer,answer_raw,explanation,material_key,material_title,material_content,status,can_grade,answer_conflict,explanation_answer,has_image,image_missing,source_file,source_line)
+                 VALUES (?1,?2,'',?3,1,'q','auto','',0,'','[]','','','',NULL,NULL,NULL,'ok',1,0,NULL,0,0,'',0)",
+                params![id, paper, module],
+            )
+            .unwrap();
+        }
+        db.execute_batch(REFRESH_COUNTS_SQL).unwrap();
+        let mut stmt = db
+            .prepare("SELECT key,question_count,module_count FROM papers ORDER BY key")
+            .unwrap();
+        let rows: Vec<(String, i64, i64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert_eq!(rows, vec![("p1".to_string(), 2, 2), ("p2".to_string(), 1, 1)]);
+    }
+
+    #[test]
+    fn same_paper_meta_shares_key() {
+        let text_a = "---\n试卷: \"联考\"\n模块: \"数量关系\"\n年份: \"2020\"\n---\n\n## 第 1 题\n\n题干一\n- **A**. 甲\n- **B**. 乙\n\n**答案**：A\n";
+        let text_b = "---\n试卷: \"联考\"\n模块: \"数量关系\"\n年份: \"2020\"\n---\n\n## 第 2 题\n\n题干二\n- **A**. 甲\n- **B**. 乙\n\n**答案**：B\n";
+        let a = parse_file(text_a, "a.md", "");
+        let b = parse_file(text_b, "b.md", "");
+        assert_eq!(a.paper_key, b.paper_key);
+        assert_eq!(a.questions.len(), 1);
+        assert_eq!(b.questions.len(), 1);
+    }
+}

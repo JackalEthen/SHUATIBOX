@@ -54,6 +54,8 @@ pub async fn ai_import(
     app: AppHandle,
     path: String,
     set_active: Option<bool>,
+    bank_id: Option<String>,
+    title: Option<String>,
 ) -> Result<AiImportSummary, String> {
     let set_active = set_active.unwrap_or(true);
     let config = load_config(&app)?;
@@ -64,7 +66,7 @@ pub async fn ai_import(
     }
     emit(&app, "prepare", 0, 0, "准备文件");
     let (temp_root, root) = prepare_workspace(&base, &source)?;
-    let result = run_import(&app, &config, &root, set_active).await;
+    let result = run_import(&app, &config, &root, set_active, bank_id, title).await;
     let _ = fs::remove_dir_all(&temp_root);
     result
 }
@@ -162,6 +164,8 @@ async fn run_import(
     config: &AiConfig,
     root: &Path,
     set_active: bool,
+    bank_id: Option<String>,
+    title: Option<String>,
 ) -> Result<AiImportSummary, String> {
     let files = walk_markdown(root);
     if files.is_empty() {
@@ -271,7 +275,7 @@ async fn run_import(
     let app_handle = app.clone();
     let root_string = root.to_string_lossy().to_string();
     let summary = tauri::async_runtime::spawn_blocking(move || {
-        crate::importer::import_bank(&app_handle, &root_string, set_active)
+        crate::importer::import_into_bank(&app_handle, &root_string, bank_id, title, set_active)
     })
     .await
     .map_err(|error| error.to_string())??;

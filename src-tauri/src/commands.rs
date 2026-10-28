@@ -1551,6 +1551,17 @@ pub fn import_bank(app: tauri::AppHandle, path: String, set_active: Option<bool>
 }
 
 #[tauri::command]
+pub fn import_into_bank(
+    app: tauri::AppHandle,
+    path: String,
+    bank_id: Option<String>,
+    title: Option<String>,
+    set_active: Option<bool>,
+) -> Result<ImportSummary, String> {
+    crate::importer::import_into_bank(&app, &path, bank_id, title, set_active.unwrap_or(true))
+}
+
+#[tauri::command]
 pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let source = PathBuf::from(&path);
     if !source.is_file() {

@@ -47,6 +47,7 @@ pub fn run() {
             commands::import_backup,
             commands::clear_history,
             commands::import_bank,
+            commands::import_into_bank,
             ai::ai_import,
             commands::save_avatar,
             commands::load_practice_questions,

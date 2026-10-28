@@ -7,6 +7,7 @@ import {
   errorText,
   importBank,
   type AiImportSummary,
+  type BankDto,
   type ImportProgress,
   type ImportSummary,
 } from '../api';
@@ -18,6 +19,8 @@ interface Props {
   onClose: () => void;
   onNotice: (message: string) => void;
   onDone: () => void;
+  bank?: BankDto;
+  banks?: BankDto[];
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -31,9 +34,11 @@ const PHASE_LABEL: Record<string, string> = {
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
 
-export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) {
+export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, banks }: Props) {
   const [path, setPath] = useState('');
   const [label, setLabel] = useState('');
+  const [targetId, setTargetId] = useState('current');
+  const [newTitle, setNewTitle] = useState('');
   const [useAi, setUseAi] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -89,18 +94,22 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
     setSummary(null);
     setAiResult(null);
     setProgress(null);
+    const target =
+      !bank || targetId === 'new'
+        ? { bankId: null, title: newTitle.trim() || null }
+        : { bankId: targetId === 'current' ? bank.id : targetId, title: null };
     try {
-      let target = path;
+      let target_path = path;
       if (isAndroid()) {
-        target = await invoke<string>('saf_materialize', { uri: path, maxDepth: 6 });
+        target_path = await invoke<string>('saf_materialize', { uri: path, maxDepth: 6 });
       }
       if (useAi) {
-        const result = await aiImport(target, true);
+        const result = await aiImport(target_path, true, target);
         setAiResult(result);
         setSummary(result.summary);
         onNotice(result.failed > 0 ? `导入完成，${result.failed} 个文件转换失败` : 'AI 转换导入完成');
       } else {
-        const value = await importBank(target, true);
+        const value = await importBank(target_path, true, target);
         setSummary(value);
         onNotice('题库导入完成');
       }
@@ -117,6 +126,8 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
     if (busy) return;
     setPath('');
     setLabel('');
+    setTargetId('current');
+    setNewTitle('');
     setSummary(null);
     setAiResult(null);
     setError('');
@@ -147,6 +158,41 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
               {isAndroid() ? '通过系统文件选择器授权，复制到应用私有目录' : '选择本地 Markdown 题库根目录'}
             </div>
           </div>
+
+          {bank ? (
+            <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
+              <div className="text-[9.5px] text-[var(--muted)] mb-1">导入到</div>
+              <select
+                className="w-full rounded-lg border px-2 py-2 text-[11px] outline-none"
+                style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
+                value={targetId}
+                disabled={busy}
+                onChange={(event) => setTargetId(event.target.value)}
+              >
+                <option value="current">当前题库 · {bank.title}</option>
+                {(banks ?? [])
+                  .filter((item) => item.id !== bank.id)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+                <option value="new">新建题库…</option>
+              </select>
+              {targetId === 'new' ? (
+                <input
+                  className="mt-2 w-full rounded-lg border px-3 py-2 text-[11px] outline-none"
+                  style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
+                  placeholder="题库名称（留空自动命名）"
+                  value={newTitle}
+                  maxLength={40}
+                  disabled={busy}
+                  onChange={(event) => setNewTitle(event.target.value)}
+                />
+              ) : null}
+              <div className="text-[9px] text-[var(--muted)] mt-1.5">已存在的试卷会跳过，不会覆盖</div>
+            </div>
+          ) : null}
 
           <label className="flex items-center gap-2 mt-3 text-[11px] text-[var(--ink-2)]">
             <input type="checkbox" checked={useAi} disabled={busy} onChange={(event) => setUseAi(event.target.checked)} />

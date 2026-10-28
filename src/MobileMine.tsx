@@ -169,7 +169,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
       </div>
 
       <div className="text-center text-[9.5px] text-[var(--muted)] mt-4 leading-5">
-        刷题盒子 SHUATIBOX v{APP_VERSION}<br />题库来源 ERRRC/xingcezhenti
+        刷题盒子 SHUATIBOX v{APP_VERSION}
       </div>
       <div className="h-4" />
     </div>

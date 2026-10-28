@@ -401,7 +401,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
         </div>
 
         <div className="text-[10.5px] text-[var(--muted)] mt-6">
-          刷题盒子 SHUATIBOX v{APP_VERSION} · 本地离线 · 题库来源 ERRRC/xingcezhenti
+          刷题盒子 SHUATIBOX v{APP_VERSION} · 本地离线
           <br />
           图片仅存于应用私有目录，不写入系统图库。
         </div>

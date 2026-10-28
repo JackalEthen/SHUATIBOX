@@ -271,6 +271,11 @@ export interface AiImportSummary {
   files: AiFileReport[];
 }
 
+export interface ImportTarget {
+  bankId?: string | null;
+  title?: string | null;
+}
+
 export interface ImportProgress {
   phase: string;
   current: number;
@@ -489,12 +494,25 @@ export async function clearHistory(): Promise<void> {
   return invoke('clear_history');
 }
 
-export async function importBank(path: string, setActive = true): Promise<ImportSummary> {
+export async function importBank(path: string, setActive = true, target?: ImportTarget): Promise<ImportSummary> {
+  if (target) {
+    return invoke<ImportSummary>('import_into_bank', {
+      path,
+      setActive,
+      bankId: target.bankId ?? null,
+      title: target.title ?? null,
+    });
+  }
   return invoke<ImportSummary>('import_bank', { path, setActive });
 }
 
-export async function aiImport(path: string, setActive = true): Promise<AiImportSummary> {
-  return invoke<AiImportSummary>('ai_import', { path, setActive });
+export async function aiImport(path: string, setActive = true, target?: ImportTarget): Promise<AiImportSummary> {
+  return invoke<AiImportSummary>('ai_import', {
+    path,
+    setActive,
+    bankId: target?.bankId ?? null,
+    title: target?.title ?? null,
+  });
 }
 
 export function errorText(error: unknown): string {
