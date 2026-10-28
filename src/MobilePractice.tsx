@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  addReport,
   errorText,
   finishSession,
   getNote,
@@ -9,9 +8,11 @@ import {
   saveNote,
   toggleFavorite,
   toQuestion,
+  updateQuestion,
   type AnswerDto,
   type AnswerResult,
   type FinishResult,
+  type QuestionDto,
   type SessionView,
 } from './api';
 import { Icon } from './icons';
@@ -40,9 +41,10 @@ function elapsedSeconds(createdAt: string) {
 
 export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }: Props) {
   const isExam = view.session.mode === 'exam';
+  const [edits, setEdits] = useState<Record<string, QuestionDto>>({});
   const questions = useMemo<PracticeQuestion[]>(
-    () => view.questions.map((question) => toQuestion(question, assetDir)),
-    [view, assetDir],
+    () => view.questions.map((question) => toQuestion(edits[question.id] ?? question, assetDir)),
+    [view, assetDir, edits],
   );
   const initialAnswers = useMemo(() => {
     const map: Record<string, AnswerDto> = {};
@@ -59,8 +61,12 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportNote, setReportNote] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editStem, setEditStem] = useState('');
+  const [editOptions, setEditOptions] = useState<{ label: string; text: string }[]>([]);
+  const [editAnswer, setEditAnswer] = useState('');
+  const [editExplanation, setEditExplanation] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [result, setResult] = useState<FinishResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,6 +80,38 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
   const question = questions[index];
   const current = question ? answers[question.id] : undefined;
   const answeredCount = questions.filter((item) => answers[item.id]?.submitted).length;
+
+  const rawQuestion = view.questions[index] ? edits[view.questions[index].id] ?? view.questions[index] : undefined;
+
+  const openEdit = () => {
+    if (!rawQuestion) return;
+    setEditStem(rawQuestion.stem);
+    setEditOptions(rawQuestion.options.map((option) => ({ label: option.label, text: option.text })));
+    setEditAnswer(rawQuestion.answer.join(','));
+    setEditExplanation(rawQuestion.explanation);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!rawQuestion) return;
+    setEditBusy(true);
+    try {
+      const updated = await updateQuestion(
+        rawQuestion.id,
+        editStem,
+        editOptions,
+        editAnswer,
+        editExplanation,
+      );
+      setEdits((prev) => ({ ...prev, [updated.id]: updated }));
+      setEditOpen(false);
+      onNotice('已保存修改');
+    } catch (error) {
+      onNotice(`保存失败：${errorText(error)}`);
+    } finally {
+      setEditBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!isExam) return;
@@ -295,9 +333,19 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
               {formatClock(remaining)}
             </span>
           ) : (
-            <div className="seg">
-              <button className={(answers[question.id]?.submitted || verdict) ? 'active' : ''} disabled>逐题</button>
-            </div>
+            <>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ minWidth: 52 }}
+                disabled={busy}
+                onClick={() => void grade(false)}
+              >
+                判题
+              </button>
+              <div className="seg">
+                <button className={(answers[question.id]?.submitted || verdict) ? 'active' : ''} disabled>逐题</button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -400,6 +448,9 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
         }}>
           <Icon name="note" />
         </button>
+        <button className="icon-btn" aria-label="编辑本题" onClick={openEdit}>
+          <Icon name="edit" />
+        </button>
         <button className="icon-btn" aria-label="标记" style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined} onClick={() => void toggleFlag()}>
           <Icon name="check" />
         </button>
@@ -411,10 +462,8 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
           </>
         ) : (
           <>
-            <button className="btn btn-ghost btn-sm" style={{ minWidth: 58 }} disabled={busy} onClick={() => void grade(false)}>判题</button>
             <button
-              className="btn btn-primary btn-sm"
-              style={{ minWidth: 70 }}
+              className="btn btn-primary btn-sm flex-1"
               onClick={() => {
                 if (index === questions.length - 1) setConfirmSubmit(true);
                 else setIndex((value) => value + 1);
@@ -496,28 +545,69 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
         </div>
       </div>
 
-      <div className={`sheet ${reportOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setReportOpen(false)}>
+      <div className={`sheet ${editOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setEditOpen(false)}>
         <div className="sheet-card">
           <div className="grabber" />
-          <h3 className="text-[14px] font-semibold">反馈题目问题</h3>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {['答案错误', '选项缺失', '图片不显示', '解析有误', '其他'].map((reason) => (
-              <button key={reason} className="chip" onClick={() => {
-                addReport(question.id, reason, reportNote)
-                  .then(() => { setReportOpen(false); setReportNote(''); onNotice('已提交反馈'); })
-                  .catch((error) => onNotice(`提交失败：${errorText(error)}`));
-              }}>
-                {reason}
-              </button>
-            ))}
+          <h3 className="text-[14px] font-semibold">编辑本题</h3>
+          <div className="max-h-[58vh] overflow-y-auto scroll space-y-3 mt-3 pr-1">
+            <label className="block">
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">题干（支持 Markdown / HTML）</div>
+              <textarea
+                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] outline-none resize-none"
+                value={editStem}
+                onChange={(event) => setEditStem(event.target.value)}
+              />
+            </label>
+
+            <div>
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">选项</div>
+              <div className="space-y-2">
+                {editOptions.map((option, position) => (
+                  <div key={option.label} className="flex items-start gap-2">
+                    <span className="chip shrink-0">{option.label}</span>
+                    <textarea
+                      className="flex-1 h-14 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-2 text-[12px] outline-none resize-none"
+                      value={option.text}
+                      onChange={(event) => {
+                        const next = [...editOptions];
+                        next[position] = { ...next[position], text: event.target.value };
+                        setEditOptions(next);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <label className="block">
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">答案（如 A,C；留空表示不判分）</div>
+              <input
+                className="w-full h-10 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 text-[12.5px] outline-none"
+                value={editAnswer}
+                onChange={(event) => setEditAnswer(event.target.value)}
+              />
+            </label>
+
+            <label className="block">
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">解析</div>
+              <textarea
+                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] outline-none resize-none"
+                value={editExplanation}
+                onChange={(event) => setEditExplanation(event.target.value)}
+              />
+            </label>
+
+            <div className="text-[10px] text-[var(--muted)] leading-5">
+              修改直接保存到本地题库，错题本、收藏、搜索会同步更新；此处不能新增图片。
+            </div>
           </div>
-          <textarea
-            className="w-full h-24 mt-3 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] outline-none resize-none"
-            value={reportNote}
-            onChange={(event) => setReportNote(event.target.value)}
-            placeholder="补充说明（可选）"
-          />
-          <button className="btn btn-ghost btn-block mt-3" onClick={() => setReportOpen(false)}>取消</button>
+
+          <div className="flex gap-2 mt-3">
+            <button className="btn btn-ghost btn-sm flex-1" onClick={() => setEditOpen(false)} disabled={editBusy}>取消</button>
+            <button className="btn btn-primary btn-sm flex-1" onClick={() => void saveEdit()} disabled={editBusy}>
+              {editBusy ? '保存中…' : '保存'}
+            </button>
+          </div>
           <div className="h-4" />
         </div>
       </div>

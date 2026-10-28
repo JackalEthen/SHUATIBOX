@@ -34,6 +34,7 @@ pub fn run() {
             commands::get_note,
             commands::save_note,
             commands::add_report,
+            commands::update_question,
             commands::get_settings,
             commands::set_settings,
             commands::stats,

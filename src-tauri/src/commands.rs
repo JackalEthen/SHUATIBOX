@@ -1188,6 +1188,106 @@ pub fn add_report(
     Ok(())
 }
 
+// ponytail: 用户直接编辑题目内容，写回当前题库 db；只改文本，不处理图片文件
+fn parse_answer_letters(raw: &str, options: &[OptionDto]) -> Result<Vec<String>, String> {
+    let cleaned: String = raw
+        .chars()
+        .filter(|ch| !matches!(ch, ',' | '，' | '、' | ';' | '；' | ' ' | '\u{3000}'))
+        .collect::<String>()
+        .to_ascii_uppercase();
+    if cleaned.is_empty() {
+        return Ok(Vec::new());
+    }
+    let allowed: Vec<char> = options.iter().filter_map(|option| option.label.chars().next()).collect();
+    let mut letters: Vec<char> = cleaned.chars().collect();
+    letters.sort_unstable();
+    letters.dedup();
+    for letter in &letters {
+        if !allowed.contains(letter) {
+            return Err(format!("答案「{letter}」不在选项范围内"));
+        }
+    }
+    Ok(letters.iter().map(|letter| letter.to_string()).collect())
+}
+
+#[tauri::command]
+pub fn update_question(
+    app: tauri::AppHandle,
+    question_id: String,
+    stem: String,
+    options: Vec<OptionDto>,
+    answer: String,
+    explanation: String,
+) -> Result<QuestionDto, String> {
+    const LABELS: [&str; 8] = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    let stem = stem.trim().to_string();
+    if stem.is_empty() {
+        return Err("题干不能为空".to_string());
+    }
+    if !(2..=8).contains(&options.len()) {
+        return Err("选项数量需在 2–8 个之间".to_string());
+    }
+    let mut clean = Vec::with_capacity(options.len());
+    for (index, option) in options.iter().enumerate() {
+        let expected = LABELS[index];
+        if !option.label.trim().eq_ignore_ascii_case(expected) {
+            return Err(format!("选项标签必须从 A 连续，第 {} 个应为 {expected}", index + 1));
+        }
+        let text = option.text.trim().to_string();
+        if text.is_empty() {
+            return Err(format!("选项 {expected} 内容不能为空"));
+        }
+        clean.push(OptionDto { label: expected.to_string(), text });
+    }
+    let answer_raw = answer.trim().to_string();
+    let letters = parse_answer_letters(&answer_raw, &clean)?;
+    let answer_text = letters.join(",");
+    let has_image = [stem.as_str(), explanation.as_str()]
+        .iter()
+        .any(|text| text.contains("<img") || text.contains("!["))
+        || clean
+            .iter()
+            .any(|option| option.text.contains("<img") || option.text.contains("!["));
+    let options_json = serde_json::to_string(
+        &clean
+            .iter()
+            .map(|option| serde_json::json!({ "label": option.label, "text": option.text }))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|error| error.to_string())?;
+
+    let user = open_user(&app)?;
+    let bank = ensure_active_bank(&user)?;
+    let conn = crate::db::bank_conn_rw(Path::new(&bank.path))?;
+    let changed = conn
+        .execute(
+            "UPDATE questions SET stem=?2, options=?3, answer=?4, answer_raw=?5, explanation=?6,
+               status=?7, can_grade=?8, answer_conflict=0, explanation_answer=NULL,
+               has_image=?9, image_missing=CASE WHEN ?9=0 THEN 0 ELSE image_missing END
+             WHERE id=?1",
+            params![
+                question_id,
+                stem,
+                options_json,
+                answer_text,
+                answer_raw,
+                explanation,
+                if letters.is_empty() { "review" } else { "ok" },
+                if letters.is_empty() { 0 } else { 1 },
+                if has_image { 1 } else { 0 }
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    if changed == 0 {
+        return Err("题目不存在".to_string());
+    }
+    let sql = format!(
+        "SELECT {QUESTION_COLUMNS} FROM questions q JOIN papers p ON p.key=q.paper_key WHERE q.id=?1"
+    );
+    conn.query_row(&sql, params![&question_id], question_from_row)
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn get_settings(app: tauri::AppHandle) -> Result<HashMap<String, String>, String> {
     let user = open_user(&app)?;

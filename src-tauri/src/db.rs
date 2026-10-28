@@ -255,6 +255,13 @@ pub fn bank_conn(path: &Path) -> Result<Connection, String> {
         .map_err(|error| error.to_string())
 }
 
+pub fn bank_conn_rw(path: &Path) -> Result<Connection, String> {
+    let conn = Connection::open(path).map_err(|error| error.to_string())?;
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .map_err(|error| error.to_string())?;
+    Ok(conn)
+}
+
 pub fn ensure_active_bank(conn: &Connection) -> Result<BankDto, String> {
     let id: Option<String> = conn
         .query_row(

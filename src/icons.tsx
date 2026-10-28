@@ -20,6 +20,7 @@ export type IconName =
   | 'star'
   | 'note'
   | 'alert'
+  | 'edit'
   | 'expand'
   | 'x';
 
@@ -148,6 +149,13 @@ export function Icon({ name, ...props }: IconProps) {
         <svg {...base}>
           <path d="M12 9v4m0 4h.01" />
           <circle cx="12" cy="12" r="9" />
+        </svg>
+      );
+    case 'edit':
+      return (
+        <svg {...base}>
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+          <path d="M14.5 5.5l4 4" />
         </svg>
       );
     case 'expand':

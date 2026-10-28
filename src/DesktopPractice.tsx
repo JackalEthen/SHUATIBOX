@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  addReport,
   errorText,
   finishSession,
   getNote,
@@ -9,6 +8,7 @@ import {
   saveNote,
   toggleFavorite,
   toQuestion,
+  updateQuestion,
   type AnswerDto,
   type AnswerResult,
   type FinishResult,
@@ -147,9 +147,11 @@ export function DesktopPractice({
   onGoWrong,
   onRetry,
 }: Props) {
+  const [edits, setEdits] = useState<Record<string, QuestionDto>>({});
   const questions = useMemo(
-    () => view.questions.map((question: QuestionDto) => toQuestion(question, assetDir)),
-    [view, assetDir],
+    () =>
+      view.questions.map((question: QuestionDto) => toQuestion(edits[question.id] ?? question, assetDir)),
+    [view, assetDir, edits],
   );
   const isExam = view.session.mode === 'exam';
   const initialMode = isExam ? 'deferred' : settings.practice_mode === 'deferred' ? 'deferred' : 'instant';
@@ -183,9 +185,12 @@ export function DesktopPractice({
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('答案错误');
-  const [reportNote, setReportNote] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editStem, setEditStem] = useState('');
+  const [editOptions, setEditOptions] = useState<{ label: string; text: string }[]>([]);
+  const [editAnswer, setEditAnswer] = useState('');
+  const [editExplanation, setEditExplanation] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [remaining, setRemaining] = useState(() =>
     view.session.durationSec > 0
@@ -410,14 +415,33 @@ export function DesktopPractice({
     }
   };
 
-  const submitReport = async () => {
+  const rawQuestion = edits[view.questions[index].id] ?? view.questions[index];
+
+  const openEdit = () => {
+    setEditStem(rawQuestion.stem);
+    setEditOptions(rawQuestion.options.map((option) => ({ label: option.label, text: option.text })));
+    setEditAnswer(rawQuestion.answer.join(','));
+    setEditExplanation(rawQuestion.explanation);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    setEditBusy(true);
     try {
-      await addReport(question.id, reportReason, reportNote);
-      setReportOpen(false);
-      setReportNote('');
-      onNotice('已记录，感谢反馈');
+      const updated = await updateQuestion(
+        rawQuestion.id,
+        editStem,
+        editOptions,
+        editAnswer,
+        editExplanation,
+      );
+      setEdits((prev) => ({ ...prev, [updated.id]: updated }));
+      setEditOpen(false);
+      onNotice('已保存修改');
     } catch (error) {
-      onNotice(`提交失败：${errorText(error)}`);
+      onNotice(`保存失败：${errorText(error)}`);
+    } finally {
+      setEditBusy(false);
     }
   };
 
@@ -602,8 +626,8 @@ export function DesktopPractice({
                 <button className="icon-btn" onClick={() => void openNote()} aria-label="笔记">
                   <Icon name="note" />
                 </button>
-                <button className="icon-btn" onClick={() => setReportOpen(true)} aria-label="报错">
-                  <Icon name="alert" />
+                <button className="icon-btn" onClick={openEdit} aria-label="编辑本题">
+                  <Icon name="edit" />
                 </button>
                 <button
                   className="icon-btn"
@@ -715,34 +739,71 @@ export function DesktopPractice({
       </Modal>
 
       <Modal
-        open={reportOpen}
-        title="反馈题目问题"
-        onClose={() => setReportOpen(false)}
+        open={editOpen}
+        title="编辑本题"
+        onClose={() => setEditOpen(false)}
+        wide
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setReportOpen(false)}>取消</button>
-            <button className="btn btn-primary" onClick={() => void submitReport()}>提交</button>
+            <button className="btn btn-ghost" onClick={() => setEditOpen(false)} disabled={editBusy}>取消</button>
+            <button className="btn btn-primary" onClick={() => void saveEdit()} disabled={editBusy}>
+              {editBusy ? '保存中…' : '保存'}
+            </button>
           </>
         }
       >
-        <div className="text-[11px] text-[var(--muted)] mb-3">会记录到本地，后续可导出反馈。</div>
-        <div className="flex flex-wrap gap-2">
-          {['答案错误', '选项缺失', '图片不显示', '解析有误', '其他'].map((reason) => (
-            <button
-              key={reason}
-              className={`chip ${reportReason === reason ? 'active' : ''}`}
-              onClick={() => setReportReason(reason)}
-            >
-              {reason}
-            </button>
-          ))}
+        <div className="max-h-[58vh] overflow-y-auto scroll space-y-3 pr-1">
+          <label className="block">
+            <div className="text-[11px] text-[var(--muted)] mb-1">题干（支持 Markdown / HTML）</div>
+            <textarea
+              className="w-full h-28 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none"
+              value={editStem}
+              onChange={(event) => setEditStem(event.target.value)}
+            />
+          </label>
+
+          <div>
+            <div className="text-[11px] text-[var(--muted)] mb-1">选项</div>
+            <div className="space-y-2">
+              {editOptions.map((option, position) => (
+                <div key={option.label} className="flex items-start gap-2">
+                  <span className="chip shrink-0">{option.label}</span>
+                  <textarea
+                    className="flex-1 h-16 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-2 text-[12.5px] outline-none"
+                    value={option.text}
+                    onChange={(event) => {
+                      const next = [...editOptions];
+                      next[position] = { ...next[position], text: event.target.value };
+                      setEditOptions(next);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <label className="block">
+            <div className="text-[11px] text-[var(--muted)] mb-1">答案（如 A,C；留空表示不判分）</div>
+            <input
+              className="w-full h-10 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3 text-[13px] outline-none"
+              value={editAnswer}
+              onChange={(event) => setEditAnswer(event.target.value)}
+            />
+          </label>
+
+          <label className="block">
+            <div className="text-[11px] text-[var(--muted)] mb-1">解析</div>
+            <textarea
+              className="w-full h-32 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none"
+              value={editExplanation}
+              onChange={(event) => setEditExplanation(event.target.value)}
+            />
+          </label>
+
+          <div className="text-[10.5px] text-[var(--muted)] leading-5">
+            修改直接保存到本地题库，错题本、收藏、搜索会同步更新；此处不能新增图片。
+          </div>
         </div>
-        <textarea
-          className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none mt-3"
-          value={reportNote}
-          onChange={(event) => setReportNote(event.target.value)}
-          placeholder="补充说明（可选）"
-        />
       </Modal>
 
       <Modal

@@ -389,8 +389,14 @@ export async function saveNote(questionId: string, content: string): Promise<voi
   return invoke('save_note', { questionId, content });
 }
 
-export async function addReport(questionId: string, reason: string, note: string): Promise<void> {
-  return invoke('add_report', { questionId, reason, note });
+export async function updateQuestion(
+  questionId: string,
+  stem: string,
+  options: OptionDto[],
+  answer: string,
+  explanation: string,
+): Promise<QuestionDto> {
+  return invoke<QuestionDto>('update_question', { questionId, stem, options, answer, explanation });
 }
 
 export async function getSettings(): Promise<Record<string, string>> {
