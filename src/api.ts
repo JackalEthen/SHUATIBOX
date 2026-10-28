@@ -254,6 +254,30 @@ export interface ImportSummary {
   issues: string[];
 }
 
+export interface AiFileReport {
+  file: string;
+  status: string;
+  questions: number;
+  expected: number;
+  flags: string[];
+  error?: string | null;
+}
+
+export interface AiImportSummary {
+  summary: ImportSummary;
+  converted: number;
+  valid: number;
+  failed: number;
+  files: AiFileReport[];
+}
+
+export interface ImportProgress {
+  phase: string;
+  current: number;
+  total: number;
+  message: string;
+}
+
 function localize(html: string, assetDir: string): string {
   if (!assetDir || !html.includes('asset:')) return html;
   return html.replace(/asset:([^"'\s<>]+)/g, (_match, file: string) => {
@@ -467,6 +491,10 @@ export async function clearHistory(): Promise<void> {
 
 export async function importBank(path: string, setActive = true): Promise<ImportSummary> {
   return invoke<ImportSummary>('import_bank', { path, setActive });
+}
+
+export async function aiImport(path: string, setActive = true): Promise<AiImportSummary> {
+  return invoke<AiImportSummary>('ai_import', { path, setActive });
 }
 
 export function errorText(error: unknown): string {

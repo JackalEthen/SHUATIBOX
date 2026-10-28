@@ -311,3 +311,24 @@ pub struct ImportProgress {
     pub total: i64,
     pub message: String,
 }
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AiFileReport {
+    pub file: String,
+    pub status: String,
+    pub questions: i64,
+    pub expected: i64,
+    pub flags: Vec<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AiImportSummary {
+    pub summary: ImportSummary,
+    pub converted: i64,
+    pub valid: i64,
+    pub failed: i64,
+    pub files: Vec<AiFileReport>,
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { clearHistory, errorText, exportBackup, importBackup, setSettings, type Bootstrap } from './api';
 import { Icon } from './icons';
+import { APP_VERSION } from './version';
 import type { Appearance } from './theme';
 
 interface Props {
@@ -21,6 +22,9 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
   const { dark, setDark, accent, setAccent } = appearance;
   const [goal, setGoal] = useState(Number(data.settings.daily_goal ?? '50'));
   const [archive, setArchive] = useState(Number(data.settings.archive_streak ?? '2'));
+  const [aiUrl, setAiUrl] = useState(data.settings.ai_url ?? '');
+  const [aiKey, setAiKey] = useState(data.settings.ai_key ?? '');
+  const [aiModel, setAiModel] = useState(data.settings.ai_model ?? '');
 
   const save = (values: Record<string, string>) => {
     setSettings(values).catch((error) => onNotice(errorText(error)));
@@ -49,6 +53,39 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
           <button className="btn btn-ghost btn-sm flex-1" onClick={onImport}>导入</button>
           <button className="btn btn-ghost btn-sm flex-1" onClick={onBank}>切换</button>
         </div>
+      </div>
+
+      <div className="card mt-3 p-4">
+        <h3 className="text-[12px] font-semibold">AI 导入</h3>
+        <p className="text-[9.5px] text-[var(--muted)] mt-1 leading-5">OpenAI 兼容接口，密钥仅保存在本机。</p>
+        <input
+          className="mt-3 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
+          placeholder="接口地址，如 https://api.deepseek.com/v1"
+          value={aiUrl}
+          onChange={(event) => {
+            setAiUrl(event.target.value);
+            save({ ai_url: event.target.value.trim() });
+          }}
+        />
+        <input
+          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
+          placeholder="模型，如 deepseek-chat"
+          value={aiModel}
+          onChange={(event) => {
+            setAiModel(event.target.value);
+            save({ ai_model: event.target.value.trim() });
+          }}
+        />
+        <input
+          type="password"
+          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
+          placeholder="密钥 sk-..."
+          value={aiKey}
+          onChange={(event) => {
+            setAiKey(event.target.value);
+            save({ ai_key: event.target.value.trim() });
+          }}
+        />
       </div>
 
       <div className="card mt-3 p-4">
@@ -142,7 +179,7 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="text-center text-[9.5px] text-[var(--muted)] mt-4 leading-5">
-        刷题盒子 SHUATIBOX v0.1<br />题库来源 ERRRC/xingcezhenti
+        刷题盒子 SHUATIBOX v{APP_VERSION}<br />题库来源 ERRRC/xingcezhenti
       </div>
       <div className="h-4" />
     </div>

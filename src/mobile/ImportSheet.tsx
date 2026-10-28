@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { errorText, importBank, type ImportSummary } from '../api';
+import {
+  aiImport,
+  errorText,
+  importBank,
+  type AiImportSummary,
+  type ImportProgress,
+  type ImportSummary,
+} from '../api';
 import { ImportFormatHelp } from '../ImportFormatHelp';
 import { MobileSheet } from '../MobileSheet';
 
@@ -13,30 +20,38 @@ interface Props {
   onDone: () => void;
 }
 
-interface Progress {
-  phase: string;
-  current: number;
-  total: number;
-  message: string;
-}
+const PHASE_LABEL: Record<string, string> = {
+  prepare: '准备文件',
+  scan: '扫描文件',
+  convert: 'AI 转换',
+  parse: '解析题库',
+  import: '写入题库',
+  done: '完成',
+};
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
 
 export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) {
   const [path, setPath] = useState('');
   const [label, setLabel] = useState('');
+  const [useAi, setUseAi] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState('');
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [aiResult, setAiResult] = useState<AiImportSummary | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
-    const unlisten = listen<Progress>('import-progress', (event) => {
-      setStep(event.payload.message);
+    const unlistenAi = listen<ImportProgress>('ai-import-progress', (event) => {
+      setProgress(event.payload);
+    });
+    const unlistenImport = listen<ImportProgress>('import-progress', (event) => {
+      setProgress(event.payload);
     });
     return () => {
-      void unlisten.then((fn) => fn());
+      void unlistenAi.then((fn) => fn());
+      void unlistenImport.then((fn) => fn());
     };
   }, [isOpen]);
 
@@ -47,18 +62,20 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
         setPath(uri);
         setLabel(kind === 'folder' ? '已选择文件夹' : '已选择 zip');
         setSummary(null);
+        setAiResult(null);
         setError('');
         return;
       }
       const value = await open(
         kind === 'folder'
           ? { directory: true, multiple: false }
-          : { directory: false, multiple: false, filters: [{ name: '题库压缩包', extensions: ['zip'] }] },
+          : { directory: false, multiple: false, filters: [{ name: '题库压缩包', extensions: ['zip', 'md'] }] },
       );
       if (!value || Array.isArray(value)) return;
       setPath(value);
       setLabel(value.split(/[\\/]/).pop() || value);
       setSummary(null);
+      setAiResult(null);
       setError('');
     } catch (reason) {
       onNotice(`选择失败：${errorText(reason)}`);
@@ -70,21 +87,29 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
     setBusy(true);
     setError('');
     setSummary(null);
-    setStep(isAndroid() ? '复制文件到应用目录…' : '读取文件…');
+    setAiResult(null);
+    setProgress(null);
     try {
       let target = path;
       if (isAndroid()) {
         target = await invoke<string>('saf_materialize', { uri: path, maxDepth: 6 });
-        setStep('解析题库…');
       }
-      const value = await importBank(target, true);
-      setSummary(value);
-      onNotice('题库导入完成');
+      if (useAi) {
+        const result = await aiImport(target, true);
+        setAiResult(result);
+        setSummary(result.summary);
+        onNotice(result.failed > 0 ? `导入完成，${result.failed} 个文件转换失败` : 'AI 转换导入完成');
+      } else {
+        const value = await importBank(target, true);
+        setSummary(value);
+        onNotice('题库导入完成');
+      }
       onDone();
     } catch (reason) {
       setError(errorText(reason));
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   };
 
@@ -93,13 +118,19 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
     setPath('');
     setLabel('');
     setSummary(null);
+    setAiResult(null);
     setError('');
-    setStep('');
+    setProgress(null);
     onClose();
   };
 
+  const percent =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.current * 100) / progress.total))
+      : 12;
+
   return (
-    <MobileSheet open={isOpen} onClose={close}>
+    <MobileSheet open={isOpen} onClose={close} closable={!busy}>
       <div className="grabber" />
       <h3 className="text-[14px] font-semibold">导入题库</h3>
       <p className="text-[10px] text-[var(--muted)] mt-1">选择题库文件夹或 zip，图片自动复制并去重。</p>
@@ -110,22 +141,32 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
             <div className="text-[12px]">{label || '选择题库文件夹或 zip'}</div>
             <div className="flex gap-2 mt-3">
               <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('folder')}>文件夹</button>
-              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip</button>
+              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip / md</button>
             </div>
             <div className="text-[9px] text-[var(--muted)] mt-3">
               {isAndroid() ? '通过系统文件选择器授权，复制到应用私有目录' : '选择本地 Markdown 题库根目录'}
             </div>
           </div>
 
+          <label className="flex items-center gap-2 mt-3 text-[11px] text-[var(--ink-2)]">
+            <input type="checkbox" checked={useAi} disabled={busy} onChange={(event) => setUseAi(event.target.checked)} />
+            AI 智能转换（需先在设置中配置接口）
+          </label>
+
           {busy ? (
             <div className="mt-4">
-              <div className="flex items-center justify-between text-[10.5px]">
-                <span>{step || '导入中…'}</span>
+              <div className="flex items-center gap-2 text-[10.5px]">
+                <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                <span className="truncate">{progress?.message || '准备中…'}</span>
               </div>
               <div className="progress mt-2" style={{ height: 7 }}>
-                <i style={{ width: '60%' }} />
+                <i style={{ width: `${percent}%` }} />
               </div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-2">大题库可能需要几分钟，请勿关闭应用。</div>
+              <div className="text-[9.5px] text-[var(--muted)] mt-2">
+                {PHASE_LABEL[progress?.phase ?? ''] ?? '处理中'}
+                {progress && progress.total > 0 ? ` · ${progress.current}/${progress.total}` : ''}
+                {' · '}导入完成前不可关闭
+              </div>
             </div>
           ) : null}
 
@@ -138,7 +179,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
           <ImportFormatHelp />
 
           <button className="btn btn-primary btn-block mt-3" disabled={!path || busy} onClick={() => void run()}>
-            {busy ? '正在导入…' : '开始导入'}
+            {busy ? '正在导入…' : useAi ? 'AI 转换并导入' : '开始导入'}
           </button>
         </>
       ) : (
@@ -156,6 +197,39 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone }: Props) 
               <div><div className="text-[9px] text-[var(--muted)]">含图题</div><div className="text-[14px] font-semibold">{summary.imageQuestions.toLocaleString('zh-CN')}</div></div>
             </div>
           </div>
+
+          {aiResult ? (
+            <div className="mt-3 rounded-xl border border-[var(--line)] p-3.5">
+              <div className="flex items-center gap-2 flex-wrap text-[10.5px]">
+                <span className="font-semibold text-[11px]">AI 转换报告</span>
+                <span className="chip">转换 {aiResult.converted}</span>
+                <span className="chip">已合规 {aiResult.valid}</span>
+                {aiResult.failed > 0 ? (
+                  <span className="chip" style={{ color: 'var(--bad)', borderColor: 'var(--bad)' }}>失败 {aiResult.failed}</span>
+                ) : null}
+              </div>
+              <div className="max-h-52 overflow-y-auto scroll mt-2 space-y-2 text-[10px] leading-5">
+                {aiResult.files
+                  .filter((item) => item.status !== 'skipped')
+                  .map((item, index) => (
+                    <div key={`${item.file}-${index}`} className="border-b border-[var(--line)] pb-1.5 last:border-0">
+                      <div className="break-all">
+                        <span style={{ color: item.status === 'failed' ? 'var(--bad)' : 'var(--accent-ink)' }}>
+                          [{item.status === 'failed' ? '失败' : item.status === 'valid' ? '已合规' : 'AI 转换'}]
+                        </span>{' '}
+                        {item.file} · {item.questions} 题
+                        {item.expected > 0 ? ` / 原文约 ${item.expected} 题` : ''}
+                      </div>
+                      {item.error ? <div style={{ color: 'var(--bad)' }}>{item.error}</div> : null}
+                      {(item.flags ?? []).map((flag, flagIndex) => (
+                        <div key={flagIndex} style={{ color: 'var(--warn)' }}>{flag}</div>
+                      ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+
           <button className="btn btn-primary btn-block mt-3" onClick={close}>完成</button>
         </>
       )}

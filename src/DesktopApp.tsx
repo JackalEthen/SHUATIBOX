@@ -165,8 +165,12 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   return (
     <div className="flex h-screen">
       <aside className="w-[248px] shrink-0 border-r border-[var(--line)] bg-[var(--paper-2)] flex flex-col">
-        <div className="px-5 pt-6 pb-5 flex items-center gap-3">
-          <div className="seal">题</div>
+        <div className="px-5 pt-6 pb-5 flex items-center gap-0.5">
+          <img
+            src="/app-icon.png"
+            alt="刷题盒子"
+            className="w-12 h-12 rounded-[12px] object-cover shrink-0"
+          />
           <div>
             <div className="font-semibold tracking-wide text-[15px]">刷题盒子</div>
             <div className="text-[9px] tracking-[.22em] text-[var(--muted)] mt-0.5">SHUATIBOX</div>

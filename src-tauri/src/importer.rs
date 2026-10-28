@@ -149,7 +149,7 @@ fn fnv32(value: &str) -> String {
     format!("{hash:x}")
 }
 
-fn derive_exam_type(paper: &str, explicit: &str) -> String {
+pub(crate) fn derive_exam_type(paper: &str, explicit: &str) -> String {
     if !explicit.is_empty() {
         return explicit.to_string();
     }
@@ -199,7 +199,7 @@ fn explanation_judgment(explanation: &str) -> Option<String> {
     found.map(|value| if value == "正确" { "A".to_string() } else { "B".to_string() })
 }
 
-fn parse_meta(text: &str) -> Result<(HashMap<String, String>, String, usize), String> {
+pub(crate) fn parse_meta(text: &str) -> Result<(HashMap<String, String>, String, usize), String> {
     let lines: Vec<&str> = text.lines().collect();
     if lines.first().map(|line| line.trim()) != Some("---") {
         return Ok((HashMap::new(), text.to_string(), 1));
@@ -894,7 +894,49 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
     }
 }
 
-fn walk_markdown(root: &Path) -> Vec<PathBuf> {
+// ponytail: AI 转换只读探测，避免把 parser 内部结构全量 pub
+pub(crate) struct FileProbe {
+    pub skipped: bool,
+    pub has_file_error: bool,
+    pub paper: String,
+    pub module: String,
+    pub year: String,
+    pub region: String,
+    pub exam_type: String,
+    pub invalid: usize,
+    pub numbers: Vec<usize>,
+    pub stems: Vec<String>,
+    pub issue_text: Vec<String>,
+}
+
+pub(crate) fn probe_file(text: &str, rel: &str) -> FileProbe {
+    let parsed = parse_file(text, rel, &module_from_path(rel));
+    let ok: Vec<&ParsedQuestion> = parsed
+        .questions
+        .iter()
+        .filter(|question| question.status != "invalid")
+        .collect();
+    FileProbe {
+        skipped: parsed.skipped,
+        has_file_error: parsed.has_file_error,
+        paper: parsed.paper,
+        module: parsed.module,
+        year: parsed.year,
+        region: parsed.region,
+        exam_type: parsed.exam_type,
+        invalid: parsed.questions.len() - ok.len(),
+        numbers: ok.iter().map(|question| question.number).collect(),
+        stems: ok.iter().map(|question| question.stem.clone()).collect(),
+        issue_text: parsed
+            .issues
+            .iter()
+            .filter(|issue| issue.level != "warning")
+            .map(|issue| format!("{}:{} {}", issue.file, issue.line, issue.message))
+            .collect(),
+    }
+}
+
+pub(crate) fn walk_markdown(root: &Path) -> Vec<PathBuf> {
     let mut result = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
@@ -1038,7 +1080,7 @@ impl<'a> ImageStore<'a> {
     }
 }
 
-fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> {
+pub(crate) fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> {
     fs::create_dir_all(target).map_err(|error| error.to_string())?;
     let file = File::open(zip_path).map_err(|error| error.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|error| error.to_string())?;
@@ -1059,7 +1101,7 @@ fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn make_temp_dir(base: &Path, tag: &str) -> Result<PathBuf, String> {
+pub(crate) fn make_temp_dir(base: &Path, tag: &str) -> Result<PathBuf, String> {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_nanos())

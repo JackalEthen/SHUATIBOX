@@ -1,4 +1,5 @@
-﻿mod commands;
+﻿mod ai;
+mod commands;
 mod db;
 mod importer;
 mod models;
@@ -46,6 +47,7 @@ pub fn run() {
             commands::import_backup,
             commands::clear_history,
             commands::import_bank,
+            ai::ai_import,
             commands::save_avatar,
             commands::load_practice_questions,
             saf::saf_materialize,

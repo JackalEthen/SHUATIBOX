@@ -17,6 +17,7 @@ import {
   type Profile,
 } from './api';
 import { Icon } from './icons';
+import { APP_VERSION } from './version';
 import { Modal } from './Modal';
 import type { Appearance, QSize } from './theme';
 
@@ -40,6 +41,9 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
   const [goal, setGoal] = useState(data.settings.daily_goal ?? '50');
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
+  const [aiUrl, setAiUrl] = useState(data.settings.ai_url ?? '');
+  const [aiKey, setAiKey] = useState(data.settings.ai_key ?? '');
+  const [aiModel, setAiModel] = useState(data.settings.ai_model ?? '');
 
   const avatarUrl = profile.avatar ? convertFileSrc(profile.avatar) : '';
 
@@ -333,6 +337,52 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
         </div>
 
         <div className="card mt-4 p-5">
+          <h2 className="text-[13.5px] font-semibold">AI 导入</h2>
+          <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
+            导入时勾选「AI 智能转换」，格式不符的 Markdown 会按 OpenAI 兼容接口改写后导入。密钥仅保存在本机。
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="text-[11px] text-[var(--muted)]">
+              接口地址
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
+                placeholder="https://api.deepseek.com/v1"
+                value={aiUrl}
+                onChange={(event) => {
+                  setAiUrl(event.target.value);
+                  saveSetting({ ai_url: event.target.value.trim() });
+                }}
+              />
+            </label>
+            <label className="text-[11px] text-[var(--muted)]">
+              模型
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
+                placeholder="deepseek-chat"
+                value={aiModel}
+                onChange={(event) => {
+                  setAiModel(event.target.value);
+                  saveSetting({ ai_model: event.target.value.trim() });
+                }}
+              />
+            </label>
+            <label className="text-[11px] text-[var(--muted)] col-span-2">
+              密钥
+              <input
+                type="password"
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
+                placeholder="sk-..."
+                value={aiKey}
+                onChange={(event) => {
+                  setAiKey(event.target.value);
+                  saveSetting({ ai_key: event.target.value.trim() });
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="card mt-4 p-5">
           <h2 className="text-[13.5px] font-semibold">数据</h2>
           <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
             进度、错题、笔记、收藏保存在本地；备份不含题库图片，换设备后重新导入题库即可。
@@ -351,7 +401,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
         </div>
 
         <div className="text-[10.5px] text-[var(--muted)] mt-6">
-          刷题盒子 SHUATIBOX v0.1 · 本地离线 · 题库来源 ERRRC/xingcezhenti
+          刷题盒子 SHUATIBOX v{APP_VERSION} · 本地离线 · 题库来源 ERRRC/xingcezhenti
           <br />
           图片仅存于应用私有目录，不写入系统图库。
         </div>

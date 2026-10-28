@@ -3,6 +3,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { errorText, loadStats, saveAvatarFile, saveProfile, type Bootstrap, type Profile, type StatsDto } from './api';
 import { Icon } from './icons';
+import { APP_VERSION } from './version';
 
 interface Props {
   data: Bootstrap;
@@ -168,7 +169,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
       </div>
 
       <div className="text-center text-[9.5px] text-[var(--muted)] mt-4 leading-5">
-        刷题盒子 SHUATIBOX v0.1<br />题库来源 ERRRC/xingcezhenti
+        刷题盒子 SHUATIBOX v{APP_VERSION}<br />题库来源 ERRRC/xingcezhenti
       </div>
       <div className="h-4" />
     </div>
