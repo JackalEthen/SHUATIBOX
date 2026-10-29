@@ -1,4 +1,4 @@
-# SHUATIBOX
+﻿# SHUATIBOX
 
 <p align="center">
   <b>A local-first, offline practice app</b><br>
@@ -28,6 +28,16 @@
 
 ---
 
+## Screenshots
+
+**Windows**
+
+<img src="screenshots/Windows-example-1.jpg" width="49%"> <img src="screenshots/Windows-example-2.jpg" width="49%">
+
+**Android**
+
+<img src="screenshots/Android-example-1.png" width="26%"> <img src="screenshots/Android-example-2.png" width="26%">
+
 ## Features
 
 - Practice modes: random, full paper, mock exam, custom set, wrong-question retry, favorites
@@ -36,6 +46,7 @@
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
 - Bank management: import and switch between multiple question banks; import report lists invalid questions and missing images
+- AI conversion import: optionally call an OpenAI-compatible endpoint to normalize non-conforming Markdown into the bank format; chunked conversion, per-file failures are isolated, and a conversion report is shown
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
 - Backup: export / import study records (question images excluded)
 
@@ -46,7 +57,7 @@
 | Shell | Tauri 2 |
 | Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
 | Rendering | marked + DOMPurify |
-| Backend | Rust + rusqlite (SQLite) + zip + sha2 |
+| Backend | Rust + rusqlite (SQLite) + zip + sha2 + reqwest |
 | Platforms | Windows, Android |
 
 ## Quick Start
@@ -156,7 +167,7 @@ cd src-tauri && cargo check
 
 ## Notes
 
-- No server, no account, no network requests
+- No server, no account; no network requests unless you enable AI conversion and configure an endpoint
 - Banks and images are stored locally; imported images are deduplicated by SHA-256
 - The same question can appear in several papers; editing affects only the record in the current paper
 - Editing cannot add new images; existing image references are preserved

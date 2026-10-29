@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 dist/
 data/
 docs/
@@ -17,3 +17,7 @@ release/
 *.keystore
 *.jks
 keystore.properties
+
+# README screenshots (jpg is globally ignored)
+!screenshots/Windows-example-1.jpg
+!screenshots/Windows-example-2.jpg

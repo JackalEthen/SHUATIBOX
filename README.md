@@ -1,4 +1,4 @@
-# 刷题盒子 SHUATIBOX
+﻿# 刷题盒子 SHUATIBOX
 
 <p align="center">
   <b>本地优先的离线刷题应用</b><br>
@@ -28,6 +28,16 @@
 
 ---
 
+## 界面预览
+
+**Windows**
+
+<img src="screenshots/Windows-example-1.jpg" width="49%"> <img src="screenshots/Windows-example-2.jpg" width="49%">
+
+**Android**
+
+<img src="screenshots/Android-example-1.png" width="26%"> <img src="screenshots/Android-example-2.png" width="26%">
+
 ## 功能
 
 - 练习模式：随机练习、整卷练习、模拟考试、自定义组卷、错题重做、收藏练习
@@ -36,6 +46,7 @@
 - 检索：题干、选项、解析、qid、试卷名全文搜索，材料内容可预览
 - 统计：每日题量、正确率、薄弱题型、历史考试
 - 题库管理：多题库导入与切换，导入报告列出无效题与缺图
+- AI 转换导入：可选调用 OpenAI 兼容接口，把不规范的 Markdown 自动整理成题库格式；分块转换、单文件失败不影响其他文件，并输出转换报告
 - 题目编辑：做题时直接修改题干、选项、答案、解析，保存写回本地题库，错题本与搜索同步更新
 - 数据备份：学习记录可导出 / 导入（不含题库图片）
 
@@ -46,7 +57,7 @@
 | 应用壳 | Tauri 2 |
 | 前端 | React 19 + TypeScript + Vite + Tailwind CSS |
 | 内容渲染 | marked + DOMPurify |
-| 后端 | Rust + rusqlite (SQLite) + zip + sha2 |
+| 后端 | Rust + rusqlite (SQLite) + zip + sha2 + reqwest |
 | 平台 | Windows、Android |
 
 ## 快速开始
@@ -156,7 +167,7 @@ cd src-tauri && cargo check
 
 ## 说明
 
-- 无服务端、无账号、无网络请求
+- 无服务端、无账号；除你主动启用 AI 转换并配置接口外，不发起网络请求
 - 题库与图片全部本地存储，导入时按内容 SHA-256 去重
 - 同一道题可能出现在多张试卷中，编辑只影响当前试卷里的这一条记录
 - 编辑题目时不支持新增图片，已有图片引用保持不变
