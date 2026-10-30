@@ -45,8 +45,8 @@
 - Study tools: wrong-question book (pending / mastered), favorites, notes
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
-- Bank management: import and switch between multiple question banks; import report lists invalid questions and missing images
-- AI conversion import: optionally call an OpenAI-compatible endpoint to normalize non-conforming Markdown into the bank format; chunked conversion, per-file failures are isolated, and a conversion report is shown
+- Bank management: import and switch between multiple question banks; imports can append to the current bank, an existing bank, or a new bank, existing papers are skipped (never overwritten), and the import report lists invalid questions and missing images
+- AI conversion import: optionally call an OpenAI-compatible endpoint to normalize non-conforming Markdown into the bank format; chunked conversion, per-file failures are isolated, a conversion report is shown, and the target bank can be selected
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
 - Backup: export / import study records (question images excluded)
 
@@ -168,6 +168,7 @@ cd src-tauri && cargo check
 ## Notes
 
 - No server, no account; no network requests unless you enable AI conversion and configure an endpoint
+- Append imports are identified by paper | year | region; existing papers are skipped and never overwritten
 - Banks and images are stored locally; imported images are deduplicated by SHA-256
 - The same question can appear in several papers; editing affects only the record in the current paper
 - Editing cannot add new images; existing image references are preserved
