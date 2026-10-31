@@ -52,13 +52,11 @@ export function AiTutor({ question, onClose, mobile }: Props) {
 
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
-  const lastText = useRef('');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const requestId = useRef(
+  const [requestId] = useState(() =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random()}`,
@@ -69,28 +67,38 @@ export function AiTutor({ question, onClose, mobile }: Props) {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      const id = requestId.current;
       // ponytail: StrictMode 会先清理再重建，延迟到下一轮确认真正卸载才取消
       window.setTimeout(() => {
-        if (!mounted.current) void aiCancel(id).catch(() => undefined);
+        if (!mounted.current) void aiCancel(requestId).catch(() => undefined);
       }, 0);
     };
-  }, []);
+  }, [requestId]);
 
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || busy) return;
     const history: AiChatMessage[] = [...messages, { role: 'user', content }];
-    lastText.current = content;
-    setPending(content);
+    setMessages(history);
     setError('');
     setBusy(true);
     try {
-      const reply = await aiChat(history, initial.current?.images ?? [], requestId.current);
+      const reply = await aiChat(history, initial.current?.images ?? [], requestId);
       setMessages([...history, { role: 'assistant', content: reply }]);
-      setPending(null);
     } catch (cause) {
-      setPending(null);
+      setError(errorText(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retry = async () => {
+    if (busy || messages.length === 0) return;
+    setError('');
+    setBusy(true);
+    try {
+      const reply = await aiChat(messages, initial.current?.images ?? [], requestId);
+      setMessages([...messages, { role: 'assistant', content: reply }]);
+    } catch (cause) {
       setError(errorText(cause));
     } finally {
       setBusy(false);
@@ -108,7 +116,7 @@ export function AiTutor({ question, onClose, mobile }: Props) {
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, pending, error, busy]);
+  }, [messages, error, busy]);
 
   const submit = () => {
     const text = input.trim();
@@ -133,21 +141,11 @@ export function AiTutor({ question, onClose, mobile }: Props) {
             )}
           </div>
         ))}
-        {pending ? (
-          <div className="self-end max-w-[86%]">
-            <div className="rounded-2xl rounded-br-md bg-[var(--accent)] px-3 py-2 text-[12.5px] leading-6 text-white whitespace-pre-wrap">
-              {pending}
-            </div>
-          </div>
-        ) : null}
         {busy ? <div className="self-start text-[11.5px] text-[var(--muted)]">AI 正在思考…</div> : null}
         {error ? (
           <div className="self-start max-w-[92%] rounded-xl border border-[var(--bad)] px-3 py-2 text-[11.5px] leading-5 text-[var(--bad)]">
             {error}
-            <button
-              className="ml-2 underline"
-              onClick={() => void send(lastText.current)}
-            >
+            <button className="ml-2 underline" onClick={() => void retry()}>
               重试
             </button>
           </div>

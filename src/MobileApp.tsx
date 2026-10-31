@@ -145,6 +145,12 @@ export function MobileApp({ appearance, onNotice }: Props) {
         setImportOpen(false);
         return 'handled';
       }
+      if (aiConfigOpen) {
+        if (!(window as unknown as { __shuatiboxAiTesting?: boolean }).__shuatiboxAiTesting) {
+          setAiConfigOpen(false);
+        }
+        return 'handled';
+      }
       const active = currentScreen.current;
       if (active === 'practice') {
         leavePractice();
@@ -174,7 +180,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
     return () => {
       delete (window as unknown as { __shuatiboxBack?: BackBridge }).__shuatiboxBack;
     };
-  }, [bankOpen, customOpen, importOpen, leavePractice, onNotice]);
+  }, [bankOpen, customOpen, importOpen, aiConfigOpen, leavePractice, onNotice]);
 
   if (loading && !data) {
     return (
@@ -221,6 +227,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
       <MobilePractice
         view={view}
         assetDir={data.assetDir}
+        settings={data.settings}
         onExit={leavePractice}
         onNotice={onNotice}
         onFinished={refresh}

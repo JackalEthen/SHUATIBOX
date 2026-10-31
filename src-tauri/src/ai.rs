@@ -19,6 +19,8 @@ const CHUNK_CHARS: usize = 12_000;
 const MIN_SPLIT_CHARS: usize = 1_500;
 const CONCURRENCY: usize = 3;
 const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_BYTES: usize = 20 * 1024 * 1024;
+const MAX_IMAGES: usize = 6;
 
 #[derive(Clone)]
 struct AiConfig {
@@ -184,7 +186,107 @@ pub async fn ai_chat(
         _ = cancel_rx => Err("已取消".to_string()),
     };
     cancel_state().lock().unwrap().active.remove(&request_id);
-    let (content, _) = result?;
+    let (content, truncated) = result.map_err(|error| {
+        match error.strip_prefix("$CONTEXT$") {
+            Some(rest) => format!(
+                "上下文过长，请关闭本对话框重新打开后再试。{}",
+                clip(rest, 120)
+            ),
+            None => error,
+        }
+    })?;
+    if truncated {
+        Ok(format!("{content}\n\n（回答达到长度上限，已截断）"))
+    } else {
+        Ok(content)
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiTestResult {
+    pub vision_ok: bool,
+    pub message: String,
+}
+
+// ponytail: 32x32 纯色 PNG，仅用于探测模型是否接受图片输入
+const TEST_PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c4hAQAACAMw4rx/HrqcGJiJ+c0m/SQgICAgICAgICAgICAgIPAcSA8XEqx5Jq5CKgAAAABJRU5ErkJggg==";
+
+#[tauri::command]
+pub async fn ai_test(app: AppHandle) -> Result<AiTestResult, String> {
+    let config = load_config(&app)?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    let text_body = json!({
+        "model": config.model,
+        "temperature": 0.0,
+        "messages": [{"role": "user", "content": "只回复：ok"}]
+    });
+    probe_chat(&client, &config, &text_body)
+        .await
+        .map_err(|error| format!("连通性测试失败：{error}"))?;
+
+    let vision_body = json!({
+        "model": config.model,
+        "temperature": 0.0,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "这张图片是什么颜色？只回答颜色。"},
+                {"type": "image_url", "image_url": {
+                    "url": format!("data:image/png;base64,{TEST_PNG}")
+                }}
+            ]
+        }]
+    });
+    match probe_chat(&client, &config, &vision_body).await {
+        Ok(_) => Ok(AiTestResult {
+            vision_ok: true,
+            message: "连接正常，模型可读图".to_string(),
+        }),
+        Err(error)
+            if error.starts_with("HTTP 400")
+                || error.starts_with("HTTP 415")
+                || error.starts_with("HTTP 422") =>
+        {
+            Ok(AiTestResult {
+                vision_ok: false,
+                message: format!("模型不可读图：{error}"),
+            })
+        }
+        Err(error) => Err(format!("读图测试失败：{error}")),
+    }
+}
+
+async fn probe_chat(
+    client: &reqwest::Client,
+    config: &AiConfig,
+    body: &Value,
+) -> Result<String, String> {
+    let response = client
+        .post(config.endpoint())
+        .bearer_auth(&config.key)
+        .json(body)
+        .send()
+        .await
+        .map_err(|error| format!("请求失败：{error}"))?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {status}：{}", clip(&text, 200)));
+    }
+    let value: Value =
+        serde_json::from_str(&text).map_err(|error| format!("AI 返回不是合法 JSON：{error}"))?;
+    let content = value["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    if content.trim().is_empty() {
+        return Err("AI 返回空内容".to_string());
+    }
     Ok(content)
 }
 
@@ -200,7 +302,11 @@ fn build_image_parts(app: &AppHandle, images: Vec<String>) -> Vec<Value> {
         return Vec::new();
     };
     let mut parts = Vec::new();
+    let mut total = 0usize;
     for image in images {
+        if parts.len() >= MAX_IMAGES {
+            break;
+        }
         let image = image.trim();
         if image.is_empty() {
             continue;
@@ -213,16 +319,22 @@ fn build_image_parts(app: &AppHandle, images: Vec<String>) -> Vec<Value> {
         if name.contains("..") || name.contains('/') || name.contains('\\') {
             continue;
         }
-        let bytes = match fs::read(dir.join(name)) {
+        let path = dir.join(name);
+        let size = match fs::metadata(&path) {
+            Ok(meta) => meta.len() as usize,
+            Err(_) => continue,
+        };
+        if size > MAX_IMAGE_BYTES || total + size > MAX_TOTAL_IMAGE_BYTES {
+            continue;
+        }
+        let bytes = match fs::read(&path) {
             Ok(value) => value,
             Err(_) => continue,
         };
-        if bytes.len() > MAX_IMAGE_BYTES {
-            continue;
-        }
         let Some(mime) = image_mime(&bytes) else {
             continue;
         };
+        total += bytes.len();
         let encoded = STANDARD.encode(bytes);
         parts.push(image_part(&format!("data:{mime};base64,{encoded}")));
     }
@@ -1068,6 +1180,23 @@ mod tests {
             }
             Err(_) => panic!("转换失败"),
         }
+    }
+
+    #[test]
+    fn probe_returns_content() {
+        let payload = json!({
+            "choices": [{"message": { "content": "ok" }, "finish_reason": "stop"}]
+        })
+        .to_string();
+        let config = AiConfig {
+            url: spawn_mock(payload),
+            key: "k".to_string(),
+            model: "m".to_string(),
+        };
+        let client = reqwest::Client::new();
+        let body = json!({"model": "m", "messages": []});
+        let result = tauri::async_runtime::block_on(probe_chat(&client, &config, &body));
+        assert_eq!(result.unwrap(), "ok");
     }
 
     #[test]

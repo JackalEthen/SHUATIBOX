@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { clearHistory, errorText, exportBackup, importBackup, setSettings, type Bootstrap } from './api';
+import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
 import { APP_VERSION } from './version';
 import type { Appearance } from './theme';
@@ -22,13 +23,29 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
   const { dark, setDark, accent, setAccent } = appearance;
   const [goal, setGoal] = useState(Number(data.settings.daily_goal ?? '50'));
   const [archive, setArchive] = useState(Number(data.settings.archive_streak ?? '2'));
-  const [aiUrl, setAiUrl] = useState(data.settings.ai_url ?? '');
-  const [aiKey, setAiKey] = useState(data.settings.ai_key ?? '');
-  const [aiModel, setAiModel] = useState(data.settings.ai_model ?? '');
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
 
   const save = (values: Record<string, string>) => {
     setSettings(values).catch((error) => onNotice(errorText(error)));
   };
+
+  useEffect(() => {
+    const win = window as unknown as { __shuatiboxBack?: () => string };
+    const previous = win.__shuatiboxBack;
+    const handler = () => {
+      if (aiConfigOpen) {
+        if (!(window as unknown as { __shuatiboxAiTesting?: boolean }).__shuatiboxAiTesting) {
+          setAiConfigOpen(false);
+        }
+        return 'handled';
+      }
+      return previous ? previous() : 'handled';
+    };
+    win.__shuatiboxBack = handler;
+    return () => {
+      if (win.__shuatiboxBack === handler) win.__shuatiboxBack = previous;
+    };
+  }, [aiConfigOpen]);
 
   return (
     <div className="px-4 pt-4">
@@ -56,36 +73,17 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-3 p-4">
-        <h3 className="text-[12px] font-semibold">AI 导入</h3>
-        <p className="text-[9.5px] text-[var(--muted)] mt-1 leading-5">OpenAI 兼容接口，密钥仅保存在本机。</p>
-        <input
-          className="mt-3 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
-          placeholder="接口地址，如 https://api.deepseek.com/v1"
-          value={aiUrl}
-          onChange={(event) => {
-            setAiUrl(event.target.value);
-            save({ ai_url: event.target.value.trim() });
-          }}
-        />
-        <input
-          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
-          placeholder="模型，如 deepseek-chat"
-          value={aiModel}
-          onChange={(event) => {
-            setAiModel(event.target.value);
-            save({ ai_model: event.target.value.trim() });
-          }}
-        />
-        <input
-          type="password"
-          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] outline-none"
-          placeholder="密钥 sk-..."
-          value={aiKey}
-          onChange={(event) => {
-            setAiKey(event.target.value);
-            save({ ai_key: event.target.value.trim() });
-          }}
-        />
+        <h3 className="text-[12px] font-semibold">AI 设置</h3>
+        <p className="text-[9.5px] text-[var(--muted)] mt-1 leading-5">
+          建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="chip">{data.settings.ai_model || '未配置模型'}</span>
+          <span className="chip">{data.settings.ai_url ? '接口已填写' : '接口未填写'}</span>
+        </div>
+        <button className="btn btn-soft btn-sm btn-block mt-3" onClick={() => setAiConfigOpen(true)}>
+          配置 AI 模型
+        </button>
       </div>
 
       <div className="card mt-3 p-4">
@@ -182,6 +180,16 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
         刷题盒子 SHUATIBOX v{APP_VERSION}
       </div>
       <div className="h-4" />
+
+      <AiConfigDialog
+        open={aiConfigOpen}
+        mobile
+        onClose={() => {
+          setAiConfigOpen(false);
+          onRefresh();
+        }}
+        onNotice={onNotice}
+      />
     </div>
   );
 }

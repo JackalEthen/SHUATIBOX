@@ -51,6 +51,7 @@ pub fn run() {
             ai::ai_import,
             ai::ai_chat,
             ai::ai_cancel,
+            ai::ai_test,
             commands::save_avatar,
             commands::load_practice_questions,
             saf::saf_materialize,

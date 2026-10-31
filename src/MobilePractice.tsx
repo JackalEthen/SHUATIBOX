@@ -23,6 +23,7 @@ import type { PracticeQuestion } from './questions';
 interface Props {
   view: SessionView;
   assetDir: string;
+  settings: Record<string, string>;
   onExit: () => void;
   onNotice: (message: string) => void;
   onFinished: () => void;
@@ -41,7 +42,7 @@ function elapsedSeconds(createdAt: string) {
   return Math.max(0, Math.floor((Date.now() - value) / 1000));
 }
 
-export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }: Props) {
+export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onFinished }: Props) {
   const isExam = view.session.mode === 'exam';
   const [edits, setEdits] = useState<Record<string, QuestionDto>>({});
   const questions = useMemo<PracticeQuestion[]>(
@@ -71,7 +72,9 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
   const [editBusy, setEditBusy] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiReady, setAiReady] = useState(false);
+  const [aiReady, setAiReady] = useState(() =>
+    Boolean(settings.ai_url && settings.ai_key && settings.ai_model),
+  );
   const [result, setResult] = useState<FinishResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(() =>
@@ -144,6 +147,22 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
       .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key && values.ai_model)))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const win = window as unknown as { __shuatiboxBack?: () => string };
+    const previous = win.__shuatiboxBack;
+    const handler = () => {
+      if (aiOpen) {
+        setAiOpen(false);
+        return 'handled';
+      }
+      return previous ? previous() : 'handled';
+    };
+    win.__shuatiboxBack = handler;
+    return () => {
+      if (win.__shuatiboxBack === handler) win.__shuatiboxBack = previous;
+    };
+  }, [aiOpen]);
 
   const submit = useCallback(
     async (label: string) => {

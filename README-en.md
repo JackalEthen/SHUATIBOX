@@ -46,7 +46,8 @@
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
 - Bank management: import and switch between multiple question banks; imports can append to the current bank, an existing bank, or a new bank, existing papers are skipped (never overwritten), and the import report lists invalid questions and missing images
-- AI conversion import: optionally call an OpenAI-compatible endpoint to normalize non-conforming Markdown into the bank format; chunked conversion, per-file failures are isolated, a conversion report is shown, and the target bank can be selected
+- AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
+- AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
 - Backup: export / import study records (question images excluded)
 

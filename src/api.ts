@@ -284,6 +284,15 @@ export async function aiCancel(requestId: string): Promise<void> {
   return invoke('ai_cancel', { requestId });
 }
 
+export interface AiTestResult {
+  visionOk: boolean;
+  message: string;
+}
+
+export async function aiTest(): Promise<AiTestResult> {
+  return invoke<AiTestResult>('ai_test');
+}
+
 export interface ImportTarget {
   bankId?: string | null;
   title?: string | null;

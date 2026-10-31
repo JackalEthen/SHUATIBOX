@@ -16,6 +16,7 @@ import {
   type Bootstrap,
   type Profile,
 } from './api';
+import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
 import { APP_VERSION } from './version';
 import { Modal } from './Modal';
@@ -41,9 +42,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
   const [goal, setGoal] = useState(data.settings.daily_goal ?? '50');
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
-  const [aiUrl, setAiUrl] = useState(data.settings.ai_url ?? '');
-  const [aiKey, setAiKey] = useState(data.settings.ai_key ?? '');
-  const [aiModel, setAiModel] = useState(data.settings.ai_model ?? '');
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
 
   const avatarUrl = profile.avatar ? convertFileSrc(profile.avatar) : '';
 
@@ -337,49 +336,17 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
         </div>
 
         <div className="card mt-4 p-5">
-          <h2 className="text-[13.5px] font-semibold">AI 导入</h2>
+          <h2 className="text-[13.5px] font-semibold">AI 设置</h2>
           <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
-            导入时勾选「AI 智能转换」，格式不符的 Markdown 会按 OpenAI 兼容接口改写后导入。密钥仅保存在本机。
+            用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="text-[11px] text-[var(--muted)]">
-              接口地址
-              <input
-                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
-                placeholder="https://api.deepseek.com/v1"
-                value={aiUrl}
-                onChange={(event) => {
-                  setAiUrl(event.target.value);
-                  saveSetting({ ai_url: event.target.value.trim() });
-                }}
-              />
-            </label>
-            <label className="text-[11px] text-[var(--muted)]">
-              模型
-              <input
-                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
-                placeholder="deepseek-chat"
-                value={aiModel}
-                onChange={(event) => {
-                  setAiModel(event.target.value);
-                  saveSetting({ ai_model: event.target.value.trim() });
-                }}
-              />
-            </label>
-            <label className="text-[11px] text-[var(--muted)] col-span-2">
-              密钥
-              <input
-                type="password"
-                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none"
-                placeholder="sk-..."
-                value={aiKey}
-                onChange={(event) => {
-                  setAiKey(event.target.value);
-                  saveSetting({ ai_key: event.target.value.trim() });
-                }}
-              />
-            </label>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="chip">{data.settings.ai_model ? data.settings.ai_model : '未配置模型'}</span>
+            <span className="chip">{data.settings.ai_url ? '接口已填写' : '接口未填写'}</span>
           </div>
+          <button className="btn btn-soft btn-sm mt-3" onClick={() => setAiConfigOpen(true)}>
+            配置 AI 模型
+          </button>
         </div>
 
         <div className="card mt-4 p-5">
@@ -465,6 +432,15 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
           会清空所有练习记录、错题、收藏、笔记和反馈；题库文件不会被删除。
         </p>
       </Modal>
+
+      <AiConfigDialog
+        open={aiConfigOpen}
+        onClose={() => {
+          setAiConfigOpen(false);
+          onRefresh();
+        }}
+        onNotice={onNotice}
+      />
     </section>
   );
 }
