@@ -22,6 +22,7 @@ export type IconName =
   | 'alert'
   | 'edit'
   | 'expand'
+  | 'sparkle'
   | 'x';
 
 interface IconProps extends SVGProps<SVGSVGElement> {
@@ -162,6 +163,13 @@ export function Icon({ name, ...props }: IconProps) {
       return (
         <svg {...base}>
           <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
+      );
+    case 'sparkle':
+      return (
+        <svg {...base}>
+          <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+          <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
         </svg>
       );
     case 'x':

@@ -271,6 +271,19 @@ export interface AiImportSummary {
   files: AiFileReport[];
 }
 
+export interface AiChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function aiChat(messages: AiChatMessage[], images: string[], requestId: string): Promise<string> {
+  return invoke<string>('ai_chat', { messages, images, requestId });
+}
+
+export async function aiCancel(requestId: string): Promise<void> {
+  return invoke('ai_cancel', { requestId });
+}
+
 export interface ImportTarget {
   bankId?: string | null;
   title?: string | null;

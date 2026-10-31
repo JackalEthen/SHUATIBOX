@@ -12,6 +12,7 @@ import {
   type SessionSpec,
   type SessionView,
 } from './api';
+import { AiConfigDialog } from './AiConfigDialog';
 import { Icon, type IconName } from './icons';
 import type { Appearance } from './theme';
 import { MobileHome } from './MobileHome';
@@ -71,6 +72,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const [bankOpen, setBankOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +191,10 @@ export function MobileApp({ appearance, onNotice }: Props) {
           <div>
             <div className="text-[13px]">还没有可用题库</div>
             <div className="text-[11px] text-[var(--muted)] mt-2 leading-6">用「导入题库」选择题库文件夹或 zip 开始。</div>
-            <button className="btn btn-primary mt-4" onClick={() => setImportOpen(true)}>导入题库</button>
+            <div className="flex justify-center gap-2 mt-4">
+              <button className="btn btn-primary" onClick={() => setImportOpen(true)}>导入题库</button>
+              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>AI 设置</button>
+            </div>
           </div>
         </div>
         <ImportSheet
@@ -200,6 +205,12 @@ export function MobileApp({ appearance, onNotice }: Props) {
             setImportOpen(false);
             refresh();
           }}
+        />
+        <AiConfigDialog
+          open={aiConfigOpen}
+          mobile
+          onClose={() => setAiConfigOpen(false)}
+          onNotice={onNotice}
         />
       </div>
     );

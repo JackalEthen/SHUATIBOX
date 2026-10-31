@@ -3,6 +3,7 @@ import {
   errorText,
   finishSession,
   getNote,
+  getSettings,
   isFavorite,
   saveAnswer,
   saveNote,
@@ -16,6 +17,7 @@ import {
   type SessionSpec,
   type SessionView,
 } from './api';
+import { AiTutor } from './AiTutor';
 import { Icon } from './icons';
 import { Modal } from './Modal';
 
@@ -192,6 +194,7 @@ export function DesktopPractice({
   const [editExplanation, setEditExplanation] = useState('');
   const [editBusy, setEditBusy] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [remaining, setRemaining] = useState(() =>
     view.session.durationSec > 0
       ? Math.max(0, view.session.durationSec - elapsedSeconds(view.session.createdAt))
@@ -200,8 +203,12 @@ export function DesktopPractice({
   const finishing = useRef(false);
   const questionStart = useRef(Date.now());
   const question = questions[index];
+  const [aiReady, setAiReady] = useState(() =>
+    Boolean(settings.ai_url && settings.ai_key && settings.ai_model),
+  );
 
   useEffect(() => {
+    setAiOpen(false);
     const answer = question ? answers[question.id] : undefined;
     setSelected(answer?.selected ?? []);
     setSubmitted(answer?.submitted ?? false);
@@ -209,6 +216,12 @@ export function DesktopPractice({
     if (!question) return;
     isFavorite(question.id).then(setFavorite).catch(() => setFavorite(false));
   }, [index, question?.id]);
+
+  useEffect(() => {
+    getSettings()
+      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key && values.ai_model)))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     setIndex(() => {
@@ -631,6 +644,18 @@ export function DesktopPractice({
                 </button>
                 <button
                   className="icon-btn"
+                  onClick={() => {
+                    if (aiReady) setAiOpen(true);
+                    else onNotice('请先在设置中配置 AI 接口');
+                  }}
+                  aria-label="AI 讲解"
+                  aria-disabled={!aiReady}
+                  style={aiReady ? undefined : { opacity: 0.35 }}
+                >
+                  <Icon name="sparkle" />
+                </button>
+                <button
+                  className="icon-btn"
                   onClick={toggleFlag}
                   aria-label="标记"
                   style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined}
@@ -821,6 +846,8 @@ export function DesktopPractice({
           共 {questions.length} 题，未答 {questions.length - answeredCount} 题。交卷后不可修改答案，未答按错处理。
         </p>
       </Modal>
+
+      {aiOpen && rawQuestion ? <AiTutor question={rawQuestion} onClose={() => setAiOpen(false)} /> : null}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import { bootstrap, errorText, getProfile, getSession, homeSummary, startSession, type Bootstrap, type HomeSummary, type Profile, type SessionSpec, type SessionView } from './api';
+import { AiConfigDialog } from './AiConfigDialog';
 import { BankDialog } from './BankDialog';
 import { CustomPaperDialog } from './CustomPaperDialog';
 import { DesktopHome } from './DesktopHome';
@@ -42,6 +43,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   const [examOpen, setExamOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [profile, setProfile] = useState<Profile>({ name: 'Boss', avatar: '' });
 
@@ -114,6 +116,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           {loadError ? (
             <div className="mt-5 flex justify-center gap-2">
               <button className="btn btn-primary" onClick={() => setImportOpen(true)}>导入题库</button>
+              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>AI 设置</button>
               <button className="btn btn-ghost" onClick={refresh}>重试</button>
             </div>
           ) : null}
@@ -122,6 +125,11 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           open={importOpen}
           onClose={() => setImportOpen(false)}
           onDone={refresh}
+          onNotice={onNotice}
+        />
+        <AiConfigDialog
+          open={aiConfigOpen}
+          onClose={() => setAiConfigOpen(false)}
           onNotice={onNotice}
         />
       </div>

@@ -1,14 +1,15 @@
-use crate::db::{base_dir, open_user};
+use crate::db::{asset_dir, base_dir, ensure_active_bank, open_user};
 use crate::importer::{
     derive_exam_type, extract_zip, make_temp_dir, parse_meta, probe_file, walk_markdown,
 };
 use crate::models::{AiFileReport, AiImportSummary, ImportProgress};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
 use serde_json::{json, Value};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Semaphore;
@@ -17,6 +18,7 @@ use tokio::sync::Semaphore;
 const CHUNK_CHARS: usize = 12_000;
 const MIN_SPLIT_CHARS: usize = 1_500;
 const CONCURRENCY: usize = 3;
+const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone)]
 struct AiConfig {
@@ -34,6 +36,40 @@ impl AiConfig {
             format!("{base}/chat/completions")
         }
     }
+}
+
+struct CancelState {
+    active: HashMap<String, tokio::sync::oneshot::Sender<()>>,
+    cancelled: HashSet<String>,
+}
+
+fn cancel_state() -> &'static Mutex<CancelState> {
+    static STATE: OnceLock<Mutex<CancelState>> = OnceLock::new();
+    STATE.get_or_init(|| {
+        Mutex::new(CancelState {
+            active: HashMap::new(),
+            cancelled: HashSet::new(),
+        })
+    })
+}
+
+#[tauri::command]
+pub fn ai_cancel(request_id: String) {
+    let mut state = cancel_state().lock().unwrap();
+    if let Some(sender) = state.active.remove(&request_id) {
+        let _ = sender.send(());
+    } else {
+        if state.cancelled.len() > 256 {
+            state.cancelled.clear();
+        }
+        state.cancelled.insert(request_id);
+    }
+}
+
+#[derive(Clone, serde::Deserialize)]
+pub struct AiMessage {
+    pub role: String,
+    pub content: String,
 }
 
 #[derive(Clone)]
@@ -91,6 +127,132 @@ fn load_config(app: &AppHandle) -> Result<AiConfig, String> {
     }
     Ok(AiConfig { url, key, model })
 }
+
+#[tauri::command]
+pub async fn ai_chat(
+    app: AppHandle,
+    messages: Vec<AiMessage>,
+    images: Option<Vec<String>>,
+    request_id: String,
+) -> Result<String, String> {
+    if messages.is_empty() {
+        return Err("没有可发送的内容".to_string());
+    }
+    let config = load_config(&app)?;
+    let image_parts = build_image_parts(&app, images.unwrap_or_default());
+
+    let mut payload: Vec<Value> = vec![json!({
+        "role": "system",
+        "content": TUTOR_SYSTEM_PROMPT
+    })];
+    let mut first_user = true;
+    for message in messages {
+        let role = if message.role == "assistant" { "assistant" } else { "user" };
+        if role == "user" && first_user && !image_parts.is_empty() {
+            let mut parts: Vec<Value> = Vec::with_capacity(image_parts.len() + 1);
+            parts.push(json!({"type": "text", "text": message.content}));
+            parts.extend(image_parts.iter().cloned());
+            payload.push(json!({"role": "user", "content": parts}));
+        } else {
+            payload.push(json!({"role": role, "content": message.content}));
+        }
+        if role == "user" {
+            first_user = false;
+        }
+    }
+
+    let body = json!({
+        "model": config.model,
+        "temperature": 0.3,
+        "messages": payload
+    });
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
+    {
+        let mut state = cancel_state().lock().unwrap();
+        if state.cancelled.remove(&request_id) {
+            return Err("已取消".to_string());
+        }
+        state.active.insert(request_id.clone(), cancel_tx);
+    }
+    let result = tokio::select! {
+        result = send_chat(&client, &config, &body) => result,
+        _ = cancel_rx => Err("已取消".to_string()),
+    };
+    cancel_state().lock().unwrap().active.remove(&request_id);
+    let (content, _) = result?;
+    Ok(content)
+}
+
+fn build_image_parts(app: &AppHandle, images: Vec<String>) -> Vec<Value> {
+    if images.is_empty() {
+        return Vec::new();
+    }
+    let dir = open_user(app)
+        .ok()
+        .and_then(|user| ensure_active_bank(&user).ok())
+        .map(|bank| asset_dir(&bank));
+    let Some(dir) = dir else {
+        return Vec::new();
+    };
+    let mut parts = Vec::new();
+    for image in images {
+        let image = image.trim();
+        if image.is_empty() {
+            continue;
+        }
+        if image.starts_with("http://") || image.starts_with("https://") {
+            parts.push(image_part(image));
+            continue;
+        }
+        let name = image.strip_prefix("asset:").unwrap_or(image);
+        if name.contains("..") || name.contains('/') || name.contains('\\') {
+            continue;
+        }
+        let bytes = match fs::read(dir.join(name)) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if bytes.len() > MAX_IMAGE_BYTES {
+            continue;
+        }
+        let Some(mime) = image_mime(&bytes) else {
+            continue;
+        };
+        let encoded = STANDARD.encode(bytes);
+        parts.push(image_part(&format!("data:{mime};base64,{encoded}")));
+    }
+    parts
+}
+
+fn image_part(url: &str) -> Value {
+    json!({"type": "image_url", "image_url": {"url": url}})
+}
+
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    // ponytail: 按文件头判断，题库里存在扩展名与实际内容不一致的图片
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Some("image/jpeg");
+    }
+    if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    None
+}
+
+const TUTOR_SYSTEM_PROMPT: &str = r#"你是一位耐心的考试辅导老师，帮助用户理解题目。
+回答要求：
+1. 先明确给出正确答案（选项字母 + 内容），再逐步讲解解题思路。
+2. 讲清关键概念、干扰项为什么错、常见易错点。
+3. 使用简体中文，可用 Markdown 列表、表格、公式。
+4. 不要编造题目中没有的信息；不确定时说明。"#;
 
 fn prepare_workspace(base: &Path, source: &Path) -> Result<(PathBuf, PathBuf), String> {
     let temp_root = make_temp_dir(base, "ai")?;
@@ -454,12 +616,20 @@ async fn chat(
             {"role": "user", "content": user}
         ]
     });
+    send_chat(client, config, &body).await
+}
+
+async fn send_chat(
+    client: &reqwest::Client,
+    config: &AiConfig,
+    body: &Value,
+) -> Result<(String, bool), String> {
     let mut last = String::new();
     for attempt in 0..3u64 {
         let response = client
             .post(config.endpoint())
             .bearer_auth(&config.key)
-            .json(&body)
+            .json(body)
             .send()
             .await;
         match response {
@@ -898,6 +1068,69 @@ mod tests {
             }
             Err(_) => panic!("转换失败"),
         }
+    }
+
+    #[test]
+    fn sends_chat_and_returns_content() {
+        let payload = json!({
+            "choices": [{
+                "message": { "content": "正确答案是 A。" },
+                "finish_reason": "stop"
+            }]
+        })
+        .to_string();
+        let config = AiConfig {
+            url: spawn_mock(payload),
+            key: "k".to_string(),
+            model: "m".to_string(),
+        };
+        let client = reqwest::Client::new();
+        let body = json!({
+            "model": "m",
+            "messages": [{"role": "user", "content": "题目"}]
+        });
+        let result = tauri::async_runtime::block_on(send_chat(&client, &config, &body));
+        match result {
+            Ok((content, truncated)) => {
+                assert_eq!(content, "正确答案是 A。");
+                assert!(!truncated);
+            }
+            Err(_) => panic!("请求失败"),
+        }
+    }
+
+    #[test]
+    fn cancel_signals_active_request() {
+        let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
+        cancel_state()
+            .lock()
+            .unwrap()
+            .active
+            .insert("test-active".to_string(), tx);
+        ai_cancel("test-active".to_string());
+        assert!(rx.try_recv().is_ok());
+    }
+
+    #[test]
+    fn cancel_before_start_is_remembered() {
+        ai_cancel("test-early".to_string());
+        let mut state = cancel_state().lock().unwrap();
+        assert!(state.cancelled.remove("test-early"));
+    }
+
+    #[test]
+    fn detects_image_magic() {
+        assert_eq!(
+            image_mime(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]),
+            Some("image/png")
+        );
+        assert_eq!(image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(
+            image_mime(b"RIFF0000WEBPVP8 "),
+            Some("image/webp")
+        );
+        assert_eq!(image_mime(b"GIF89a"), None);
+        assert_eq!(image_mime(b"not an image"), None);
     }
 
     #[test]

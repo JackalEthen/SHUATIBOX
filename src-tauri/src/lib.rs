@@ -49,6 +49,8 @@ pub fn run() {
             commands::import_bank,
             commands::import_into_bank,
             ai::ai_import,
+            ai::ai_chat,
+            ai::ai_cancel,
             commands::save_avatar,
             commands::load_practice_questions,
             saf::saf_materialize,

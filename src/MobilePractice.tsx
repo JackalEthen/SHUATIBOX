@@ -3,6 +3,7 @@ import {
   errorText,
   finishSession,
   getNote,
+  getSettings,
   isFavorite,
   saveAnswer,
   saveNote,
@@ -15,6 +16,7 @@ import {
   type QuestionDto,
   type SessionView,
 } from './api';
+import { AiTutor } from './AiTutor';
 import { Icon } from './icons';
 import type { PracticeQuestion } from './questions';
 
@@ -68,6 +70,8 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
   const [editExplanation, setEditExplanation] = useState('');
   const [editBusy, setEditBusy] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
   const [result, setResult] = useState<FinishResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(() =>
@@ -129,10 +133,17 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
 
   useEffect(() => {
     startedAt.current = Date.now();
+    setAiOpen(false);
     if (!question) return;
     setFavorite(false);
     isFavorite(question.id).then(setFavorite).catch(() => setFavorite(false));
   }, [question?.id]);
+
+  useEffect(() => {
+    getSettings()
+      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key && values.ai_model)))
+      .catch(() => undefined);
+  }, []);
 
   const submit = useCallback(
     async (label: string) => {
@@ -451,6 +462,18 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
         <button className="icon-btn" aria-label="编辑本题" onClick={openEdit}>
           <Icon name="edit" />
         </button>
+        <button
+          className="icon-btn"
+          aria-label="AI 讲解"
+          aria-disabled={!aiReady}
+          style={aiReady ? undefined : { opacity: 0.35 }}
+          onClick={() => {
+            if (aiReady) setAiOpen(true);
+            else onNotice('请先在设置中配置 AI 接口');
+          }}
+        >
+          <Icon name="sparkle" />
+        </button>
         <button className="icon-btn" aria-label="标记" style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined} onClick={() => void toggleFlag()}>
           <Icon name="check" />
         </button>
@@ -626,6 +649,10 @@ export function MobilePractice({ view, assetDir, onExit, onNotice, onFinished }:
           <div className="h-2" />
         </div>
       </div>
+
+      {aiOpen && rawQuestion ? (
+        <AiTutor mobile question={rawQuestion} onClose={() => setAiOpen(false)} />
+      ) : null}
     </div>
   );
 }
