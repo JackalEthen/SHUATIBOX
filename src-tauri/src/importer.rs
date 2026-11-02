@@ -1422,7 +1422,7 @@ fn import_bank_ex(
                     paper.4 += 1;
                 }
             }
-            if file_index % 25 == 0 {
+            if file_index % 10 == 0 {
                 let _ = app.emit(
                     "import-progress",
                     ImportProgress {
@@ -1435,13 +1435,21 @@ fn import_bank_ex(
             }
         }
 
+        let _ = app.emit(
+            "import-progress",
+            ImportProgress {
+                phase: "finalize".to_string(),
+                current: total_files,
+                total: total_files,
+                message: "写入题库并建立索引…".to_string(),
+            },
+        );
+
         for (key, (title, year, region, exam_type, count, modules)) in &papers {
             insert_paper
                 .execute(params![key, title, year, region, exam_type, *count as i64, modules.len() as i64])
                 .map_err(|error| error.to_string())?;
         }
-        db.execute_batch(REFRESH_COUNTS_SQL)
-        .map_err(|error| error.to_string())?;
         db.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_questions_module ON questions(module);
              CREATE INDEX IF NOT EXISTS idx_questions_paper ON questions(paper_key);
@@ -1449,6 +1457,8 @@ fn import_bank_ex(
              CREATE INDEX IF NOT EXISTS idx_questions_practice ON questions(can_grade, image_missing);
              CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);",
         )
+        .map_err(|error| error.to_string())?;
+        db.execute_batch(REFRESH_COUNTS_SQL)
         .map_err(|error| error.to_string())?;
         let year_min = papers.values().map(|value| value.1.as_str()).filter(|value| !value.is_empty()).min().unwrap_or("");
         let year_max = papers.values().map(|value| value.1.as_str()).filter(|value| !value.is_empty()).max().unwrap_or("");

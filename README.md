@@ -140,7 +140,7 @@ npm run tauri -- android build --debug --target aarch64 --apk
 | Windows 安装版 | `%APPDATA%\com.shuatibox.app` |
 | Android | 应用私有目录 |
 
-题库数据库与图片都保存在该目录，卸载应用不会自动删除学习记录。
+题库数据库与图片都保存在该目录。卸载 Windows 安装版时会自动删除该目录下的题库、图片、做题记录和设置。
 
 ## 目录结构
 

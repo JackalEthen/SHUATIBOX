@@ -140,7 +140,7 @@ The full format contract lives in [`import-format.md`](import-format.md).
 | Installed (Windows) | `%APPDATA%\com.shuatibox.app` |
 | Android | App private storage |
 
-Question bank databases and images live in that directory. Uninstalling the app does not automatically delete study records.
+Question bank databases and images live in that directory. Uninstalling the Windows app removes the question banks, images, study records, and settings from that directory.
 
 ## Project Layout
 
