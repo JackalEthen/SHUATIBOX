@@ -26,6 +26,7 @@ import { MobileWrong } from './MobileWrong';
 import { BankSheet } from './mobile/BankSheet';
 import { CustomPaperSheet } from './mobile/CustomPaperSheet';
 import { ImportSheet } from './mobile/ImportSheet';
+import { PracticeSetupDialog } from './PracticeSetupDialog';
 
 export type MobileScreen =
   | 'home'
@@ -73,6 +74,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const [customOpen, setCustomOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
+  const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +112,14 @@ export function MobileApp({ appearance, onNotice }: Props) {
     [onNotice],
   );
 
+  const requestStart = (spec: SessionSpec) => {
+    if (spec.mode === 'module') {
+      setSetupSpec(spec);
+      return;
+    }
+    void begin(spec);
+  };
+
   const resume = useCallback(async () => {
     try {
       const next = await resumeSession();
@@ -133,6 +143,10 @@ export function MobileApp({ appearance, onNotice }: Props) {
   useEffect(() => {
     type BackBridge = () => string;
     const handler: BackBridge = () => {
+      if (setupSpec) {
+        setSetupSpec(null);
+        return 'handled';
+      }
       if (bankOpen) {
         setBankOpen(false);
         return 'handled';
@@ -180,7 +194,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
     return () => {
       delete (window as unknown as { __shuatiboxBack?: BackBridge }).__shuatiboxBack;
     };
-  }, [bankOpen, customOpen, importOpen, aiConfigOpen, leavePractice, onNotice]);
+  }, [setupSpec, bankOpen, customOpen, importOpen, aiConfigOpen, leavePractice, onNotice]);
 
   if (loading && !data) {
     return (
@@ -260,7 +274,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
             data={data}
             summary={summary}
             profileName={profile.name}
-            onStart={begin}
+            onStart={requestStart}
             onResume={resume}
             onLibrary={() => setScreen('library')}
             onWrong={() => setScreen('wrong')}
@@ -270,7 +284,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         ) : screen === 'library' ? (
           <MobileLibrary
             data={data}
-            onStart={begin}
+            onStart={requestStart}
             onNotice={onNotice}
             onBank={() => setBankOpen(true)}
             onCustom={() => setCustomOpen(true)}
@@ -352,6 +366,19 @@ export function MobileApp({ appearance, onNotice }: Props) {
         }}
         bank={data.bank}
         banks={data.banks}
+      />
+      <PracticeSetupDialog
+        open={setupSpec !== null}
+        moduleName={setupSpec?.module ?? null}
+        wrongCount={data.wrongCount}
+        mobile
+        onClose={() => setSetupSpec(null)}
+        onStart={(count, mixWrong) => {
+          if (!setupSpec) return;
+          const spec = { ...setupSpec, count, mixWrong };
+          setSetupSpec(null);
+          void begin(spec);
+        }}
       />
 
       </div>

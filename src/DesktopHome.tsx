@@ -81,7 +81,7 @@ export function DesktopHome({
               </span>
             </div>
             <h2 className="serif text-[21px] mt-3 leading-snug">
-              {continueSession ? continueSession.title : '从任意模块开始一组 20 题'}
+              {continueSession ? continueSession.title : '从任意模块开始一组练习'}
             </h2>
             <p className="text-[12.5px] text-[var(--ink-2)] mt-2">
               {continueSession

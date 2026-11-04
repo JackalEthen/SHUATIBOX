@@ -59,7 +59,7 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
             <span className="text-[10px] text-[var(--muted)]">{continueSession ? continueSession.updatedAt : '今天'}</span>
           </div>
           <div className="serif text-[16px] mt-2 leading-snug">
-            {continueSession ? continueSession.title : '从任意模块开始一组 20 题'}
+            {continueSession ? continueSession.title : '从任意模块开始一组练习'}
           </div>
           <div className="text-[11px] text-[var(--ink-2)] mt-1">
             {continueSession

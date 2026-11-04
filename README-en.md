@@ -41,6 +41,8 @@
 ## Features
 
 - Practice modes: random, full paper, mock exam, custom set, wrong-question retry, favorites
+- Practice setup: choose 1–500 questions per module session (default 20) and optionally mix in about 25% of pending wrong questions from the same module (rounded up, at least 1), most recent first
+- Desktop sidebar: collapsible icon-only mode with remembered state
 - Grading: instant per-question grading or grade after submission; single-choice, multi-choice, true/false, 2–8 options
 - Study tools: wrong-question book (pending / mastered), favorites, notes
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview

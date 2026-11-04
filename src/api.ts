@@ -75,6 +75,7 @@ export interface SessionSpec {
   years?: string[] | null;
   examType?: string | null;
   count?: number | null;
+  mixWrong?: boolean | null;
   order?: string | null;
   durationSec?: number | null;
   title?: string | null;

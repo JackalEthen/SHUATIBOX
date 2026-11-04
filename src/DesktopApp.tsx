@@ -13,6 +13,7 @@ import { DesktopWrong } from './DesktopWrong';
 import { ExamPicker } from './ExamPicker';
 import { Icon, type IconName } from './icons';
 import { APP_VERSION } from './version';
+import { PracticeSetupDialog } from './PracticeSetupDialog';
 import { ImportDialog } from './ImportDialog';
 import type { Appearance, Accent } from './theme';
 
@@ -46,6 +47,20 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [profile, setProfile] = useState<Profile>({ name: 'Boss', avatar: '' });
+  const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar-collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', sidebarCollapsed ? '1' : '0');
+    } catch {}
+  }, [sidebarCollapsed]);
 
   const refresh = useCallback(() => {
     setRefreshKey((value) => value + 1);
@@ -80,6 +95,14 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     } finally {
       setStarting(false);
     }
+  };
+
+  const requestStart = (spec: SessionSpec) => {
+    if (spec.mode === 'module') {
+      setSetupSpec(spec);
+      return;
+    }
+    void begin(spec);
   };
 
   const resume = async (id: string) => {
@@ -171,73 +194,129 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     { icon: 'settings', label: '设置', target: 'settings' },
   ];
 
+  const currentAccent = accents.find((item) => item.key === accent) ?? accents[0];
+
   return (
     <div className="flex h-screen">
-      <aside className="w-[248px] shrink-0 border-r border-[var(--line)] bg-[var(--paper-2)] flex flex-col">
-        <div className="px-5 pt-6 pb-5 flex items-center gap-0.5">
-          <img
-            src="/app-icon.png"
-            alt="刷题盒子"
-            className="w-12 h-12 rounded-[12px] object-cover shrink-0"
-          />
-          <div>
-            <div className="font-semibold tracking-wide text-[15px]">刷题盒子</div>
-            <div className="text-[9px] tracking-[.22em] text-[var(--muted)] mt-0.5">SHUATIBOX</div>
-          </div>
+      <aside
+        className={`${sidebarCollapsed ? 'w-[72px]' : 'w-[248px]'} shrink-0 border-r border-[var(--line)] bg-[var(--paper-2)] flex flex-col overflow-hidden transition-all duration-200`}
+      >
+        <div className={`pt-6 pb-5 flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'px-5 gap-0.5'}`}>
+          {!sidebarCollapsed ? (
+            <>
+              <img
+                src="/app-icon.png"
+                alt="刷题盒子"
+                className="w-12 h-12 rounded-[12px] object-cover shrink-0"
+              />
+              <div>
+                <div className="font-semibold tracking-wide text-[15px]">刷题盒子</div>
+                <div className="text-[9px] tracking-[.22em] text-[var(--muted)] mt-0.5">SHUATIBOX</div>
+              </div>
+            </>
+          ) : null}
+          <button
+            className={`icon-btn opacity-40 hover:opacity-100 focus-visible:opacity-100 transition-opacity ${sidebarCollapsed ? '' : 'ml-auto'}`}
+            onClick={() => setSidebarCollapsed((value) => !value)}
+            aria-label={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+          >
+            <Icon name={sidebarCollapsed ? 'panelLeftOpen' : 'panelLeftClose'} />
+          </button>
         </div>
 
         <button
-          className="mx-4 mb-4 flex items-center gap-3 p-2.5 rounded-xl border border-[var(--line)] bg-[var(--card)] hover:border-[var(--accent)] transition text-left"
+          className={`mb-4 flex items-center rounded-xl border border-[var(--line)] bg-[var(--card)] hover:border-[var(--accent)] transition text-left ${sidebarCollapsed ? 'mx-2 justify-center p-2' : 'mx-4 gap-3 p-2.5'}`}
           onClick={() => setBankOpen(true)}
+          title={sidebarCollapsed ? data.bank.title : undefined}
         >
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">行</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[12.5px] font-medium truncate">{data.bank.title}</div>
-            <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
-              {data.bank.questionCount.toLocaleString('zh-CN')} 题 · {data.bank.reviewCount} 题待校对
-            </div>
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
+            {data.bank.title.slice(0, 1) || '题'}
           </div>
-          <Icon name="chevronDown" className="w-3.5 h-3.5 text-[var(--muted)]" strokeWidth={2} />
+          {!sidebarCollapsed ? (
+            <>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium truncate">{data.bank.title}</div>
+                <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
+                  {data.bank.questionCount.toLocaleString('zh-CN')} 题 · {data.bank.reviewCount} 题待校对
+                </div>
+              </div>
+              <Icon name="chevronDown" className="w-3.5 h-3.5 text-[var(--muted)]" strokeWidth={2} />
+            </>
+          ) : null}
         </button>
 
-        <nav className="px-3 space-y-1">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              className={`nav-btn ${screen === item.target || (screen === 'practice' && item.target === 'library') ? 'active' : ''}`}
-              onClick={() => go(item.target)}
-            >
-              <Icon name={item.icon} />
-              {item.label}
-              {item.badge ? <span className="n">{item.badge}</span> : null}
-            </button>
-          ))}
+        <nav className={`${sidebarCollapsed ? 'px-2' : 'px-3'} space-y-1`}>
+          {navItems.map((item) => {
+            const active = screen === item.target || (screen === 'practice' && item.target === 'library');
+            return (
+              <button
+                key={item.label}
+                className={`nav-btn ${sidebarCollapsed ? 'justify-center px-0' : ''} ${active ? 'active' : ''}`}
+                onClick={() => go(item.target)}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <Icon name={item.icon} />
+                {!sidebarCollapsed ? (
+                  <>
+                    {item.label}
+                    {item.badge ? <span className="n">{item.badge}</span> : null}
+                  </>
+                ) : null}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="mt-auto p-4 border-t border-[var(--line)]">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10.5px] text-[var(--muted)] mr-1">主题</span>
-            {accents.map((item) => (
-              <button
-                key={item.key}
-                className={`dot ${accent === item.key ? 'active' : ''}`}
-                style={{ background: item.color }}
-                onClick={() => setAccent(item.key)}
-                aria-label={item.label}
+        <div className={`mt-auto border-t border-[var(--line)] ${sidebarCollapsed ? 'p-3' : 'p-4'}`}>
+          {sidebarCollapsed ? (
+            <div className="flex flex-col items-center gap-3">
+              <span
+                className="dot active"
+                style={{ background: currentAccent.color }}
+                title={`主题：${currentAccent.label}`}
               />
-            ))}
-          </div>
-          <button className="flex items-center gap-2 text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)]" onClick={() => setDark(!dark)}>
-            <Icon name="moon" className="w-4 h-4" />
-            <span>{dark ? '浅色模式' : '深色模式'}</span>
-          </button>
-          <div className="mt-4 text-[10px] text-[var(--muted)] flex items-center justify-between">
-            <span>v{APP_VERSION} · 本地离线</span>
-            <span className="flex items-center gap-1">
-              <i className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block" />
-              数据已保存
-            </span>
-          </div>
+              <button
+                className="icon-btn"
+                onClick={() => setDark(!dark)}
+                aria-label={dark ? '浅色模式' : '深色模式'}
+                title={dark ? '浅色模式' : '深色模式'}
+              >
+                <Icon name="moon" />
+              </button>
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block"
+                title="数据已保存"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10.5px] text-[var(--muted)] mr-1">主题</span>
+                {accents.map((item) => (
+                  <button
+                    key={item.key}
+                    className={`dot ${accent === item.key ? 'active' : ''}`}
+                    style={{ background: item.color }}
+                    onClick={() => setAccent(item.key)}
+                    aria-label={item.label}
+                  />
+                ))}
+              </div>
+              <button className="flex items-center gap-2 text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)]" onClick={() => setDark(!dark)}>
+                <Icon name="moon" className="w-4 h-4" />
+                <span>{dark ? '浅色模式' : '深色模式'}</span>
+              </button>
+              <div className="mt-4 text-[10px] text-[var(--muted)] flex items-center justify-between">
+                <span>v{APP_VERSION} · 本地离线</span>
+                <span className="flex items-center gap-1">
+                  <i className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block" />
+                  数据已保存
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
@@ -264,7 +343,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             <DesktopHome
               data={homeData}
               profileName={profile.name}
-              onStart={(spec) => void begin(spec)}
+              onStart={requestStart}
               onResume={(id) => void resume(id)}
               onLibrary={() => go('library')}
               onWrong={() => go('wrong')}
@@ -277,7 +356,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             <DesktopLibrary
               data={data}
               refreshKey={refreshKey}
-              onStart={(spec) => void begin(spec)}
+              onStart={requestStart}
               onNotice={onNotice}
               onCustom={() => setCustomOpen(true)}
               onImport={() => setImportOpen(true)}
@@ -333,6 +412,18 @@ export function DesktopApp({ appearance, onNotice }: Props) {
         onRefresh={refresh}
         onImport={() => setImportOpen(true)}
         onNotice={onNotice}
+      />
+      <PracticeSetupDialog
+        open={setupSpec !== null}
+        moduleName={setupSpec?.module ?? null}
+        wrongCount={data.wrongCount}
+        onClose={() => setSetupSpec(null)}
+        onStart={(count, mixWrong) => {
+          if (!setupSpec) return;
+          const spec = { ...setupSpec, count, mixWrong };
+          setSetupSpec(null);
+          void begin(spec);
+        }}
       />
     </div>
   );

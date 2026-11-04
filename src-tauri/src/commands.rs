@@ -458,6 +458,26 @@ pub fn home_summary(app: tauri::AppHandle) -> Result<HomeSummary, String> {
     })
 }
 
+fn merge_mixed(normal: Vec<String>, wrong: Vec<String>, limit: usize) -> Vec<String> {
+    let mut merged = Vec::with_capacity(limit);
+    let mut normal = normal.into_iter();
+    let mut wrong = wrong.into_iter();
+    let mut take_wrong = false;
+    while merged.len() < limit {
+        let next = if take_wrong {
+            wrong.next().or_else(|| normal.next())
+        } else {
+            normal.next().or_else(|| wrong.next())
+        };
+        let Some(id) = next else { break };
+        if !merged.iter().any(|existing| existing == &id) {
+            merged.push(id);
+        }
+        take_wrong = !take_wrong;
+    }
+    merged
+}
+
 fn build_session(
     bank: &Connection,
     user: &Connection,
@@ -589,11 +609,51 @@ fn build_session(
             .map_err(|error| error.to_string())?
             .flatten()
             .collect();
+
+        let mut mixed = false;
+        if spec.mix_wrong.unwrap_or(false) {
+            let wrong_take = ((limit as f64 * 0.25).ceil() as i64).max(1);
+            let mut wrong_stmt = user
+                .prepare(
+                    "SELECT question_id FROM wrong WHERE bank_id=?1 AND mastered=0
+                     ORDER BY last_wrong_at DESC",
+                )
+                .map_err(|error| error.to_string())?;
+            let mut rows = wrong_stmt.query(params![bank_id]).map_err(|error| error.to_string())?;
+            let mut picked: Vec<String> = Vec::new();
+            while let Some(row) = rows.next().map_err(|error| error.to_string())? {
+                if picked.len() as i64 >= wrong_take {
+                    break;
+                }
+                let id: String = row.get(0).map_err(|error| error.to_string())?;
+                let question_module: Option<String> = bank
+                    .query_row(
+                        "SELECT module FROM questions WHERE id=?1 AND can_grade=1",
+                        params![id],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(|error| error.to_string())?;
+                if let Some(value) = question_module.as_deref() {
+                    if (module_name.is_empty() || value == module_name) && !picked.contains(&id) {
+                        picked.push(id);
+                    }
+                }
+            }
+            if !picked.is_empty() {
+                ids = merge_mixed(ids, picked, limit as usize);
+                mixed = true;
+            }
+        }
+
         title = if module_name.is_empty() {
             format!("随机练习 · {} 题", ids.len())
         } else {
             format!("{} · {} 题", module_name, ids.len())
         };
+        if mixed {
+            title.push_str("（含错题）");
+        }
         module = if module_name.is_empty() { None } else { Some(module_name) };
     }
 
@@ -1611,6 +1671,100 @@ pub fn load_practice_questions(
         .map_err(|error| error.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_session, merge_mixed};
+    use crate::models::SessionSpec;
+    use rusqlite::{params, Connection};
+
+    fn ids(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn build_session_mixes_wrong_for_module() {
+        let bank = Connection::open_in_memory().unwrap();
+        bank.execute_batch(
+            "CREATE TABLE questions (id TEXT PRIMARY KEY, module TEXT NOT NULL, can_grade INTEGER NOT NULL);",
+        )
+        .unwrap();
+        for index in 0..20 {
+            bank.execute(
+                "INSERT INTO questions (id,module,can_grade) VALUES (?1,'A',1)",
+                params![format!("n{index}")],
+            )
+            .unwrap();
+        }
+        for index in 0..5 {
+            bank.execute(
+                "INSERT INTO questions (id,module,can_grade) VALUES (?1,'A',1)",
+                params![format!("w{index}")],
+            )
+            .unwrap();
+        }
+        bank.execute(
+            "INSERT INTO questions (id,module,can_grade) VALUES ('wb','B',1)",
+            [],
+        )
+        .unwrap();
+
+        let user = Connection::open_in_memory().unwrap();
+        user.execute_batch(
+            "CREATE TABLE wrong (bank_id TEXT NOT NULL, question_id TEXT NOT NULL, mastered INTEGER NOT NULL, last_wrong_at TEXT NOT NULL, PRIMARY KEY (bank_id,question_id));",
+        )
+        .unwrap();
+        for index in 0..5 {
+            user.execute(
+                "INSERT INTO wrong (bank_id,question_id,mastered,last_wrong_at) VALUES ('b',?1,0,'2026-01-01')",
+                params![format!("w{index}")],
+            )
+            .unwrap();
+        }
+        user.execute(
+            "INSERT INTO wrong (bank_id,question_id,mastered,last_wrong_at) VALUES ('b','wb',0,'2026-01-02')",
+            [],
+        )
+        .unwrap();
+
+        let spec = SessionSpec {
+            mode: "module".to_string(),
+            module: Some("A".to_string()),
+            count: Some(10),
+            mix_wrong: Some(true),
+            ..Default::default()
+        };
+        let (ids, title, _, module, _) = build_session(&bank, &user, "b", &spec).unwrap();
+        assert_eq!(ids.len(), 10);
+        assert_eq!(module.as_deref(), Some("A"));
+        assert!(title.contains("含错题"));
+        assert!(!ids.contains(&"wb".to_string()));
+        assert!(ids.iter().filter(|id| id.starts_with('w')).count() >= 3);
+    }
+
+    #[test]
+    fn session_spec_accepts_old_json_and_camel_case() {
+        let old: SessionSpec = serde_json::from_str(r#"{"mode":"module","count":20}"#).unwrap();
+        assert_eq!(old.mix_wrong, None);
+        let next: SessionSpec =
+            serde_json::from_str(r#"{"mode":"module","mixWrong":true}"#).unwrap();
+        assert_eq!(next.mix_wrong, Some(true));
+    }
+
+    #[test]
+    fn merge_mixed_includes_wrong_and_keeps_limit() {
+        let merged = merge_mixed(ids(&["n1", "n2", "n3", "n4"]), ids(&["w1", "w2"]), 4);
+        assert_eq!(merged.len(), 4);
+        assert!(merged.contains(&"w1".to_string()));
+        assert!(merged.contains(&"w2".to_string()));
+    }
+
+    #[test]
+    fn merge_mixed_dedupes_and_uses_available() {
+        let merged = merge_mixed(ids(&["a", "b", "a"]), ids(&["b", "c"]), 5);
+        assert_eq!(merged, ids(&["a", "b", "c"]));
+    }
 }
 
 

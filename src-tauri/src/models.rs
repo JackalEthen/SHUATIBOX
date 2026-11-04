@@ -88,6 +88,7 @@ pub struct SessionSpec {
     pub years: Option<Vec<String>>,
     pub exam_type: Option<String>,
     pub count: Option<i64>,
+    pub mix_wrong: Option<bool>,
     pub order: Option<String>,
     pub duration_sec: Option<i64>,
     pub title: Option<String>,
