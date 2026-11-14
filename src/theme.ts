@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export type Accent = 'blue' | 'orange' | 'teal' | 'pink' | 'purple';
-export type QSize = 's' | 'm' | 'l';
+export type FontScale = 's' | 'm' | 'l' | 'xl';
 
 function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   const value = localStorage.getItem(key) as T | null;
@@ -11,7 +11,11 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
 export function useAppearance() {
   const [accent, setAccent] = useState<Accent>(() => stored('accent', ['blue', 'orange', 'teal', 'pink', 'purple'], 'blue'));
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem('theme') === 'dark');
-  const [qsize, setQSize] = useState<QSize>(() => stored('qsize', ['s', 'm', 'l'], 'm'));
+  const [fontScale, setFontScale] = useState<FontScale>(() => {
+    const legacy = localStorage.getItem('qsize');
+    const mapped = legacy === 's' ? 's' : legacy === 'l' ? 'l' : 'm';
+    return stored('fontscale', ['s', 'm', 'l', 'xl'], mapped);
+  });
 
   useEffect(() => {
     document.documentElement.dataset.accent = accent;
@@ -24,11 +28,11 @@ export function useAppearance() {
   }, [dark]);
 
   useEffect(() => {
-    document.documentElement.dataset.qsize = qsize;
-    localStorage.setItem('qsize', qsize);
-  }, [qsize]);
+    document.documentElement.dataset.fontscale = fontScale;
+    localStorage.setItem('fontscale', fontScale);
+  }, [fontScale]);
 
-  return { accent, setAccent, dark, setDark, qsize, setQSize };
+  return { accent, setAccent, dark, setDark, fontScale, setFontScale };
 }
 
 export type Appearance = ReturnType<typeof useAppearance>;

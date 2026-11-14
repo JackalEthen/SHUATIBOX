@@ -3,6 +3,7 @@ import { bootstrap, errorText, getProfile, getSession, homeSummary, startSession
 import { AiConfigDialog } from './AiConfigDialog';
 import { BankDialog } from './BankDialog';
 import { CustomPaperDialog } from './CustomPaperDialog';
+import { DesktopFavorites } from './DesktopFavorites';
 import { DesktopHome } from './DesktopHome';
 import { DesktopLibrary } from './DesktopLibrary';
 import { DesktopPractice } from './DesktopPractice';
@@ -17,7 +18,7 @@ import { PracticeSetupDialog } from './PracticeSetupDialog';
 import { ImportDialog } from './ImportDialog';
 import type { Appearance, Accent } from './theme';
 
-type Screen = 'home' | 'library' | 'practice' | 'wrong' | 'search' | 'stats' | 'settings';
+type Screen = 'home' | 'library' | 'practice' | 'wrong' | 'favorites' | 'search' | 'stats' | 'settings';
 
 interface Props {
   appearance: Appearance;
@@ -168,8 +169,10 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           ? '练习'
           : screen === 'wrong'
             ? '错题'
-            : screen === 'search'
-              ? '搜索'
+            : screen === 'favorites'
+              ? '收藏'
+              : screen === 'search'
+                ? '搜索'
               : screen === 'stats'
                 ? '统计'
                 : '设置';
@@ -182,6 +185,9 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     modules: data.modules,
     wrongCount: data.wrongCount,
     favoriteCount: data.favoriteCount,
+    reviewDueCount: data.reviewDueCount,
+    reviewNextDue: data.reviewNextDue,
+    reviewEnabled: data.reviewEnabled,
     bank: data.bank,
   };
 
@@ -189,6 +195,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     { icon: 'home', label: '首页', target: 'home' },
     { icon: 'library', label: '题库', badge: `${data.bank.paperCount} 卷`, target: 'library' },
     { icon: 'wrong', label: '错题', badge: String(data.wrongCount), target: 'wrong' },
+    { icon: 'star', label: '收藏', badge: String(data.favoriteCount), target: 'favorites' },
     { icon: 'search', label: '搜索', target: 'search' },
     { icon: 'stats', label: '统计', target: 'stats' },
     { icon: 'settings', label: '设置', target: 'settings' },
@@ -379,6 +386,13 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             />
           ) : screen === 'wrong' ? (
             <DesktopWrong data={data} refreshKey={refreshKey} onStart={(spec) => void begin(spec)} onNotice={onNotice} />
+          ) : screen === 'favorites' ? (
+            <DesktopFavorites
+              assetDir={data.assetDir}
+              refreshKey={refreshKey}
+              onRefresh={refresh}
+              onNotice={onNotice}
+            />
           ) : screen === 'search' ? (
             <DesktopSearch
               assetDir={data.assetDir}

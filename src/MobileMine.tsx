@@ -11,6 +11,7 @@ interface Props {
   onProfileChange: () => void;
   onStats: () => void;
   onSettings: () => void;
+  onFavorites: () => void;
   onBank: () => void;
   onImport: () => void;
   onNotice: (message: string) => void;
@@ -22,7 +23,7 @@ function fmt(value: number) {
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
 
-export function MobileMine({ data, profile, onProfileChange, onStats, onSettings, onBank, onImport, onNotice }: Props) {
+export function MobileMine({ data, profile, onProfileChange, onStats, onSettings, onFavorites, onBank, onImport, onNotice }: Props) {
   const [stats, setStats] = useState<StatsDto | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile.name);
@@ -78,6 +79,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
 
   const rows = [
     { icon: 'stats' as const, title: '学习统计', sub: '正确率、模块分布、模拟考试', onClick: onStats },
+    { icon: 'star' as const, title: '我的收藏', sub: `${fmt(data.favoriteCount)} 题 · 只读查看`, onClick: onFavorites },
     { icon: 'library' as const, title: '题库管理', sub: `${data.bank.title} · ${fmt(data.bank.paperCount)} 套卷`, onClick: onBank },
     { icon: 'settings' as const, title: '偏好设置', sub: '深色模式、字号、数据备份', onClick: onSettings },
     { icon: 'library' as const, title: '导入题库', sub: '文件夹 / zip', onClick: onImport },
@@ -119,22 +121,22 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
               {profile.name}
             </button>
           )}
-          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">数据仅保存在应用私有目录</div>
+          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">数据仅保存在应用私有目录</div>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2.5 mt-4">
         <div className="card p-3 text-center">
           <div className="text-[17px] font-semibold">{stats ? fmt(stats.totalAnswered) : '—'}</div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-0.5">累计刷题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">累计刷题</div>
         </div>
         <div className="card p-3 text-center">
           <div className="text-[17px] font-semibold">{stats ? `${stats.accuracy}%` : '—'}</div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-0.5">总正确率</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">总正确率</div>
         </div>
         <div className="card p-3 text-center">
           <div className="text-[17px] font-semibold">{data.streak.current} 天</div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-0.5">连续学习</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">连续学习</div>
         </div>
       </div>
 
@@ -149,8 +151,8 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
               <Icon name={row.icon} className="w-4 h-4" strokeWidth={1.8} />
             </div>
             <div className="flex-1">
-              <div className="text-[12.5px]">{row.title}</div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-0.5">{row.sub}</div>
+              <div className="text-[13.5px]">{row.title}</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{row.sub}</div>
             </div>
             <Icon name="chevronRight" className="w-4 h-4 text-[var(--muted)]" />
           </button>
@@ -159,16 +161,16 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
 
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] font-medium">当前题库</span>
+          <span className="text-[13px] font-medium">当前题库</span>
           <span className="chip active">启用中</span>
         </div>
-        <div className="text-[10.5px] text-[var(--muted)] mt-2 leading-5">
+        <div className="text-[11.5px] text-[var(--muted)] mt-2 leading-5">
           {data.bank.title} · {fmt(data.bank.questionCount)} 题 · {fmt(data.bank.paperCount)} 套卷
           {data.bank.reviewCount > 0 ? ` · ${data.bank.reviewCount} 题待校对` : ''}
         </div>
       </div>
 
-      <div className="text-center text-[9.5px] text-[var(--muted)] mt-4 leading-5">
+      <div className="text-center text-[10.5px] text-[var(--muted)] mt-4 leading-5">
         刷题盒子 SHUATIBOX v{APP_VERSION}
       </div>
       <div className="h-4" />

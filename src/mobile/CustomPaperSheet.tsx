@@ -25,11 +25,11 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
   return (
     <MobileSheet open={open} onClose={onClose}>
       <div className="grabber" />
-      <h3 className="text-[14px] font-semibold">自定义组卷</h3>
-      <p className="text-[10px] text-[var(--muted)] mt-1">不选模块则从全部模块抽题。</p>
+      <h3 className="text-[15px] font-semibold">自定义组卷</h3>
+      <p className="text-[11px] text-[var(--muted)] mt-1">不选模块则从全部模块抽题。</p>
 
       <div className="mt-4">
-        <div className="text-[11px] text-[var(--ink-2)] mb-2">模块</div>
+        <div className="text-[12px] text-[var(--ink-2)] mb-2">模块</div>
         <div className="flex flex-wrap gap-2">
           {data.modules.map((module) => (
             <button
@@ -42,7 +42,7 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
           ))}
         </div>
 
-        <div className="text-[11px] text-[var(--ink-2)] mb-2 mt-4">年份</div>
+        <div className="text-[12px] text-[var(--ink-2)] mb-2 mt-4">年份</div>
         <div className="flex flex-wrap gap-2">
           {data.years.map((year) => (
             <button
@@ -56,7 +56,7 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
         </div>
 
         <div className="flex items-center justify-between mt-4">
-          <span className="text-[11px] text-[var(--ink-2)]">题量</span>
+          <span className="text-[12px] text-[var(--ink-2)]">题量</span>
           <div className="seg">
             {[10, 20, 50].map((value) => (
               <button key={value} className={count === value ? 'active' : ''} onClick={() => setCount(value)}>
@@ -67,7 +67,7 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
         </div>
 
         <div className="flex items-center justify-between mt-3">
-          <span className="text-[11px] text-[var(--ink-2)]">顺序</span>
+          <span className="text-[12px] text-[var(--ink-2)]">顺序</span>
           <div className="seg">
             <button className={order === 'random' ? 'active' : ''} onClick={() => setOrder('random')}>随机</button>
             <button className={order === 'sequence' ? 'active' : ''} onClick={() => setOrder('sequence')}>顺序</button>
@@ -75,7 +75,7 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
         </div>
 
         <div className="flex items-center justify-between mt-3">
-          <span className="text-[11px] text-[var(--ink-2)]">限时</span>
+          <span className="text-[12px] text-[var(--ink-2)]">限时</span>
           <div className="seg">
             {[0, 30, 60, 120].map((value) => (
               <button key={value} className={duration === value ? 'active' : ''} onClick={() => setDuration(value)}>
@@ -85,7 +85,7 @@ export function CustomPaperSheet({ open, data, onClose, onStart }: Props) {
           </div>
         </div>
 
-        <div className="mt-3 p-2.5 rounded-lg bg-[var(--paper-2)] text-[9.5px] text-[var(--muted)]">{summary}</div>
+        <div className="mt-3 p-2.5 rounded-lg bg-[var(--paper-2)] text-[10.5px] text-[var(--muted)]">{summary}</div>
 
         <div className="flex gap-2 mt-3">
           <button className="btn btn-ghost flex-1" onClick={onClose}>取消</button>

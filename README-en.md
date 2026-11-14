@@ -42,15 +42,19 @@
 
 - Practice modes: random, full paper, mock exam, custom set, wrong-question retry, favorites
 - Practice setup: choose 1–500 questions per module session (default 20) and optionally mix in about 25% of pending wrong questions from the same module (rounded up, at least 1), most recent first
+- Review: spaced repetition (1/2/4/7/15/30/60 days) with a configurable daily review limit
 - Desktop sidebar: collapsible icon-only mode with remembered state
 - Grading: instant per-question grading or grade after submission; single-choice, multi-choice, true/false, 2–8 options
 - Study tools: wrong-question book (pending / mastered), favorites, notes
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
+- Appearance: light/dark, 5 accent colors and 4 reading text sizes
 - Bank management: import and switch between multiple question banks; imports can append to the current bank, an existing bank, or a new bank, existing papers are skipped (never overwritten), and the import report lists invalid questions and missing images
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
 - AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
+- Updates: check the latest GitHub release in Settings, with version notes and a download link
+- Mobile: Android status-bar and navigation-bar safe areas, improved dialogs and font sizes
 - Backup: export / import study records (question images excluded)
 
 ## Tech Stack
@@ -170,7 +174,7 @@ cd src-tauri && cargo check
 
 ## Notes
 
-- No server, no account; no network requests unless you enable AI conversion and configure an endpoint
+- No server, no account; update checks contact GitHub, and AI features require an endpoint you configure
 - Append imports are identified by paper | year | region; existing papers are skipped and never overwritten
 - Banks and images are stored locally; imported images are deduplicated by SHA-256
 - The same question can appear in several papers; editing affects only the record in the current paper

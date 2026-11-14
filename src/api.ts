@@ -166,6 +166,9 @@ export interface HomeSummary {
   modules: ModuleStat[];
   wrongCount: number;
   favoriteCount: number;
+  reviewDueCount: number;
+  reviewNextDue?: string | null;
+  reviewEnabled: boolean;
   bank: BankDto;
 }
 
@@ -180,9 +183,30 @@ export interface Bootstrap {
   streak: StreakDto;
   wrongCount: number;
   favoriteCount: number;
+  reviewDueCount: number;
+  reviewNextDue?: string | null;
+  reviewEnabled: boolean;
   continueSession?: SessionDto | null;
   banks: BankDto[];
   assetDir: string;
+}
+
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean;
+  title: string;
+  notes: string;
+  publishedAt?: string | null;
+  pageUrl: string;
+  downloadUrl?: string | null;
+  assetName?: string | null;
+  assetSize?: number | null;
+}
+
+export interface UpdateDownload {
+  url: string;
+  mirrored: boolean;
 }
 
 export interface DailyPoint {
@@ -431,6 +455,14 @@ export async function isFavorite(questionId: string): Promise<boolean> {
 
 export async function listFavorites(limit = 100): Promise<QuestionDto[]> {
   return invoke<QuestionDto[]>('list_favorites', { limit });
+}
+
+export async function checkUpdate(): Promise<UpdateInfo> {
+  return invoke<UpdateInfo>('check_update');
+}
+
+export async function resolveUpdateDownload(url: string): Promise<UpdateDownload> {
+  return invoke<UpdateDownload>('resolve_update_download', { url });
 }
 
 export async function getNote(questionId: string): Promise<SavedNote> {

@@ -1,5 +1,5 @@
 use crate::models::{BankDto, QuestionDto, ReviewDto};
-use rusqlite::{Connection, OpenFlags, Row};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row};
 use std::path::{Path, PathBuf};
 use tauri::Manager;
 
@@ -121,6 +121,17 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
           created_at TEXT NOT NULL,
           PRIMARY KEY (bank_id, question_id)
         );
+        CREATE TABLE IF NOT EXISTS review_items (
+          bank_id TEXT NOT NULL,
+          question_id TEXT NOT NULL,
+          stage INTEGER NOT NULL DEFAULT 0,
+          due_at TEXT NOT NULL,
+          last_reviewed_at TEXT,
+          last_correct INTEGER NOT NULL DEFAULT 0,
+          review_count INTEGER NOT NULL DEFAULT 0,
+          lapses INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (bank_id, question_id)
+        );
         CREATE TABLE IF NOT EXISTS notes (
           bank_id TEXT NOT NULL,
           question_id TEXT NOT NULL,
@@ -147,6 +158,7 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         CREATE INDEX IF NOT EXISTS idx_attempts_paper ON attempts(bank_id, paper_key, question_id);
         CREATE INDEX IF NOT EXISTS idx_attempts_module ON attempts(bank_id, module, question_id);
         CREATE INDEX IF NOT EXISTS idx_wrong_bank ON wrong(bank_id, mastered, last_wrong_at);
+        CREATE INDEX IF NOT EXISTS idx_review_due ON review_items(bank_id, due_at);
         ",
     )
     .map_err(|error| error.to_string())?;
@@ -158,6 +170,8 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         ("daily_goal", "50"),
         ("shortcuts", "1"),
         ("show_explanation", "1"),
+        ("review_enabled", "1"),
+        ("review_limit", "50"),
     ] {
         conn.execute(
             "INSERT OR IGNORE INTO settings (key,value) VALUES (?1,?2)",
@@ -165,6 +179,8 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         )
         .map_err(|error| error.to_string())?;
     }
+
+    seed_review_items(&conn)?;
 
     let count: i64 = conn
         .query_row("SELECT COUNT(*) FROM banks", [], |row| row.get(0))
@@ -176,6 +192,37 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
     }
     let _ = ensure_active_bank(&conn)?;
     Ok(())
+}
+
+fn seed_review_items(conn: &Connection) -> Result<(), String> {
+    let seeded: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key='review_seeded'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if seeded.as_deref() == Some("1") {
+        return Ok(());
+    }
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO review_items
+           (bank_id,question_id,stage,due_at,last_reviewed_at,last_correct,review_count,lapses)
+         SELECT a.bank_id,a.question_id,0,datetime('now','localtime'),MAX(a.answered_at),
+           COALESCE((SELECT a2.correct FROM attempts a2
+             WHERE a2.bank_id=a.bank_id AND a2.question_id=a.question_id AND a2.submitted=1
+             ORDER BY a2.answered_at DESC LIMIT 1),0),
+           COUNT(*),COALESCE(SUM(CASE WHEN a.correct=0 THEN 1 ELSE 0 END),0)
+         FROM attempts a WHERE a.submitted=1 GROUP BY a.bank_id,a.question_id;
+         INSERT OR IGNORE INTO review_items
+           (bank_id,question_id,stage,due_at,last_reviewed_at,last_correct,review_count,lapses)
+         SELECT bank_id,question_id,0,datetime('now','localtime'),last_wrong_at,0,
+           MAX(wrong_count,1),wrong_count
+         FROM wrong WHERE mastered=0;
+         INSERT OR REPLACE INTO settings (key,value) VALUES ('review_seeded','1');",
+    )
+    .map_err(|error| error.to_string())
 }
 
 pub fn register_bank(
@@ -418,3 +465,54 @@ pub fn question_from_row(row: &Row<'_>) -> rusqlite::Result<QuestionDto> {
 pub const QUESTION_COLUMNS: &str =
     "q.id, q.qid, q.module, q.type, p.year, p.region, q.paper, q.paper_key, q.stem, q.options,
      q.answer, q.explanation, q.material_title, q.material_content, q.status, q.explanation_answer, q.has_image, q.image_missing";
+
+#[cfg(test)]
+mod tests {
+    use super::seed_review_items;
+    use rusqlite::Connection;
+
+    #[test]
+    fn seed_review_items_from_attempts_and_pending_wrong_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE attempts (bank_id TEXT, question_id TEXT, answered_at TEXT, submitted INTEGER, correct INTEGER);
+             CREATE TABLE wrong (bank_id TEXT, question_id TEXT, wrong_count INTEGER, mastered INTEGER, last_wrong_at TEXT);
+             CREATE TABLE review_items (
+               bank_id TEXT NOT NULL, question_id TEXT NOT NULL, stage INTEGER NOT NULL DEFAULT 0,
+               due_at TEXT NOT NULL, last_reviewed_at TEXT, last_correct INTEGER NOT NULL DEFAULT 0,
+               review_count INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
+               PRIMARY KEY (bank_id,question_id)
+             );
+             INSERT INTO attempts VALUES
+               ('b','q1','2020-01-01 10:00:00',1,0),
+               ('b','q1','2020-01-02 10:00:00',1,1),
+               ('b','q2','2020-01-03 10:00:00',0,1);
+             INSERT INTO wrong VALUES
+               ('b','q1',2,0,'2020-01-02 10:00:00'),
+               ('b','q2',1,0,'2020-01-03 10:00:00'),
+               ('b','q3',1,1,'2020-01-03 10:00:00');",
+        )
+        .unwrap();
+        seed_review_items(&conn).unwrap();
+        let (count, due_date, correct, reviews): (i64, String, i64, i64) = conn
+            .query_row(
+                "SELECT COUNT(*),date(due_at),MAX(last_correct),MAX(review_count) FROM review_items WHERE question_id='q1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        let today: String = conn
+            .query_row("SELECT date('now','localtime')", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(due_date, today);
+        assert_eq!((correct, reviews), (1, 2));
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM review_items", [], |row| row.get(0)).unwrap();
+        assert_eq!(total, 2);
+        let seeded: String = conn
+            .query_row("SELECT value FROM settings WHERE key='review_seeded'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(seeded, "1");
+    }
+}

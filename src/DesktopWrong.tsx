@@ -8,6 +8,7 @@ import {
   type WrongItem,
   type WrongPage,
 } from './api';
+import { CountDialog } from './CountDialog';
 import { Icon } from './icons';
 import { Modal } from './Modal';
 
@@ -33,6 +34,7 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
   const [page, setPage] = useState<WrongPage>({ items: [], total: 0, pending: 0, mastered: 0 });
   const [loading, setLoading] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [redoOpen, setRedoOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -65,7 +67,7 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
           <div className="flex items-center gap-2">
             <button
               className="btn btn-primary"
-              onClick={() => onStart({ mode: 'wrong', count: 200, title: '错题重做' })}
+              onClick={() => setRedoOpen(true)}
               disabled={page.pending === 0}
             >
               <Icon name="wrong" />
@@ -149,6 +151,18 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
         </div>
         <div className="h-8" />
       </div>
+
+      <CountDialog
+        open={redoOpen}
+        title="错题重做"
+        max={page.pending}
+        initial={20}
+        onClose={() => setRedoOpen(false)}
+        onStart={(count) => {
+          setRedoOpen(false);
+          onStart({ mode: 'wrong', count, title: '错题重做' });
+        }}
+      />
 
       <Modal
         open={confirmClear}

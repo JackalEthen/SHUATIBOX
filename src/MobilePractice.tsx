@@ -291,27 +291,27 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <div className="px-4 py-5 text-center">
           <div className="chip-accent inline-flex">{isExam ? '模考完成' : '练习完成'}</div>
           <h2 className="text-[18px] font-semibold mt-2">{view.session.title}</h2>
-          <p className="text-[10.5px] text-[var(--muted)] mt-1">
+          <p className="text-[11.5px] text-[var(--muted)] mt-1">
             未答 {result.unanswered} 题 · 正确率 {result.accuracy}%
           </p>
           <div className="card mt-4 p-5 text-center">
-            <div className="text-[10.5px] text-[var(--muted)]">得分</div>
+            <div className="text-[11.5px] text-[var(--muted)]">得分</div>
             <div className="text-[54px] font-semibold leading-none mt-1">{result.score}</div>
-            <div className="text-[10px] text-[var(--muted)] mt-1">满分 100</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">满分 100</div>
             <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--line)]">
-              <div><div className="text-[9.5px] text-[var(--muted)]">正确率</div><div className="text-[15px] font-semibold mt-0.5">{result.accuracy}%</div></div>
-              <div><div className="text-[9.5px] text-[var(--muted)]">答对</div><div className="text-[15px] font-semibold mt-0.5">{result.correct}/{view.questions.length}</div></div>
-              <div><div className="text-[9.5px] text-[var(--muted)]">已答</div><div className="text-[15px] font-semibold mt-0.5">{result.answered}</div></div>
+              <div><div className="text-[10.5px] text-[var(--muted)]">正确率</div><div className="text-[15px] font-semibold mt-0.5">{result.accuracy}%</div></div>
+              <div><div className="text-[10.5px] text-[var(--muted)]">答对</div><div className="text-[15px] font-semibold mt-0.5">{result.correct}/{view.questions.length}</div></div>
+              <div><div className="text-[10.5px] text-[var(--muted)]">已答</div><div className="text-[15px] font-semibold mt-0.5">{result.answered}</div></div>
             </div>
           </div>
           <div className="card mt-3 p-4 text-left">
-            <h3 className="text-[12px] font-semibold">模块表现</h3>
+            <h3 className="text-[15px] font-semibold">模块表现</h3>
             <div className="mt-3 space-y-2.5">
               {[...groups.entries()].map(([module, item]) => {
                 const rate = item.total ? Math.round((item.correct / item.total) * 100) : 0;
                 return (
                   <div key={module}>
-                    <div className="flex justify-between text-[10.5px] mb-1"><span>{module}</span><span>{item.correct}/{item.total} · {rate}%</span></div>
+                    <div className="flex justify-between text-[11.5px] mb-1"><span>{module}</span><span>{item.correct}/{item.total} · {rate}%</span></div>
                     <div className="progress" style={{ height: 5 }}><i style={{ width: `${rate}%` }} /></div>
                   </div>
                 );
@@ -320,8 +320,8 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
           </div>
           {weakest ? (
             <div className="card mt-3 p-4 text-left">
-              <h3 className="text-[12px] font-semibold">建议</h3>
-              <div className="mt-2 text-[11.5px] text-[var(--ink-2)] leading-6">
+              <h3 className="text-[15px] font-semibold">建议</h3>
+              <div className="mt-2 text-[13.5px] text-[var(--ink-2)] leading-6">
                 {weakest} 正确率偏低，建议回看错题与解析。
               </div>
             </div>
@@ -338,7 +338,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   if (!question) {
     return (
       <div className="shell">
-        <div className="grid place-items-center h-[70vh] text-[12px] text-[var(--muted)]">没有可练题目</div>
+        <div className="grid place-items-center h-[70vh] text-[13px] text-[var(--muted)]">没有可练题目</div>
       </div>
     );
   }
@@ -353,7 +353,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="chip-accent">{question.module}</span>
-            <span className="text-[10px] text-[var(--muted)]">第 <b className="text-[var(--ink-2)]">{index + 1}</b>/{questions.length}</span>
+            <span className="text-[11px] text-[var(--muted)]">第 <b className="text-[var(--ink-2)]">{index + 1}</b>/{questions.length}</span>
           </div>
           <div className="w-24"><div className="progress mt-1" style={{ height: 4 }}><i style={{ width: `${((index + 1) / questions.length) * 100}%` }} /></div></div>
         </div>
@@ -381,7 +381,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto scroll px-4 py-4">
-        <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+        <div className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
           <span>qid {question.qid}</span>
           <span>·</span>
           <span>{question.type}</span>
@@ -392,15 +392,15 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         {question.material ? (
           <button className="w-full card p-3 flex items-center gap-2 text-left mt-3" onClick={() => setMaterialOpen(true)}>
             <Icon name="book" className="w-4 h-4 text-[var(--accent-ink)]" strokeWidth={1.7} />
-            <span className="text-[11.5px]">查看材料：{question.material.title}</span>
-            <span className="ml-auto text-[10px] text-[var(--muted)]">点击展开</span>
+            <span className="text-[13.5px]">查看材料：{question.material.title}</span>
+            <span className="ml-auto text-[11px] text-[var(--muted)]">点击展开</span>
           </button>
         ) : null}
 
         <div className="qtext mt-4" dangerouslySetInnerHTML={{ __html: question.stemHtml }} />
 
         {question.imageMissing ? (
-          <div className="mt-3 text-[11px] text-[var(--warn)] leading-5">
+          <div className="mt-3 text-[12px] text-[var(--warn)] leading-5">
             本题原始图片缺失，题干或选项中的图无法显示；不影响作答。
           </div>
         ) : null}
@@ -435,13 +435,13 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
               <span className="chip-accent" style={{ color: verdict?.correct ?? current?.correct ? 'var(--good)' : 'var(--bad)' }}>
                 {verdict?.canGrade === false ? '答案缺失' : (verdict?.correct ?? current?.correct) ? '回答正确' : '回答错误'}
               </span>
-              <span className="text-[10.5px] text-[var(--muted)]">正确答案 <b className="text-[var(--ink-2)]">{question.answer.join('')}</b></span>
+              <span className="text-[11.5px] text-[var(--muted)]">正确答案 <b className="text-[var(--ink-2)]">{question.answer.join('')}</b></span>
             </div>
             {question.review && !question.review.missing ? (
-              <div className="mt-2 text-[11px] text-[var(--warn)]">解析最终答案：{question.review.explanationAnswer}</div>
+              <div className="mt-2 text-[12px] text-[var(--warn)]">解析最终答案：{question.review.explanationAnswer}</div>
             ) : null}
-            <div className="text-[12px] font-semibold text-[var(--ink-2)] mt-3">解析</div>
-            <div className="text-[12.5px] leading-6 text-[var(--ink-2)] mt-1" dangerouslySetInnerHTML={{ __html: question.explanationHtml }} />
+            <div className="text-[13px] font-semibold text-[var(--ink-2)] mt-3">解析</div>
+            <div className="read-explain text-[var(--ink-2)] mt-1" dangerouslySetInnerHTML={{ __html: question.explanationHtml }} />
           </div>
         ) : !isExam ? (
           <button className="btn btn-ghost btn-block mt-4" disabled={busy} onClick={() => void grade(false)}>
@@ -449,11 +449,11 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
           </button>
         ) : null}
 
-        <div className="mt-4 text-[10px] text-[var(--muted)] leading-5">本题来源：{question.paperTitle || question.source}</div>
+        <div className="mt-4 text-[11px] text-[var(--muted)] leading-5">本题来源：{question.paperTitle || question.source}</div>
         <div className="h-24" />
       </div>
 
-      <div className="shrink-0 border-t border-[var(--line)] bg-[var(--card)] px-3 py-1.5 flex items-center gap-1.5" style={{ paddingBottom: 'calc(6px + env(safe-area-inset-bottom))' }}>
+      <div className="shrink-0 border-t border-[var(--line)] bg-[var(--card)] px-3 py-1.5 flex items-center gap-1.5" style={{ paddingBottom: 'calc(6px + var(--safe-bottom, env(safe-area-inset-bottom)))' }}>
         <button className="icon-btn" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, value - 1))} aria-label="上一题">
           <Icon name="chevronLeft" strokeWidth={1.8} />
         </button>
@@ -522,8 +522,8 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
           <div className="sheet-card">
             <div className="grabber" />
             <div className="flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold">答题卡</h3>
-              <span className="text-[10px] text-[var(--muted)]">已答 {answeredCount}/{questions.length}</span>
+              <h3 className="text-[15px] font-semibold">答题卡</h3>
+              <span className="text-[11px] text-[var(--muted)]">已答 {answeredCount}/{questions.length}</span>
             </div>
             <div className="grid grid-cols-5 gap-2.5 mt-4">
               {questions.map((item, itemIndex) => {
@@ -550,7 +550,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <div className="sheet-card">
           <div className="grabber" />
           <div className="flex items-start justify-between">
-            <h3 className="text-[14px] font-semibold">{question.material?.title ?? '材料'}</h3>
+            <h3 className="text-[15px] font-semibold">{question.material?.title ?? '材料'}</h3>
             <button className="icon-btn" onClick={() => setMaterialOpen(false)} aria-label="关闭"><Icon name="x" /></button>
           </div>
           <div className="material-body mt-3" dangerouslySetInnerHTML={{ __html: question.material?.html ?? '' }} />
@@ -562,10 +562,10 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       <div className={`sheet ${noteOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setNoteOpen(false)}>
         <div className="sheet-card">
           <div className="grabber" />
-          <h3 className="text-[14px] font-semibold">题目笔记</h3>
-          <p className="text-[10px] text-[var(--muted)] mt-1">qid {question.qid} · 自动保存到本地</p>
+          <h3 className="text-[15px] font-semibold">题目笔记</h3>
+          <p className="text-[11px] text-[var(--muted)] mt-1">qid {question.qid} · 自动保存到本地</p>
           <textarea
-            className="w-full h-32 mt-3 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] leading-6 outline-none resize-none"
+            className="w-full h-32 mt-3 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[13.5px] leading-6 outline-none resize-none"
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="记录解题思路、易错点…"
@@ -590,25 +590,25 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       <div className={`sheet ${editOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setEditOpen(false)}>
         <div className="sheet-card">
           <div className="grabber" />
-          <h3 className="text-[14px] font-semibold">编辑本题</h3>
+          <h3 className="text-[15px] font-semibold">编辑本题</h3>
           <div className="max-h-[58vh] overflow-y-auto scroll space-y-3 mt-3 pr-1">
             <label className="block">
-              <div className="text-[10.5px] text-[var(--muted)] mb-1">题干（支持 Markdown / HTML）</div>
+              <div className="text-[11.5px] text-[var(--muted)] mb-1">题干（支持 Markdown / HTML）</div>
               <textarea
-                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] outline-none resize-none"
+                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[13.5px] outline-none resize-none"
                 value={editStem}
                 onChange={(event) => setEditStem(event.target.value)}
               />
             </label>
 
             <div>
-              <div className="text-[10.5px] text-[var(--muted)] mb-1">选项</div>
+              <div className="text-[11.5px] text-[var(--muted)] mb-1">选项</div>
               <div className="space-y-2">
                 {editOptions.map((option, position) => (
                   <div key={option.label} className="flex items-start gap-2">
                     <span className="chip shrink-0">{option.label}</span>
                     <textarea
-                      className="flex-1 h-14 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-2 text-[12px] outline-none resize-none"
+                      className="flex-1 h-14 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-2 text-[13px] outline-none resize-none"
                       value={option.text}
                       onChange={(event) => {
                         const next = [...editOptions];
@@ -622,24 +622,24 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             </div>
 
             <label className="block">
-              <div className="text-[10.5px] text-[var(--muted)] mb-1">答案（如 A,C；留空表示不判分）</div>
+              <div className="text-[11.5px] text-[var(--muted)] mb-1">答案（如 A,C；留空表示不判分）</div>
               <input
-                className="w-full h-10 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 text-[12.5px] outline-none"
+                className="w-full h-10 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 text-[13.5px] outline-none"
                 value={editAnswer}
                 onChange={(event) => setEditAnswer(event.target.value)}
               />
             </label>
 
             <label className="block">
-              <div className="text-[10.5px] text-[var(--muted)] mb-1">解析</div>
+              <div className="text-[11.5px] text-[var(--muted)] mb-1">解析</div>
               <textarea
-                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[12.5px] outline-none resize-none"
+                className="w-full h-24 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3 text-[13.5px] outline-none resize-none"
                 value={editExplanation}
                 onChange={(event) => setEditExplanation(event.target.value)}
               />
             </label>
 
-            <div className="text-[10px] text-[var(--muted)] leading-5">
+            <div className="text-[11px] text-[var(--muted)] leading-5">
               修改直接保存到本地题库，错题本、收藏、搜索会同步更新；此处不能新增图片。
             </div>
           </div>
@@ -658,7 +658,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <div className="sheet-card">
           <div className="grabber" />
           <h3 className="text-[15px] font-semibold">确认交卷？</h3>
-          <p className="text-[11.5px] text-[var(--ink-2)] mt-2 leading-6">
+          <p className="text-[13.5px] text-[var(--ink-2)] mt-2 leading-6">
             已答 {answeredCount}/{questions.length} 题，未答 {questions.length - answeredCount} 题。交卷后不可修改，未答按错处理。
           </p>
           <div className="flex gap-2 mt-5">

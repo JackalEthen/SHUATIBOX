@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { clearHistory, errorText, exportBackup, importBackup, setSettings, type Bootstrap } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
+import { UpdateCard } from './UpdateCard';
 import { APP_VERSION } from './version';
 import type { Appearance } from './theme';
 
@@ -20,7 +21,7 @@ function fmt(value: number) {
 }
 
 export function MobileSettings({ data, appearance, onBack, onBank, onImport, onNotice, onRefresh }: Props) {
-  const { dark, setDark, accent, setAccent } = appearance;
+  const { dark, setDark, accent, setAccent, fontScale, setFontScale } = appearance;
   const [goal, setGoal] = useState(Number(data.settings.daily_goal ?? '50'));
   const [archive, setArchive] = useState(Number(data.settings.archive_streak ?? '2'));
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
@@ -28,6 +29,13 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
   const save = (values: Record<string, string>) => {
     setSettings(values).catch((error) => onNotice(errorText(error)));
   };
+
+  const saveAndRefresh = (values: Record<string, string>) => {
+    setSettings(values).then(onRefresh).catch((error) => onNotice(errorText(error)));
+  };
+
+  const reviewEnabled = data.settings.review_enabled !== '0';
+  const reviewLimit = data.settings.review_limit ?? '50';
 
   useEffect(() => {
     const win = window as unknown as { __shuatiboxBack?: () => string };
@@ -55,14 +63,14 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-4 p-4">
-        <h3 className="text-[12px] font-semibold">题库</h3>
+        <h3 className="text-[15px] font-semibold">题库</h3>
         <div className="mt-3 flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3">
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
             {data.bank.title.slice(0, 1)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[11.5px] font-medium truncate">{data.bank.title}</div>
-            <div className="text-[9.5px] text-[var(--muted)] mt-0.5">{fmt(data.bank.questionCount)} 题 · {fmt(data.bank.paperCount)} 套卷</div>
+            <div className="text-[13.5px] font-medium truncate">{data.bank.title}</div>
+            <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{fmt(data.bank.questionCount)} 题 · {fmt(data.bank.paperCount)} 套卷</div>
           </div>
           <span className="chip active">启用中</span>
         </div>
@@ -73,8 +81,8 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-3 p-4">
-        <h3 className="text-[12px] font-semibold">AI 设置</h3>
-        <p className="text-[9.5px] text-[var(--muted)] mt-1 leading-5">
+        <h3 className="text-[15px] font-semibold">AI 设置</h3>
+        <p className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
           建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。
         </p>
         <div className="mt-2 flex items-center gap-2">
@@ -87,13 +95,28 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-3 p-4">
-        <h3 className="text-[12px] font-semibold">外观</h3>
+        <h3 className="text-[15px] font-semibold">外观</h3>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11.5px]">深色模式</span>
+          <span className="text-[13.5px]">深色模式</span>
           <button className="btn btn-ghost btn-sm" onClick={() => setDark(!dark)}>{dark ? '开启' : '关闭'}</button>
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11.5px]">主题色</span>
+          <span className="text-[13.5px]">阅读字号</span>
+          <div className="seg">
+            {[
+              ['s', '小'],
+              ['m', '标准'],
+              ['l', '大'],
+              ['xl', '特大'],
+            ].map(([key, label]) => (
+              <button key={key} className={fontScale === key ? 'active' : ''} onClick={() => setFontScale(key as typeof fontScale)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[13.5px]">主题色</span>
           <div className="flex items-center gap-2">
             {(['blue', 'orange', 'teal', 'pink', 'purple'] as const).map((value) => (
               <button
@@ -109,17 +132,17 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-3 p-4">
-        <h3 className="text-[12px] font-semibold">刷题</h3>
+        <h3 className="text-[15px] font-semibold">刷题</h3>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11.5px]">连续答对归档</span>
+          <span className="text-[13.5px]">错题移出阈值</span>
           <div className="seg">
-            {[1, 2, 3].map((value) => (
+            {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} className={archive === value ? 'active' : ''} onClick={() => { setArchive(value); save({ archive_streak: String(value) }); }}>{value} 次</button>
             ))}
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11.5px]">每日目标</span>
+          <span className="text-[13.5px]">每日目标</span>
           <div className="seg">
             {[20, 50, 100].map((value) => (
               <button key={value} className={goal === value ? 'active' : ''} onClick={() => { setGoal(value); save({ daily_goal: String(value) }); }}>{value}</button>
@@ -127,7 +150,7 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11.5px]">默认判分</span>
+          <span className="text-[13.5px]">默认判分</span>
           <div className="seg">
             <button className={data.settings.practice_mode === 'instant' ? 'active' : ''} onClick={() => save({ practice_mode: 'instant' })}>逐题</button>
             <button className={data.settings.practice_mode === 'deferred' ? 'active' : ''} onClick={() => save({ practice_mode: 'deferred' })}>交卷</button>
@@ -136,8 +159,28 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
       </div>
 
       <div className="card mt-3 p-4">
-        <h3 className="text-[12px] font-semibold">数据</h3>
-        <p className="text-[10px] text-[var(--muted)] mt-1 leading-5">进度、错题、笔记、收藏保存在本地；备份不含题库图片。</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-[15px] font-semibold">艾宾浩斯复习</h3>
+            <p className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">1 / 2 / 4 / 7 / 15 / 30 / 60 天；答对升级，答错回到 1 天。</p>
+          </div>
+          <button className={`chip ${reviewEnabled ? 'active' : ''}`} onClick={() => saveAndRefresh({ review_enabled: reviewEnabled ? '0' : '1' })}>
+            {reviewEnabled ? '已开启' : '已关闭'}
+          </button>
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[13.5px]">每日复习上限</span>
+          <div className="seg">
+            {['20', '50', '100'].map((value) => (
+              <button key={value} className={reviewLimit === value ? 'active' : ''} onClick={() => saveAndRefresh({ review_limit: value })}>{value}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card mt-3 p-4">
+        <h3 className="text-[15px] font-semibold">数据</h3>
+        <p className="text-[11px] text-[var(--muted)] mt-1 leading-5">进度、错题、笔记、收藏保存在本地；备份不含题库图片。</p>
         <div className="flex gap-2 mt-3">
           <button
             className="btn btn-ghost btn-sm flex-1"
@@ -176,7 +219,9 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
         </button>
       </div>
 
-      <div className="text-center text-[9.5px] text-[var(--muted)] mt-4 leading-5">
+      <UpdateCard mobile />
+
+      <div className="text-center text-[10.5px] text-[var(--muted)] mt-4 leading-5">
         刷题盒子 SHUATIBOX v{APP_VERSION}
       </div>
       <div className="h-4" />

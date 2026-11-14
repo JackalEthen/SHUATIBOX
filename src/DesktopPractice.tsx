@@ -597,7 +597,7 @@ export function DesktopPractice({
                     </div>
                     <div className="mt-3 text-[12px] font-semibold text-[var(--ink-2)]">解析</div>
                     <div
-                      className="text-[13.5px] leading-7 text-[var(--ink-2)] mt-1.5"
+                      className="read-explain text-[var(--ink-2)] mt-1.5"
                       dangerouslySetInnerHTML={{ __html: question.explanationHtml }}
                     />
                     {question.review && !question.review.missing ? (

@@ -143,13 +143,13 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
   return (
     <MobileSheet open={isOpen} onClose={close} closable={!busy}>
       <div className="grabber" />
-      <h3 className="text-[14px] font-semibold">导入题库</h3>
-      <p className="text-[10px] text-[var(--muted)] mt-1">选择题库文件夹或 zip，图片自动复制并去重。</p>
+      <h3 className="text-[15px] font-semibold">导入题库</h3>
+      <p className="text-[11px] text-[var(--muted)] mt-1">选择题库文件夹或 zip，图片自动复制并去重。</p>
 
       {!summary ? (
         <>
           <div className="mt-4 rounded-2xl border border-dashed p-6 text-center" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
-            <div className="text-[12px]">{label || '选择题库文件夹或 zip'}</div>
+            <div className="text-[13px]">{label || '选择题库文件夹或 zip'}</div>
             <div className="flex gap-2 mt-3">
               <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('folder')}>文件夹</button>
               <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip / md</button>
@@ -161,9 +161,9 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
 
           {bank ? (
             <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
-              <div className="text-[9.5px] text-[var(--muted)] mb-1">导入到</div>
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">导入到</div>
               <select
-                className="w-full rounded-lg border px-2 py-2 text-[11px] outline-none"
+                className="w-full rounded-lg border px-2 py-2 text-[12px] outline-none"
                 style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
                 value={targetId}
                 disabled={busy}
@@ -181,7 +181,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
               </select>
               {targetId === 'new' ? (
                 <input
-                  className="mt-2 w-full rounded-lg border px-3 py-2 text-[11px] outline-none"
+                  className="mt-2 w-full rounded-lg border px-3 py-2 text-[12px] outline-none"
                   style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
                   placeholder="题库名称（留空自动命名）"
                   value={newTitle}
@@ -194,21 +194,21 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
             </div>
           ) : null}
 
-          <label className="flex items-center gap-2 mt-3 text-[11px] text-[var(--ink-2)]">
+          <label className="flex items-center gap-2 mt-3 text-[12px] text-[var(--ink-2)]">
             <input type="checkbox" checked={useAi} disabled={busy} onChange={(event) => setUseAi(event.target.checked)} />
             AI 智能转换（需先在设置中配置接口）
           </label>
 
           {busy ? (
             <div className="mt-4">
-              <div className="flex items-center gap-2 text-[10.5px]">
+              <div className="flex items-center gap-2 text-[11.5px]">
                 <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
                 <span className="truncate">{progress?.message || '准备中…'}</span>
               </div>
               <div className="progress mt-2" style={{ height: 7 }}>
                 <i style={{ width: `${percent}%` }} />
               </div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-2">
+              <div className="text-[10.5px] text-[var(--muted)] mt-2">
                 {PHASE_LABEL[progress?.phase ?? ''] ?? '处理中'}
                 {progress && progress.total > 0 ? ` · ${progress.current}/${progress.total}` : ''}
                 {' · '}导入完成前不可关闭
@@ -217,7 +217,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
           ) : null}
 
           {error ? (
-            <div className="mt-4 rounded-xl p-4 text-[11.5px] leading-6" style={{ background: 'var(--bad-soft)', color: 'var(--bad)' }}>
+            <div className="mt-4 rounded-xl p-4 text-[13.5px] leading-6" style={{ background: 'var(--bad-soft)', color: 'var(--bad)' }}>
               {error}
             </div>
           ) : null}
@@ -233,10 +233,10 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
           <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="chip-accent">导入完成</span>
-              <span className="text-[10px] text-[var(--muted)]">{summary.title}</span>
+              <span className="text-[11px] text-[var(--muted)]">{summary.title}</span>
               {summary.review > 0 ? <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>{summary.review} 题待校对</span> : null}
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
+            <div className="grid grid-cols-2 gap-2 mt-3 text-[12px]">
               <div><div className="text-[9px] text-[var(--muted)]">题目</div><div className="text-[14px] font-semibold">{summary.questions.toLocaleString('zh-CN')}</div></div>
               <div><div className="text-[9px] text-[var(--muted)]">试卷</div><div className="text-[14px] font-semibold">{summary.papers.toLocaleString('zh-CN')}</div></div>
               <div><div className="text-[9px] text-[var(--muted)]">图片</div><div className="text-[14px] font-semibold">{summary.images.toLocaleString('zh-CN')}</div></div>
@@ -246,15 +246,15 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
 
           {aiResult ? (
             <div className="mt-3 rounded-xl border border-[var(--line)] p-3.5">
-              <div className="flex items-center gap-2 flex-wrap text-[10.5px]">
-                <span className="font-semibold text-[11px]">AI 转换报告</span>
+              <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
+                <span className="font-semibold text-[12px]">AI 转换报告</span>
                 <span className="chip">转换 {aiResult.converted}</span>
                 <span className="chip">已合规 {aiResult.valid}</span>
                 {aiResult.failed > 0 ? (
                   <span className="chip" style={{ color: 'var(--bad)', borderColor: 'var(--bad)' }}>失败 {aiResult.failed}</span>
                 ) : null}
               </div>
-              <div className="max-h-52 overflow-y-auto scroll mt-2 space-y-2 text-[10px] leading-5">
+              <div className="max-h-52 overflow-y-auto scroll mt-2 space-y-2 text-[11px] leading-5">
                 {aiResult.files
                   .filter((item) => item.status !== 'skipped')
                   .map((item, index) => (

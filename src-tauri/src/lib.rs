@@ -38,6 +38,8 @@ pub fn run() {
             commands::update_question,
             commands::get_settings,
             commands::set_settings,
+            commands::check_update,
+            commands::resolve_update_download,
             commands::stats,
             commands::list_banks_cmd,
             commands::switch_bank,

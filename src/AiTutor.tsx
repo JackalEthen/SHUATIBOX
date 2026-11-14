@@ -131,19 +131,19 @@ export function AiTutor({ question, onClose, mobile }: Props) {
         {messages.map((message, index) => (
           <div key={index} className={message.role === 'user' ? 'self-end max-w-[86%]' : 'self-start max-w-[92%]'}>
             {message.role === 'user' ? (
-              <div className="rounded-2xl rounded-br-md bg-[var(--accent)] px-3 py-2 text-[12.5px] leading-6 text-white whitespace-pre-wrap">
+              <div className="rounded-2xl rounded-br-md bg-[var(--accent)] px-3 py-2 text-[13.5px] leading-6 text-white whitespace-pre-wrap">
                 {message.content}
               </div>
             ) : (
-              <div className="rounded-2xl rounded-bl-md border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[12.5px] leading-6 text-[var(--ink-2)]">
+              <div className="rounded-2xl rounded-bl-md border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] leading-6 text-[var(--ink-2)]">
                 <div className="ai-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }} />
               </div>
             )}
           </div>
         ))}
-        {busy ? <div className="self-start text-[11.5px] text-[var(--muted)]">AI 正在思考…</div> : null}
+        {busy ? <div className="self-start text-[13.5px] text-[var(--muted)]">AI 正在思考…</div> : null}
         {error ? (
-          <div className="self-start max-w-[92%] rounded-xl border border-[var(--bad)] px-3 py-2 text-[11.5px] leading-5 text-[var(--bad)]">
+          <div className="self-start max-w-[92%] rounded-xl border border-[var(--bad)] px-3 py-2 text-[13.5px] leading-5 text-[var(--bad)]">
             {error}
             <button className="ml-2 underline" onClick={() => void retry()}>
               重试
@@ -153,7 +153,7 @@ export function AiTutor({ question, onClose, mobile }: Props) {
       </div>
       <div className="mt-3 flex items-end gap-2 border-t border-[var(--line)] pt-3">
         <textarea
-          className="flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[12.5px] text-[var(--ink)] outline-none"
+          className="flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none"
           rows={2}
           placeholder="继续追问…（Enter 发送，Shift+Enter 换行）"
           value={input}

@@ -43,35 +43,35 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
       </div>
 
       {loading && !data ? (
-        <div className="card mt-4 p-8 text-center text-[11.5px] text-[var(--muted)]">读取统计…</div>
+        <div className="card mt-4 p-8 text-center text-[13.5px] text-[var(--muted)]">读取统计…</div>
       ) : data ? (
         <>
           <div className="grid grid-cols-2 gap-2.5 mt-4">
             <div className="card p-4">
-              <div className="text-[10px] text-[var(--muted)]">累计已刷</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{fmt(data.totalAnswered)}</span><span className="text-[10px] text-[var(--muted)] mb-1">题</span></div>
+              <div className="text-[11px] text-[var(--muted)]">累计已刷</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{fmt(data.totalAnswered)}</span><span className="text-[11px] text-[var(--muted)] mb-1">题</span></div>
             </div>
             <div className="card p-4">
-              <div className="text-[10px] text-[var(--muted)]">总正确率</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.accuracy}</span><span className="text-[10px] text-[var(--muted)] mb-1">%</span></div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-1">{fmt(data.totalCorrect)} 题答对</div>
+              <div className="text-[11px] text-[var(--muted)]">总正确率</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.accuracy}</span><span className="text-[11px] text-[var(--muted)] mb-1">%</span></div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">{fmt(data.totalCorrect)} 题答对</div>
             </div>
             <div className="card p-4">
-              <div className="text-[10px] text-[var(--muted)]">学习天数</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.learnedDays}</span><span className="text-[10px] text-[var(--muted)] mb-1">天</span></div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-1">日均 {data.perDay} 题</div>
+              <div className="text-[11px] text-[var(--muted)]">学习天数</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.learnedDays}</span><span className="text-[11px] text-[var(--muted)] mb-1">天</span></div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">日均 {data.perDay} 题</div>
             </div>
             <div className="card p-4">
-              <div className="text-[10px] text-[var(--muted)]">模拟考试</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.examCount}</span><span className="text-[10px] text-[var(--muted)] mb-1">次</span></div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-1">最高 {data.bestScore} 分</div>
+              <div className="text-[11px] text-[var(--muted)]">模拟考试</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.examCount}</span><span className="text-[11px] text-[var(--muted)] mb-1">次</span></div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">最高 {data.bestScore} 分</div>
             </div>
           </div>
 
           <div className="card mt-3 p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-[12px] font-semibold">每日做题量</h3>
-              <span className="text-[9.5px] text-[var(--muted)]">题 / 天</span>
+              <h3 className="text-[15px] font-semibold">每日做题量</h3>
+              <span className="text-[10.5px] text-[var(--muted)]">题 / 天</span>
             </div>
             <div className="flex items-end gap-1 mt-3" style={{ height: 88 }}>
               {data.daily.map((item) => (
@@ -91,11 +91,11 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[12px] font-semibold">模块正确率</h3>
+            <h3 className="text-[15px] font-semibold">模块正确率</h3>
             <div className="mt-3 space-y-2.5">
               {data.modules.map((module) => (
                 <div key={module.code}>
-                  <div className="flex justify-between text-[10.5px] mb-1">
+                  <div className="flex justify-between text-[11.5px] mb-1">
                     <span>{module.name}</span>
                     <span>{module.done > 0 ? `${module.accuracy}%` : '—'}</span>
                   </div>
@@ -108,16 +108,16 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[12px] font-semibold">薄弱题型</h3>
+            <h3 className="text-[15px] font-semibold">薄弱题型</h3>
             {data.weak.length === 0 ? (
-              <div className="text-[10.5px] text-[var(--muted)] mt-2">至少作答 2 题后显示</div>
+              <div className="text-[11.5px] text-[var(--muted)] mt-2">至少作答 2 题后显示</div>
             ) : (
               <div className="mt-2 divide-y divide-[var(--line)]">
                 {data.weak.map((item, index) => (
                   <div key={`${item.module}-${item.type}`} className="py-2.5 flex items-center gap-2">
-                    <span className="text-[10px] text-[var(--muted)] w-4">{index + 1}</span>
-                    <span className="text-[11.5px] flex-1">{item.module} · {item.type}</span>
-                    <span className="text-[10px] text-[var(--bad)]">{item.accuracy}%</span>
+                    <span className="text-[11px] text-[var(--muted)] w-4">{index + 1}</span>
+                    <span className="text-[13.5px] flex-1">{item.module} · {item.type}</span>
+                    <span className="text-[11px] text-[var(--bad)]">{item.accuracy}%</span>
                   </div>
                 ))}
               </div>
@@ -125,19 +125,19 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[12px] font-semibold">最近模考</h3>
+            <h3 className="text-[15px] font-semibold">最近模考</h3>
             {data.exams.length === 0 ? (
-              <div className="text-[10.5px] text-[var(--muted)] mt-2">还没有完成模拟考试</div>
+              <div className="text-[11.5px] text-[var(--muted)] mt-2">还没有完成模拟考试</div>
             ) : (
               <div className="mt-2 divide-y divide-[var(--line)]">
                 {data.exams.slice(0, 5).map((item) => (
                   <div key={item.id} className="py-2.5 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[10px] font-semibold">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold">
                       {item.score ?? '—'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[11.5px] truncate">{item.title}</div>
-                      <div className="text-[9.5px] text-[var(--muted)] mt-0.5">{item.completedAt ?? item.updatedAt}</div>
+                      <div className="text-[13.5px] truncate">{item.title}</div>
+                      <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{item.completedAt ?? item.updatedAt}</div>
                     </div>
                   </div>
                 ))}

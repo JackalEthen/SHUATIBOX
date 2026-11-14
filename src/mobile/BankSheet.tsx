@@ -38,19 +38,19 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
         void run(bank.id, () => switchBank(bank.id), `已切换到 ${bank.title}`);
       }}
     >
-      <div className="w-8 h-8 rounded-lg bg-[var(--card)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold">
+      <div className="w-8 h-8 rounded-lg bg-[var(--card)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
         {bank.title.slice(0, 1)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-medium truncate">{bank.title}</div>
-        <div className="text-[9.5px] text-[var(--muted)] mt-0.5">
+        <div className="text-[13px] font-medium truncate">{bank.title}</div>
+        <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
           {bank.paperCount} 套卷 · {bank.questionCount.toLocaleString('zh-CN')} 题
         </div>
       </div>
       {bank.active ? (
         <span className="chip active">启用中</span>
       ) : (
-        <span className="text-[10px] text-[var(--muted)]">{busy === bank.id ? '…' : '切换'}</span>
+        <span className="text-[11px] text-[var(--muted)]">{busy === bank.id ? '…' : '切换'}</span>
       )}
     </button>
   );
@@ -58,8 +58,8 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
   return (
     <MobileSheet open={open} onClose={onClose}>
       <div className="grabber" />
-      <h3 className="text-[14px] font-semibold">切换题库</h3>
-      <p className="text-[10px] text-[var(--muted)] mt-1">多个题库互斥，切换后进度、错题、统计随题库切换。</p>
+      <h3 className="text-[15px] font-semibold">切换题库</h3>
+      <p className="text-[11px] text-[var(--muted)] mt-1">多个题库互斥，切换后进度、错题、统计随题库切换。</p>
 
       <div className="mt-4 space-y-2">{data.banks.map(item)}</div>
 

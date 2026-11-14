@@ -18,9 +18,10 @@ import {
 } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
+import { UpdateCard } from './UpdateCard';
 import { APP_VERSION } from './version';
 import { Modal } from './Modal';
-import type { Appearance, QSize } from './theme';
+import type { Appearance, FontScale } from './theme';
 
 interface Props {
   data: Bootstrap;
@@ -33,12 +34,14 @@ interface Props {
 }
 
 export function DesktopSettings({ data, appearance, profile, onProfileChange, onRefresh, onNotice, onImport }: Props) {
-  const { accent, setAccent, dark, setDark, qsize, setQSize } = appearance;
+  const { accent, setAccent, dark, setDark, fontScale, setFontScale } = appearance;
   const [confirmBank, setConfirmBank] = useState<BankDto | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [busy, setBusy] = useState(false);
   const [practiceMode, setPracticeMode] = useState(data.settings.practice_mode ?? 'instant');
   const [archive, setArchive] = useState(data.settings.archive_streak ?? '2');
+  const reviewEnabled = data.settings.review_enabled !== '0';
+  const reviewLimit = data.settings.review_limit ?? '50';
   const [goal, setGoal] = useState(data.settings.daily_goal ?? '50');
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
@@ -82,6 +85,12 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
 
   const saveSetting = (values: Record<string, string>) => {
     setSettings(values).catch((error) => onNotice(`设置保存失败：${errorText(error)}`));
+  };
+
+  const saveAndRefresh = (values: Record<string, string>) => {
+    setSettings(values)
+      .then(onRefresh)
+      .catch((error) => onNotice(`设置保存失败：${errorText(error)}`));
   };
 
   const chooseBackupPath = async () => {
@@ -195,14 +204,15 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
                 </button>
               </div>
               <div>
-                <div className="text-[11.5px] text-[var(--muted)] mb-2">题干字号</div>
+                <div className="text-[11.5px] text-[var(--muted)] mb-2">阅读字号</div>
                 <div className="seg">
                   {[
                     ['s', '小'],
                     ['m', '标准'],
                     ['l', '大'],
+                    ['xl', '特大'],
                   ].map(([key, label]) => (
-                    <button key={key} className={qsize === key ? 'active' : ''} onClick={() => setQSize(key as QSize)}>
+                    <button key={key} className={fontScale === key ? 'active' : ''} onClick={() => setFontScale(key as FontScale)}>
                       {label}
                     </button>
                   ))}
@@ -233,7 +243,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-[12px]">连续答对归档</div>
+                  <div className="text-[12px]">错题移出阈值</div>
                   <div className="text-[10.5px] text-[var(--muted)] mt-0.5">错题连续答对后移入已掌握</div>
                 </div>
                 <select
@@ -247,6 +257,8 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
                   <option value="1">1 次</option>
                   <option value="2">2 次</option>
                   <option value="3">3 次</option>
+                  <option value="4">4 次</option>
+                  <option value="5">5 次</option>
                 </select>
               </div>
               <div className="flex items-center justify-between">
@@ -270,6 +282,40 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
               <div className="text-[10.5px] text-[var(--muted)] leading-5">
                 快捷键：A–H 选择，← → 翻题，F 收藏，标记按钮记录疑问题。
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card mt-4 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-[13.5px] font-semibold">艾宾浩斯复习</h2>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">
+                按 1 / 2 / 4 / 7 / 15 / 30 / 60 天复习；答对进入下一阶段，答错回到 1 天。
+              </div>
+            </div>
+            <button
+              className={`chip ${reviewEnabled ? 'active' : ''}`}
+              onClick={() => saveAndRefresh({ review_enabled: reviewEnabled ? '0' : '1' })}
+            >
+              {reviewEnabled ? '已开启' : '已关闭'}
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <div>
+              <div className="text-[12px]">每日复习上限</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">到期题多时，单次最多复习的题数</div>
+            </div>
+            <div className="seg">
+              {['20', '50', '100'].map((value) => (
+                <button
+                  key={value}
+                  className={reviewLimit === value ? 'active' : ''}
+                  onClick={() => saveAndRefresh({ review_limit: value })}
+                >
+                  {value}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -366,6 +412,8 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
             </button>
           </div>
         </div>
+
+        <UpdateCard />
 
         <div className="text-[10.5px] text-[var(--muted)] mt-6">
           刷题盒子 SHUATIBOX v{APP_VERSION} · 本地离线

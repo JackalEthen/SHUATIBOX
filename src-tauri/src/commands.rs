@@ -6,9 +6,197 @@ use crate::models::*;
 use chrono::{Duration, Local, NaiveDate};
 use rusqlite::types::Value;
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value as Json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
+
+const UPDATE_REPO: &str = "JackalEthen/SHUATIBOX";
+const UPDATE_MIRROR: &str = "https://fastgit.cc/";
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    current_version: String,
+    latest_version: String,
+    has_update: bool,
+    title: String,
+    notes: String,
+    published_at: Option<String>,
+    page_url: String,
+    download_url: Option<String>,
+    asset_name: Option<String>,
+    asset_size: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDownload {
+    url: String,
+    mirrored: bool,
+}
+
+fn update_version_parts(value: &str) -> Vec<u64> {
+    value
+        .trim()
+        .trim_start_matches(|ch| ch == 'v' || ch == 'V')
+        .split('.')
+        .take(3)
+        .map(|part| {
+            part.chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>()
+                .parse()
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
+fn update_is_newer(latest: &str, current: &str) -> bool {
+    let latest = update_version_parts(latest);
+    let current = update_version_parts(current);
+    for index in 0..3 {
+        let left = latest.get(index).copied().unwrap_or(0);
+        let right = current.get(index).copied().unwrap_or(0);
+        if left != right {
+            return left > right;
+        }
+    }
+    false
+}
+
+fn update_asset(release: &Json) -> Option<(String, String, i64)> {
+    let assets = release.get("assets")?.as_array()?;
+    let find = |needle: &str| {
+        assets.iter().find(|asset| {
+            asset
+                .get("name")
+                .and_then(Json::as_str)
+                .map(|name| name.contains(needle))
+                .unwrap_or(false)
+        })
+    };
+    let first = || assets.first();
+    #[cfg(all(target_os = "android", target_arch = "aarch64"))]
+    let asset = find("arm64-v8a").or_else(|| find(".apk")).or_else(first);
+    #[cfg(all(target_os = "android", target_arch = "arm"))]
+    let asset = find("armeabi-v7a").or_else(|| find(".apk")).or_else(first);
+    #[cfg(target_os = "windows")]
+    let asset = find("x64-setup.exe")
+        .or_else(|| find("portable.exe"))
+        .or_else(first);
+    #[cfg(not(any(
+        all(target_os = "android", target_arch = "aarch64"),
+        all(target_os = "android", target_arch = "arm"),
+        target_os = "windows"
+    )))]
+    let asset = first();
+    let asset = asset?;
+    Some((
+        asset.get("browser_download_url")?.as_str()?.to_string(),
+        asset.get("name")?.as_str()?.to_string(),
+        asset.get("size").and_then(Json::as_i64).unwrap_or(0),
+    ))
+}
+
+fn update_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent("SHUATIBOX-update-check")
+        .timeout(StdDuration::from_secs(10))
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn check_update() -> Result<UpdateInfo, String> {
+    let response = update_client()?
+        .get(format!(
+            "https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
+        ))
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| format!("检查更新失败：{error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("检查更新失败：GitHub 返回 {}", response.status()));
+    }
+    let release: Json = response
+        .json()
+        .await
+        .map_err(|error| format!("检查更新失败：{error}"))?;
+    let tag = release
+        .get("tag_name")
+        .and_then(Json::as_str)
+        .unwrap_or("")
+        .trim();
+    if tag.is_empty() {
+        return Err("检查更新失败：GitHub 未返回版本号".to_string());
+    }
+    let latest_version = tag
+        .trim_start_matches(|ch| ch == 'v' || ch == 'V')
+        .to_string();
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let (download_url, asset_name, asset_size) = update_asset(&release)
+        .map(|(url, name, size)| (Some(url), Some(name), Some(size)))
+        .unwrap_or((None, None, None));
+    let title = release
+        .get("name")
+        .and_then(Json::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(tag)
+        .to_string();
+    let notes = release
+        .get("body")
+        .and_then(Json::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(1200)
+        .collect();
+    Ok(UpdateInfo {
+        has_update: update_is_newer(&latest_version, &current_version),
+        current_version,
+        latest_version,
+        title,
+        notes,
+        published_at: release
+            .get("published_at")
+            .and_then(Json::as_str)
+            .map(str::to_string),
+        page_url: release
+            .get("html_url")
+            .and_then(Json::as_str)
+            .unwrap_or("https://github.com/JackalEthen/SHUATIBOX/releases")
+            .to_string(),
+        download_url,
+        asset_name,
+        asset_size,
+    })
+}
+
+#[tauri::command]
+pub async fn resolve_update_download(url: String) -> Result<UpdateDownload, String> {
+    let url = url.trim().to_string();
+    if !url.starts_with("https://github.com/") {
+        return Err("更新链接不是 GitHub 地址".to_string());
+    }
+    let reachable = match update_client()?
+        .get(&url)
+        .header("Range", "bytes=0-0")
+        .send()
+        .await
+    {
+        Ok(response) => response.status().is_success(),
+        Err(_) => false,
+    };
+    Ok(UpdateDownload {
+        url: if reachable {
+            url
+        } else {
+            format!("{UPDATE_MIRROR}{url}")
+        },
+        mirrored: !reachable,
+    })
+}
 
 
 fn module_code(module: &str) -> String {
@@ -258,6 +446,114 @@ fn count_value(conn: &Connection, sql: &str, bank_id: &str) -> i64 {
     conn.query_row(sql, params![bank_id], |row| row.get(0)).unwrap_or(0)
 }
 
+const REVIEW_INTERVALS: [i64; 7] = [1, 2, 4, 7, 15, 30, 60];
+
+fn review_stats(conn: &Connection, bank_id: &str) -> (i64, Option<String>) {
+    let due = count_value(
+        conn,
+        "SELECT COUNT(*) FROM review_items
+         WHERE bank_id=?1 AND date(due_at)<=date('now','localtime')",
+        bank_id,
+    );
+    let next = conn
+        .query_row(
+            "SELECT due_at FROM review_items WHERE bank_id=?1 ORDER BY due_at LIMIT 1",
+            params![bank_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .ok()
+        .flatten();
+    (due, next)
+}
+
+fn update_review_item(
+    user: &Connection,
+    bank_id: &str,
+    question_id: &str,
+    correct: bool,
+    answered_at: &str,
+) -> Result<(), String> {
+    let current: Option<(i64, String, Option<String>)> = user
+        .query_row(
+            "SELECT stage,due_at,last_reviewed_at FROM review_items WHERE bank_id=?1 AND question_id=?2",
+            params![bank_id, question_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    let today = answered_at.get(..10).unwrap_or("");
+    let (stage, due_at, lapses) = match current {
+        None => (
+            0,
+            (Local::now() + Duration::days(REVIEW_INTERVALS[0]))
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
+            if correct { 0 } else { 1 },
+        ),
+        Some((stage, due_at, last)) => {
+            let same_day = last
+                .as_deref()
+                .and_then(|value| value.get(..10))
+                .map(|value| value == today)
+                .unwrap_or(false);
+            if !correct {
+                (
+                    0,
+                    (Local::now() + Duration::days(REVIEW_INTERVALS[0]))
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string(),
+                    1,
+                )
+            } else if same_day {
+                let due = due_at.get(..10).unwrap_or("");
+                if due <= today {
+                    (
+                        stage,
+                        (Local::now() + Duration::days(1))
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string(),
+                        0,
+                    )
+                } else {
+                    (stage, due_at, 0)
+                }
+            } else {
+                let next = (stage + 1).min(REVIEW_INTERVALS.len() as i64 - 1);
+                (
+                    next,
+                    (Local::now() + Duration::days(REVIEW_INTERVALS[next as usize]))
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string(),
+                    0,
+                )
+            }
+        }
+    };
+    user.execute(
+        "INSERT INTO review_items
+           (bank_id,question_id,stage,due_at,last_reviewed_at,last_correct,review_count,lapses)
+         VALUES (?1,?2,?3,?4,?5,?6,1,?7)
+         ON CONFLICT(bank_id,question_id) DO UPDATE SET
+           stage=excluded.stage, due_at=excluded.due_at,
+           last_reviewed_at=excluded.last_reviewed_at,
+           last_correct=excluded.last_correct,
+           review_count=review_items.review_count+1,
+           lapses=review_items.lapses+excluded.lapses",
+        params![
+            bank_id,
+            question_id,
+            stage,
+            due_at,
+            answered_at,
+            if correct { 1 } else { 0 },
+            lapses
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn load_questions_by_ids(bank: &Connection, ids: &[String]) -> Result<Vec<QuestionDto>, String> {
     if ids.is_empty() {
         return Ok(Vec::new());
@@ -407,6 +703,8 @@ pub fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
         &bank.id,
     );
     let continue_session = latest_active_session(&user, &bank.id)?;
+    let (review_due_count, review_next_due) = review_stats(&user, &bank.id);
+    let review_enabled = setting(&user, "review_enabled", "1") != "0";
     let banks = list_banks(&user)?;
     let asset_dir = crate::db::asset_dir(&bank).to_string_lossy().to_string();
     Ok(Bootstrap {
@@ -420,6 +718,9 @@ pub fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
         streak,
         wrong_count,
         favorite_count,
+        review_due_count,
+        review_next_due,
+        review_enabled,
         continue_session,
         banks,
         asset_dir,
@@ -446,6 +747,8 @@ pub fn home_summary(app: tauri::AppHandle) -> Result<HomeSummary, String> {
         "SELECT COUNT(*) FROM favorites WHERE bank_id=?1",
         &bank.id,
     );
+    let (review_due_count, review_next_due) = review_stats(&user, &bank.id);
+    let review_enabled = setting(&user, "review_enabled", "1") != "0";
     Ok(HomeSummary {
         today,
         streak,
@@ -454,6 +757,9 @@ pub fn home_summary(app: tauri::AppHandle) -> Result<HomeSummary, String> {
         modules,
         wrong_count,
         favorite_count,
+        review_due_count,
+        review_next_due,
+        review_enabled,
         bank,
     })
 }
@@ -520,6 +826,44 @@ fn build_session(
             .flatten()
             .collect();
         title = if mode == "wrong" { "错题重做".to_string() } else { "收藏练习".to_string() };
+    } else if mode == "review" {
+        if setting(user, "review_enabled", "1") == "0" {
+            return Err("艾宾浩斯复习已关闭".to_string());
+        }
+        let review_limit = spec
+            .count
+            .unwrap_or_else(|| setting(user, "review_limit", "50").parse().unwrap_or(50))
+            .clamp(1, 500);
+        let mut stmt = user
+            .prepare(
+                "SELECT question_id FROM review_items
+                 WHERE bank_id=?1 AND date(due_at)<=date('now','localtime')
+                 ORDER BY due_at, question_id LIMIT ?2",
+            )
+            .map_err(|error| error.to_string())?;
+        let due: Vec<String> = stmt
+            .query_map(params![bank_id, review_limit], |row| row.get::<_, String>(0))
+            .map_err(|error| error.to_string())?
+            .flatten()
+            .collect();
+        for id in due {
+            let exists: bool = bank
+                .query_row(
+                    "SELECT 1 FROM questions WHERE id=?1 AND can_grade=1",
+                    params![id],
+                    |_| Ok(true),
+                )
+                .optional()
+                .map_err(|error| error.to_string())?
+                .unwrap_or(false);
+            if exists {
+                ids.push(id);
+            }
+        }
+        title = spec
+            .title
+            .clone()
+            .unwrap_or_else(|| format!("艾宾浩斯复习 · {} 题", ids.len()));
     } else if mode == "paper" || mode == "exam" {
         let key = spec
             .paper_key
@@ -658,6 +1002,9 @@ fn build_session(
     }
 
     if ids.is_empty() {
+        if mode == "review" {
+            return Err("今天没有到期的复习题。".to_string());
+        }
         return Err("没有可练习的题目。图片题需先导入题库图片。".to_string());
     }
     Ok((ids, title, paper_key, module, duration))
@@ -791,6 +1138,9 @@ pub fn save_answer(
                 params![bank.id, question_id, answered_at],
             )
             .map_err(|error| error.to_string())?;
+        }
+        if setting(&user, "review_enabled", "1") != "0" {
+            update_review_item(&user, &bank.id, &question_id, correct, &answered_at)?;
         }
     }
     user.execute(
@@ -1503,6 +1853,8 @@ pub fn delete_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     user.execute("DELETE FROM favorites WHERE bank_id=?1", params![id])
         .map_err(|error| error.to_string())?;
+    user.execute("DELETE FROM review_items WHERE bank_id=?1", params![id])
+        .map_err(|error| error.to_string())?;
     user.execute("DELETE FROM notes WHERE bank_id=?1", params![id])
         .map_err(|error| error.to_string())?;
     user.execute("DELETE FROM reports WHERE bank_id=?1", params![id])
@@ -1597,6 +1949,7 @@ pub fn clear_history(app: tauri::AppHandle) -> Result<(), String> {
          DELETE FROM sessions;
          DELETE FROM wrong;
          DELETE FROM favorites;
+         DELETE FROM review_items;
          DELETE FROM notes;
          DELETE FROM reports;
          COMMIT;",
@@ -1675,7 +2028,7 @@ pub fn load_practice_questions(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_session, merge_mixed};
+    use super::{build_session, merge_mixed, update_asset, update_is_newer, update_review_item};
     use crate::models::SessionSpec;
     use rusqlite::{params, Connection};
 
@@ -1765,7 +2118,109 @@ mod tests {
         let merged = merge_mixed(ids(&["a", "b", "a"]), ids(&["b", "c"]), 5);
         assert_eq!(merged, ids(&["a", "b", "c"]));
     }
+
+    fn review_db() -> Connection {
+        let user = Connection::open_in_memory().unwrap();
+        user.execute_batch(
+            "CREATE TABLE review_items (
+               bank_id TEXT NOT NULL, question_id TEXT NOT NULL, stage INTEGER NOT NULL DEFAULT 0,
+               due_at TEXT NOT NULL, last_reviewed_at TEXT, last_correct INTEGER NOT NULL DEFAULT 0,
+               review_count INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
+               PRIMARY KEY (bank_id,question_id)
+             );
+             CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        )
+        .unwrap();
+        user
+    }
+
+    #[test]
+    fn review_first_correct_stays_stage_zero_and_same_day_does_not_advance() {
+        let user = review_db();
+        update_review_item(&user, "b", "q1", true, "2026-01-01 10:00:00").unwrap();
+        let stage: i64 = user
+            .query_row("SELECT stage FROM review_items WHERE question_id='q1'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stage, 0);
+        update_review_item(&user, "b", "q1", true, "2026-01-01 18:00:00").unwrap();
+        let (stage, count): (i64, i64) = user
+            .query_row("SELECT stage,review_count FROM review_items WHERE question_id='q1'", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!((stage, count), (0, 2));
+    }
+
+    #[test]
+    fn review_correct_advances_and_wrong_resets() {
+        let user = review_db();
+        update_review_item(&user, "b", "q1", true, "2026-01-01 10:00:00").unwrap();
+        update_review_item(&user, "b", "q1", true, "2026-01-02 10:00:00").unwrap();
+        let stage: i64 = user
+            .query_row("SELECT stage FROM review_items WHERE question_id='q1'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stage, 1);
+        update_review_item(&user, "b", "q1", false, "2026-01-05 10:00:00").unwrap();
+        let (stage, lapses): (i64, i64) = user
+            .query_row("SELECT stage,lapses FROM review_items WHERE question_id='q1'", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!((stage, lapses), (0, 1));
+    }
+
+    #[test]
+    fn review_session_only_returns_due_questions_and_respects_disable() {
+        let bank = Connection::open_in_memory().unwrap();
+        bank.execute_batch(
+            "CREATE TABLE questions (id TEXT PRIMARY KEY, module TEXT NOT NULL, can_grade INTEGER NOT NULL);
+             INSERT INTO questions VALUES ('q1','A',1),('q2','A',1);",
+        )
+        .unwrap();
+        let user = review_db();
+        user.execute(
+            "INSERT INTO review_items (bank_id,question_id,due_at) VALUES ('b','q1','2020-01-01 00:00:00'),('b','q2','2999-01-01 00:00:00')",
+            [],
+        )
+        .unwrap();
+        user.execute_batch(
+            "INSERT INTO settings VALUES ('review_enabled','1'),('review_limit','50');",
+        )
+        .unwrap();
+        let spec = SessionSpec {
+            mode: "review".to_string(),
+            ..Default::default()
+        };
+        let (ids, title, _, _, _) = build_session(&bank, &user, "b", &spec).unwrap();
+        assert_eq!(ids, self::ids(&["q1"]));
+        assert_eq!(title, "艾宾浩斯复习 · 1 题");
+
+        user.execute("UPDATE settings SET value='0' WHERE key='review_enabled'", []).unwrap();
+        assert!(build_session(&bank, &user, "b", &spec).is_err());
+    }
+
+    #[test]
+    fn update_version_compare_handles_v_prefix() {
+        assert!(update_is_newer("v1.4.1", "1.4.0"));
+        assert!(update_is_newer("1.10.0", "1.9.9"));
+        assert!(!update_is_newer("v1.4.0", "1.4.0"));
+        assert!(!update_is_newer("v1.3.9", "1.4.0"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn update_asset_prefers_windows_installer() {
+        let release = serde_json::json!({
+            "assets": [
+                { "name": "SHUATIBOX-1.5.0-portable.exe", "browser_download_url": "https://example.com/portable", "size": 1 },
+                { "name": "SHUATIBOX-1.5.0-x64-setup.exe", "browser_download_url": "https://example.com/setup", "size": 2 }
+            ]
+        });
+        let (url, name, size) = update_asset(&release).unwrap();
+        assert_eq!((url.as_str(), name.as_str(), size), ("https://example.com/setup", "SHUATIBOX-1.5.0-x64-setup.exe", 2));
+    }
 }
+
 
 
 

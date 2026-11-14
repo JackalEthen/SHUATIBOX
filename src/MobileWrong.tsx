@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { clearWrong, errorText, listWrong, type SessionSpec, type WrongPage } from './api';
+import { CountDialog } from './CountDialog';
 
 interface Props {
   onStart: (spec: SessionSpec) => void;
@@ -17,6 +18,7 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
   const [page, setPage] = useState<WrongPage>({ items: [], total: 0, pending: 0, mastered: 0 });
   const [loading, setLoading] = useState(true);
   const [key, setKey] = useState(0);
+  const [redoOpen, setRedoOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,12 +42,12 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
       <div className="flex items-end justify-between">
         <div>
           <h2 className="text-[20px] font-semibold">错题集</h2>
-          <p className="text-[10.5px] text-[var(--muted)] mt-1">答错自动收录 · 连续答对后移入已掌握</p>
+          <p className="text-[11.5px] text-[var(--muted)] mt-1">答错自动收录 · 连续答对后移入已掌握</p>
         </div>
         <button
           className="btn btn-primary btn-sm"
-          disabled={page.items.length === 0}
-          onClick={() => redo(page.items.map((item) => item.question.id))}
+          disabled={page.pending === 0}
+          onClick={() => setRedoOpen(true)}
         >
           重做 {page.pending}
         </button>
@@ -63,9 +65,9 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
       </div>
 
       <div className="flex items-center justify-between mt-2">
-        <span className="text-[10px] text-[var(--muted)]">{page.items.length} 条</span>
+        <span className="text-[11px] text-[var(--muted)]">{page.items.length} 条</span>
         <button
-          className="text-[10px] text-[var(--muted)]"
+          className="text-[11px] text-[var(--muted)]"
           onClick={() => {
             clearWrong(status === 'mastered')
               .then(() => { onNotice(status === 'mastered' ? '已清空已掌握' : '已清空错题'); setKey((value) => value + 1); })
@@ -78,17 +80,17 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
 
       <div className="mt-2 space-y-2.5">
         {loading ? (
-          <div className="card p-8 text-center text-[11.5px] text-[var(--muted)]">读取错题…</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">读取错题…</div>
         ) : page.items.length === 0 ? (
-          <div className="card p-8 text-center text-[11.5px] text-[var(--muted)]">暂无错题</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">暂无错题</div>
         ) : (
           page.items.map((item) => (
             <div key={item.question.id} className="card p-4">
-              <div className="text-[12.5px] line-clamp-2">{plain(item.question.stem).slice(0, 160)}</div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-2">
+              <div className="text-[13.5px] line-clamp-2">{plain(item.question.stem).slice(0, 160)}</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-2">
                 {item.question.module} · {item.question.type} · 错 {item.wrongCount} 次 · 连对 {item.correctStreak}
               </div>
-              <div className="text-[9.5px] text-[var(--muted)] mt-0.5">{item.question.paperTitle}</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{item.question.paperTitle}</div>
               <div className="flex gap-2 mt-3">
                 <button className="btn btn-ghost btn-sm flex-1" onClick={() => redo([item.question.id])}>重做</button>
                 <button className="btn btn-primary btn-sm flex-1" onClick={() => onStart({ mode: 'custom', questionIds: [item.question.id], title: '单题练习' })}>看解析</button>
@@ -98,6 +100,19 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
         )}
       </div>
       <div className="h-4" />
+
+      <CountDialog
+        open={redoOpen}
+        title="错题重做"
+        max={page.pending}
+        initial={20}
+        mobile
+        onClose={() => setRedoOpen(false)}
+        onStart={(count) => {
+          setRedoOpen(false);
+          onStart({ mode: 'wrong', count, title: '错题重做' });
+        }}
+      />
     </div>
   );
 }

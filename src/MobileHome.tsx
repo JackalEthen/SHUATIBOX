@@ -28,6 +28,9 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
   const today = summary?.today ?? data.today;
   const streak = summary?.streak ?? data.streak;
   const wrongCount = summary?.wrongCount ?? data.wrongCount;
+  const reviewEnabled = summary?.reviewEnabled ?? data.reviewEnabled;
+  const reviewDueCount = summary?.reviewDueCount ?? data.reviewDueCount;
+  const reviewNextDue = summary?.reviewNextDue ?? data.reviewNextDue;
   const continueSession = summary?.continueSession ?? data.continueSession;
   const recent = summary?.recent ?? [];
   const modules = data.modules;
@@ -43,8 +46,8 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
     <div className="px-4 pt-4">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-[22px] font-semibold tracking-tight">你好，{profileName}</h2>
-          <p className="text-[11px] text-[var(--muted)] mt-1">
+          <h2 className="text-[20px] font-semibold tracking-tight">你好，{profileName}</h2>
+          <p className="text-[12px] text-[var(--muted)] mt-1">
             {data.bank.title} · {fmt(data.bank.questionCount)} 题
           </p>
         </div>
@@ -56,12 +59,12 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
         <div className="relative">
           <div className="flex items-center gap-2">
             <span className="chip-accent">{continueSession ? '继续上次' : '开始练习'}</span>
-            <span className="text-[10px] text-[var(--muted)]">{continueSession ? continueSession.updatedAt : '今天'}</span>
+            <span className="text-[11px] text-[var(--muted)]">{continueSession ? continueSession.updatedAt : '今天'}</span>
           </div>
           <div className="serif text-[16px] mt-2 leading-snug">
             {continueSession ? continueSession.title : '从任意模块开始一组练习'}
           </div>
-          <div className="text-[11px] text-[var(--ink-2)] mt-1">
+          <div className="text-[12px] text-[var(--ink-2)] mt-1">
             {continueSession
               ? `已答 ${continueSession.answered} / ${continueSession.total} 题`
               : '答题记录自动保存，可随时继续'}
@@ -70,12 +73,12 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
             <div className="progress flex-1" style={{ height: 5 }}>
               <i style={{ width: `${continueSession && continueSession.total ? Math.round((continueSession.answered / continueSession.total) * 100) : 0}%` }} />
             </div>
-            <span className="text-[10px] text-[var(--muted)]">
+            <span className="text-[11px] text-[var(--muted)]">
               {continueSession && continueSession.total ? `${Math.round((continueSession.answered / continueSession.total) * 100)}%` : '0%'}
             </span>
           </div>
           <div className="flex items-center justify-between mt-3">
-            <span className="text-[10.5px] text-[var(--muted)]">目标 {today.goal} 题</span>
+            <span className="text-[11.5px] text-[var(--muted)]">目标 {today.goal} 题</span>
             <span className="btn btn-primary btn-sm">{continueSession ? '继续练题' : '开始练习'} ›</span>
           </div>
         </div>
@@ -83,42 +86,66 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
 
       <div className="grid grid-cols-2 gap-3 mt-3">
         <div className="card p-4">
-          <div className="text-[10.5px] text-[var(--muted)]">今日已刷</div>
+          <div className="text-[11.5px] text-[var(--muted)]">今日已刷</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{fmt(today.answered)}</span>
-            <span className="text-[10px] text-[var(--muted)] mb-1">题</span>
-            <span className="ml-auto text-[9.5px] text-[var(--good)] mb-1">{goalRatio}% 目标</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">题</span>
+            <span className="ml-auto text-[10.5px] text-[var(--good)] mb-1">{goalRatio}% 目标</span>
           </div>
           <div className="progress mt-2" style={{ height: 5 }}>
             <i style={{ width: `${goalRatio}%` }} />
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-[10.5px] text-[var(--muted)]">正确率</div>
+          <div className="text-[11.5px] text-[var(--muted)]">正确率</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{today.accuracy}</span>
-            <span className="text-[10px] text-[var(--muted)] mb-1">%</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">%</span>
           </div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-2">答对 {fmt(today.correct)} / {fmt(today.answered)} 题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">答对 {fmt(today.correct)} / {fmt(today.answered)} 题</div>
         </div>
         <div className="card p-4">
-          <div className="text-[10.5px] text-[var(--muted)]">连续学习</div>
+          <div className="text-[11.5px] text-[var(--muted)]">连续学习</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{streak.current}</span>
-            <span className="text-[10px] text-[var(--muted)] mb-1">天</span>
-            <span className="ml-auto text-[9.5px] text-[var(--muted)] mb-1">最长 {streak.max}</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">天</span>
           </div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-2">累计 {streak.totalDays} 天</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">累计 {streak.totalDays} 天</div>
         </div>
         <div className="card p-4">
-          <div className="text-[10.5px] text-[var(--muted)]">待攻克错题</div>
+          <div className="text-[11.5px] text-[var(--muted)]">待攻克错题</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{fmt(wrongCount)}</span>
-            <span className="text-[10px] text-[var(--muted)] mb-1">题</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">题</span>
           </div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-2">收藏 {fmt(data.favoriteCount)} 题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">收藏 {fmt(data.favoriteCount)} 题</div>
         </div>
       </div>
+
+      {reviewEnabled ? (
+        <button
+          className="card w-full p-4 mt-3 flex items-center gap-3 text-left disabled:opacity-60"
+          onClick={() => onStart({ mode: 'review' })}
+          disabled={reviewDueCount === 0}
+        >
+          <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center">
+            <Icon name="calendar" className="w-5 h-5" strokeWidth={1.8} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13.5px] font-medium">艾宾浩斯复习 · 今日 {reviewDueCount} 题</div>
+            <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
+              {reviewDueCount > 0
+                ? '按到期顺序复习'
+                : reviewNextDue
+                  ? `下次复习 ${reviewNextDue.slice(0, 10)}`
+                  : '暂无复习计划'}
+            </div>
+          </div>
+          <span className="btn btn-soft btn-sm">
+            {reviewDueCount > 0 ? '复习' : reviewNextDue ? '未到期' : '暂无'}
+          </span>
+        </button>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 mt-3">
         {actions.map((item) => (
@@ -127,15 +154,15 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
               <Icon name={item.icon} className="w-5 h-5" strokeWidth={1.8} />
             </div>
             <div className="text-[13px] font-medium">{item.title}</div>
-            <div className="text-[10px] text-[var(--muted)] mt-0.5">{item.sub}</div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">{item.sub}</div>
           </button>
         ))}
       </div>
 
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-[12.5px] font-semibold">模块进度</h3>
-          <button className="text-[10px] text-[var(--muted)]" onClick={onStats}>全部</button>
+          <h3 className="text-[15px] font-semibold">模块进度</h3>
+          <button className="text-[11px] text-[var(--muted)]" onClick={onStats}>全部</button>
         </div>
         <div className="mt-2 divide-y divide-[var(--line)]">
           {modules.map((module) => (
@@ -144,16 +171,16 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
               className="w-full text-left flex items-center gap-3 py-2"
               onClick={() => onStart({ mode: 'module', module: module.name, count: 20 })}
             >
-              <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[10px] font-semibold">
+              <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold">
                 {module.code}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[11.5px] truncate">{module.name}</div>
+                <div className="text-[13.5px] truncate">{module.name}</div>
                 <div className="progress mt-1" style={{ height: 4 }}>
                   <i style={{ width: `${Math.max(module.progress, module.done > 0 ? 1 : 0)}%` }} />
                 </div>
               </div>
-              <span className="text-[10px] text-[var(--muted)]">{fmt(module.done)} / {fmt(module.total)}</span>
+              <span className="text-[11px] text-[var(--muted)]">{fmt(module.done)} / {fmt(module.total)}</span>
             </button>
           ))}
         </div>
@@ -162,19 +189,19 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
       {recent.length > 0 ? (
         <div className="card mt-3 p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-[12.5px] font-semibold">最近记录</h3>
+            <h3 className="text-[15px] font-semibold">最近记录</h3>
           </div>
           <div className="mt-2 divide-y divide-[var(--line)]">
             {recent.slice(0, 4).map((item) => (
               <div key={item.id} className="flex items-center gap-3 py-2">
-                <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[10px] font-semibold">
+                <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold">
                   {item.score ?? '—'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11.5px] truncate">{item.title}</div>
-                  <div className="text-[9.5px] text-[var(--muted)] mt-0.5">{item.completedAt ?? item.updatedAt}</div>
+                  <div className="text-[13.5px] truncate">{item.title}</div>
+                  <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{item.completedAt ?? item.updatedAt}</div>
                 </div>
-                <span className="text-[10px] text-[var(--muted)]">{item.total} 题</span>
+                <span className="text-[11px] text-[var(--muted)]">{item.total} 题</span>
               </div>
             ))}
           </div>

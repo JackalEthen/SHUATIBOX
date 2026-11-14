@@ -197,6 +197,9 @@ pub struct HomeSummary {
     pub modules: Vec<ModuleStat>,
     pub wrong_count: i64,
     pub favorite_count: i64,
+    pub review_due_count: i64,
+    pub review_next_due: Option<String>,
+    pub review_enabled: bool,
     pub bank: BankDto,
 }
 
@@ -213,6 +216,9 @@ pub struct Bootstrap {
     pub streak: StreakDto,
     pub wrong_count: i64,
     pub favorite_count: i64,
+    pub review_due_count: i64,
+    pub review_next_due: Option<String>,
+    pub review_enabled: bool,
     pub continue_session: Option<SessionDto>,
     pub banks: Vec<BankDto>,
     pub asset_dir: String,

@@ -75,31 +75,31 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
 
   const fields: ReactNode = (
     <div className="grid gap-3">
-      <label className="text-[11px] text-[var(--muted)]">
+      <label className="text-[12px] text-[var(--muted)]">
         接口地址
         <input
-          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none disabled:opacity-60"
+          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
           placeholder="https://api.deepseek.com/v1"
           value={url}
           disabled={locked}
           onChange={(event) => change(setUrl)(event.target.value)}
         />
       </label>
-      <label className="text-[11px] text-[var(--muted)]">
+      <label className="text-[12px] text-[var(--muted)]">
         模型
         <input
-          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none disabled:opacity-60"
+          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
           placeholder="gpt-4o-mini / qwen-vl-plus"
           value={model}
           disabled={locked}
           onChange={(event) => change(setModel)(event.target.value)}
         />
       </label>
-      <label className="text-[11px] text-[var(--muted)]">
+      <label className="text-[12px] text-[var(--muted)]">
         密钥
         <input
           type="password"
-          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[11.5px] text-[var(--ink)] outline-none disabled:opacity-60"
+          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
           placeholder="sk-..."
           value={key}
           disabled={locked}
@@ -110,7 +110,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   );
 
   const status: ReactNode = (
-    <div className="mt-3 text-[11px] leading-5">
+    <div className="mt-3 text-[12px] leading-5">
       {testing ? (
         <span className="text-[var(--muted)]">正在测试连通性和读图能力，请稍候…</span>
       ) : testError ? (
@@ -135,7 +135,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   );
 
   const hint = (
-    <div className="text-[10.5px] text-[var(--muted)] leading-5 mb-3">
+    <div className="text-[11.5px] text-[var(--muted)] leading-5 mb-3">
       用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。
     </div>
   );

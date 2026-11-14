@@ -15,6 +15,7 @@ import {
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon, type IconName } from './icons';
 import type { Appearance } from './theme';
+import { MobileFavorites } from './MobileFavorites';
 import { MobileHome } from './MobileHome';
 import { MobileLibrary } from './MobileLibrary';
 import { MobileMine } from './MobileMine';
@@ -35,6 +36,7 @@ export type MobileScreen =
   | 'wrong'
   | 'search'
   | 'mine'
+  | 'favorites'
   | 'stats'
   | 'settings';
 
@@ -57,6 +59,7 @@ const titles: Record<MobileScreen, string> = {
   wrong: '错题集',
   search: '搜索',
   mine: '我的',
+  favorites: '我的收藏',
   stats: '学习统计',
   settings: '设置',
 };
@@ -170,7 +173,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         leavePractice();
         return 'handled';
       }
-      if (active === 'stats' || active === 'settings') {
+      if (active === 'stats' || active === 'settings' || active === 'favorites') {
         setScreen('mine');
         return 'handled';
       }
@@ -199,7 +202,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   if (loading && !data) {
     return (
       <div className="shell">
-        <div className="grid place-items-center h-[70vh] text-[12px] text-[var(--muted)]">读取题库…</div>
+        <div className="grid place-items-center h-[70vh] text-[13px] text-[var(--muted)]">读取题库…</div>
       </div>
     );
   }
@@ -210,7 +213,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         <div className="grid place-items-center h-[70vh] px-8 text-center">
           <div>
             <div className="text-[13px]">还没有可用题库</div>
-            <div className="text-[11px] text-[var(--muted)] mt-2 leading-6">用「导入题库」选择题库文件夹或 zip 开始。</div>
+            <div className="text-[12px] text-[var(--muted)] mt-2 leading-6">用「导入题库」选择题库文件夹或 zip 开始。</div>
             <div className="flex justify-center gap-2 mt-4">
               <button className="btn btn-primary" onClick={() => setImportOpen(true)}>导入题库</button>
               <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>AI 设置</button>
@@ -253,7 +256,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
     <div className="appbar">
       <div className="flex-1 min-w-0">
         <h1>{titles[screen]}</h1>
-        <p className="text-[9.5px] text-[var(--muted)] -mt-0.5 truncate">{data.bank.title}</p>
+        <p className="text-[10.5px] text-[var(--muted)] -mt-0.5 truncate">{data.bank.title}</p>
       </div>
       <button className="icon-btn" onClick={() => setScreen('search')} aria-label="搜索">
         <Icon name="search" strokeWidth={1.8} />
@@ -302,8 +305,17 @@ export function MobileApp({ appearance, onNotice }: Props) {
             onProfileChange={reloadProfile}
             onStats={() => setScreen('stats')}
             onSettings={() => setScreen('settings')}
+            onFavorites={() => setScreen('favorites')}
             onBank={() => setBankOpen(true)}
             onImport={() => setImportOpen(true)}
+            onNotice={onNotice}
+          />
+        ) : screen === 'favorites' ? (
+          <MobileFavorites
+            assetDir={data.assetDir}
+            reloadKey={reloadKey}
+            onBack={() => setScreen('mine')}
+            onRefresh={refresh}
             onNotice={onNotice}
           />
         ) : screen === 'stats' ? (

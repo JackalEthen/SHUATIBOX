@@ -173,6 +173,31 @@ export function DesktopHome({
           </div>
         </div>
 
+        {data.reviewEnabled ? (
+          <button
+            className="card w-full p-4 mt-4 flex items-center gap-4 text-left hover:border-[var(--accent)] transition disabled:opacity-60"
+            onClick={() => onStart({ mode: 'review' })}
+            disabled={data.reviewDueCount === 0}
+          >
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center">
+              <Icon name="calendar" className="w-4 h-4" strokeWidth={1.8} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-medium">艾宾浩斯复习 · 今日 {data.reviewDueCount} 题</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
+                {data.reviewDueCount > 0
+                  ? '按到期顺序复习，答对进入下一阶段'
+                  : data.reviewNextDue
+                    ? `下次复习 ${data.reviewNextDue.slice(0, 10)}`
+                    : '暂无复习计划'}
+              </div>
+            </div>
+            <span className="btn btn-soft btn-sm">
+              {data.reviewDueCount > 0 ? '开始复习' : data.reviewNextDue ? '未到期' : '暂无'}
+            </span>
+          </button>
+        ) : null}
+
         <div className="grid grid-cols-4 gap-3 mt-4">
           {[
             { icon: 'library' as const, title: '模块刷题', sub: '按模块 / 题型 / 年份', action: onLibrary },

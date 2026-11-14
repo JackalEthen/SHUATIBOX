@@ -48,12 +48,12 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
   return (
     <div className="px-4 pt-4">
       <button className="card w-full p-3 flex items-center gap-3 text-left" onClick={onBank}>
-        <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
+        <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[13px] font-semibold">
           {data.bank.title.slice(0, 1)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-medium truncate">{data.bank.title}</div>
-          <div className="text-[10px] text-[var(--muted)] mt-0.5">
+          <div className="text-[13.5px] font-medium truncate">{data.bank.title}</div>
+          <div className="text-[11px] text-[var(--muted)] mt-0.5">
             {fmt(data.bank.paperCount)} 套卷 · {fmt(data.bank.questionCount)} 题
           </div>
         </div>
@@ -62,7 +62,7 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
 
       <div className="flex items-center justify-between mt-4">
         <h2 className="text-[15px] font-semibold">模块刷题</h2>
-        <span className="text-[10px] text-[var(--muted)]">{data.modules.length} 个模块</span>
+        <span className="text-[11px] text-[var(--muted)]">{data.modules.length} 个模块</span>
       </div>
       <div className="flex gap-2 overflow-x-auto scroll pb-1 mt-2 -mx-4 px-4">
         {data.modules.map((module) => (
@@ -84,13 +84,13 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
             onClick={() => onStart({ mode: 'module', module: module.name, count: 20 })}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium">{module.name}</span>
-              <span className="text-[9.5px] text-[var(--muted)]">{fmt(module.total)} 题</span>
+              <span className="text-[13px] font-medium">{module.name}</span>
+              <span className="text-[10.5px] text-[var(--muted)]">{fmt(module.total)} 题</span>
             </div>
             <div className="progress mt-2.5" style={{ height: 5 }}>
               <i style={{ width: `${Math.max(module.progress, module.done > 0 ? 1 : 0)}%` }} />
             </div>
-            <div className="text-[9.5px] text-[var(--muted)] mt-1.5">
+            <div className="text-[10.5px] text-[var(--muted)] mt-1.5">
               已刷 {fmt(module.done)} · 正确率 {module.accuracy}%
             </div>
           </button>
@@ -102,15 +102,15 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
           <Icon name="book" className="w-5 h-5" strokeWidth={1.8} />
         </div>
         <div className="flex-1">
-          <div className="text-[12.5px] font-medium">自定义组卷</div>
-          <div className="text-[9.5px] text-[var(--muted)] mt-0.5">选模块 / 年份 / 顺序 / 限时</div>
+          <div className="text-[13.5px] font-medium">自定义组卷</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">选模块 / 年份 / 顺序 / 限时</div>
         </div>
         <Icon name="chevronRight" className="w-4 h-4 text-[var(--muted)]" />
       </button>
 
       <div className="flex items-center justify-between mt-5">
         <h2 className="text-[15px] font-semibold">试卷</h2>
-        <span className="text-[10px] text-[var(--muted)]">共 {fmt(result.total)} 套</span>
+        <span className="text-[11px] text-[var(--muted)]">共 {fmt(result.total)} 套</span>
       </div>
 
       <div className="flex gap-2 overflow-x-auto scroll -mx-4 px-4 mt-2 pb-1">
@@ -130,30 +130,30 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
 
       <div className="mt-2.5 space-y-2.5">
         {loading ? (
-          <div className="card p-8 text-center text-[11.5px] text-[var(--muted)]">读取题库…</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">读取题库…</div>
         ) : result.items.length === 0 ? (
-          <div className="card p-8 text-center text-[11.5px] text-[var(--muted)]">没有匹配的试卷</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">没有匹配的试卷</div>
         ) : (
           result.items.map((paper) => (
             <div key={paper.key} className="card p-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[11px] font-semibold shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold shrink-0">
                   {paper.year || '—'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-medium leading-5">{paper.title}</div>
-                  <div className="text-[9.5px] text-[var(--muted)] mt-1">
+                  <div className="text-[13.5px] font-medium leading-5">{paper.title}</div>
+                  <div className="text-[10.5px] text-[var(--muted)] mt-1">
                     {paper.region || '—'} · {paper.questionCount} 题 · 可练 {paper.availableCount}
                   </div>
                   <div className="progress mt-2" style={{ height: 5 }}>
                     <i style={{ width: `${Math.max(paper.progress, paper.answered > 0 ? 1 : 0)}%` }} />
                   </div>
                   {paper.lastScore != null ? (
-                    <div className="text-[9.5px] text-[var(--good)] mt-1">已完成 · {paper.lastScore} 分</div>
+                    <div className="text-[10.5px] text-[var(--good)] mt-1">已完成 · {paper.lastScore} 分</div>
                   ) : paper.answered > 0 ? (
-                    <div className="text-[9.5px] text-[var(--muted)] mt-1">{paper.answered} / {paper.questionCount}</div>
+                    <div className="text-[10.5px] text-[var(--muted)] mt-1">{paper.answered} / {paper.questionCount}</div>
                   ) : (
-                    <div className="text-[9.5px] text-[var(--muted)] mt-1">未开始</div>
+                    <div className="text-[10.5px] text-[var(--muted)] mt-1">未开始</div>
                   )}
                 </div>
               </div>
@@ -180,7 +180,7 @@ export function MobileLibrary({ data, onStart, onNotice, onBank, onCustom, onImp
       {pages > 1 ? (
         <div className="flex items-center justify-between mt-3">
           <button className="chip" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
-          <span className="text-[10.5px] text-[var(--muted)]">第 {page} / {pages} 页</span>
+          <span className="text-[11.5px] text-[var(--muted)]">第 {page} / {pages} 页</span>
           <button className="chip" disabled={page >= pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>下一页</button>
         </div>
       ) : null}
