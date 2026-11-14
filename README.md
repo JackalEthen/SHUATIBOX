@@ -1,4 +1,4 @@
-﻿# 刷题盒子 SHUATIBOX
+﻿<h1 align="center">刷题盒子 SHUATIBOX</h1>
 
 <p align="center">
   <b>本地优先的离线刷题应用</b><br>
@@ -32,11 +32,11 @@
 
 **Windows**
 
-<img src="screenshots/Windows-example-1.jpg" width="49%"> <img src="screenshots/Windows-example-2.jpg" width="49%">
+<img src="screenshots/Windows-example-1.png" width="32%"> <img src="screenshots/Windows-example-2.png" width="32%"> <img src="screenshots/Windows-example-3.png" width="32%">
 
 **Android**
 
-<img src="screenshots/Android-example-1.png" width="26%"> <img src="screenshots/Android-example-2.png" width="26%">
+<img src="screenshots/Android-example-1.jpg" width="19%"> <img src="screenshots/Android-example-2.jpg" width="19%"> <img src="screenshots/Android-example-3.jpg" width="19%"> <img src="screenshots/Android-example-4.jpg" width="19%"> <img src="screenshots/Android-example-5.jpg" width="19%">
 
 ## 功能
 
@@ -53,7 +53,7 @@
 - AI 题目讲解：做题页可对当前题目发起讲解，自动带入材料、题干、选项和参考答案；支持多轮追问、图片题与随时取消，回答以 Markdown 展示
 - AI 设置：配置 OpenAI 兼容接口，保存后自动检测连通性与读图能力；AI 转换导入可把不规范的 Markdown 自动整理成题库格式，分块转换、单文件失败隔离，输出转换报告，同样可选择导入目标题库
 - 题目编辑：做题时直接修改题干、选项、答案、解析，保存写回本地题库，错题本与搜索同步更新
-- 更新：设置页检测 GitHub 最新版本，显示当前/最新版本与更新说明，可前往下载
+- 更新：支持自动/手动检查 GitHub 最新版；发现新版弹窗提示，GitHub 不通时自动切换镜像，Android 可下载到 Download 目录并通知安装
 - 移动端：适配 Android 状态栏与导航栏安全区，优化弹窗与字号
 - 数据备份：学习记录可导出 / 导入（不含题库图片）
 

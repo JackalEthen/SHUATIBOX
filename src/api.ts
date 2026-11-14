@@ -207,6 +207,7 @@ export interface UpdateInfo {
 export interface UpdateDownload {
   url: string;
   mirrored: boolean;
+  mirror?: string | null;
 }
 
 export interface DailyPoint {
@@ -463,6 +464,10 @@ export async function checkUpdate(): Promise<UpdateInfo> {
 
 export async function resolveUpdateDownload(url: string): Promise<UpdateDownload> {
   return invoke<UpdateDownload>('resolve_update_download', { url });
+}
+
+export async function downloadUpdate(url: string, fileName: string): Promise<string> {
+  return invoke<string>('download_update', { url, fileName });
 }
 
 export async function getNote(questionId: string): Promise<SavedNote> {

@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   bootstrap as bootstrapApi,
+  checkUpdate,
   errorText,
   getProfile,
   homeSummary,
@@ -11,6 +12,7 @@ import {
   type Profile,
   type SessionSpec,
   type SessionView,
+  type UpdateInfo,
 } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon, type IconName } from './icons';
@@ -28,6 +30,7 @@ import { BankSheet } from './mobile/BankSheet';
 import { CustomPaperSheet } from './mobile/CustomPaperSheet';
 import { ImportSheet } from './mobile/ImportSheet';
 import { PracticeSetupDialog } from './PracticeSetupDialog';
+import { UpdateDialog } from './UpdateDialog';
 
 export type MobileScreen =
   | 'home'
@@ -78,6 +81,8 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const autoUpdateChecked = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +100,17 @@ export function MobileApp({ appearance, onNotice }: Props) {
       cancelled = true;
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    if (!data || autoUpdateChecked.current) return;
+    autoUpdateChecked.current = true;
+    if (data.settings.auto_update_check === '0') return;
+    checkUpdate()
+      .then((next) => {
+        if (next.hasUpdate) setUpdateInfo(next);
+      })
+      .catch(() => undefined);
+  }, [data]);
 
   const reloadProfile = useCallback(() => {
     getProfile().then(setProfile).catch(() => undefined);
@@ -391,6 +407,12 @@ export function MobileApp({ appearance, onNotice }: Props) {
           setSetupSpec(null);
           void begin(spec);
         }}
+      />
+      <UpdateDialog
+        info={updateInfo}
+        mobile
+        onClose={() => setUpdateInfo(null)}
+        onNotice={onNotice}
       />
 
       </div>

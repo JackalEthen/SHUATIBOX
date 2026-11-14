@@ -219,7 +219,7 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
         </button>
       </div>
 
-      <UpdateCard mobile />
+      <UpdateCard mobile onNotice={onNotice} />
 
       <div className="text-center text-[10.5px] text-[var(--muted)] mt-4 leading-5">
         刷题盒子 SHUATIBOX v{APP_VERSION}

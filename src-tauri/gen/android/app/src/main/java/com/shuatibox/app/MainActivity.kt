@@ -6,6 +6,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.shuatibox.app.update.UpdateStore
 
 class MainActivity : TauriActivity() {
   private var webview: WebView? = null
@@ -15,6 +16,7 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    Thread { UpdateStore.cleanupOld(applicationContext) }.start()
 
     onBackPressedDispatcher.addCallback(
       this,

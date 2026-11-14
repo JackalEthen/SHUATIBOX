@@ -413,7 +413,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
           </div>
         </div>
 
-        <UpdateCard />
+        <UpdateCard onNotice={onNotice} />
 
         <div className="text-[10.5px] text-[var(--muted)] mt-6">
           刷题盒子 SHUATIBOX v{APP_VERSION} · 本地离线

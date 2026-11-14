@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useState } from 'react';
-import { bootstrap, errorText, getProfile, getSession, homeSummary, startSession, type Bootstrap, type HomeSummary, type Profile, type SessionSpec, type SessionView } from './api';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { bootstrap, checkUpdate, errorText, getProfile, getSession, homeSummary, startSession, type Bootstrap, type HomeSummary, type Profile, type SessionSpec, type SessionView, type UpdateInfo } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
 import { BankDialog } from './BankDialog';
 import { CustomPaperDialog } from './CustomPaperDialog';
@@ -16,6 +16,7 @@ import { Icon, type IconName } from './icons';
 import { APP_VERSION } from './version';
 import { PracticeSetupDialog } from './PracticeSetupDialog';
 import { ImportDialog } from './ImportDialog';
+import { UpdateDialog } from './UpdateDialog';
 import type { Appearance, Accent } from './theme';
 
 type Screen = 'home' | 'library' | 'practice' | 'wrong' | 'favorites' | 'search' | 'stats' | 'settings';
@@ -49,6 +50,8 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   const [starting, setStarting] = useState(false);
   const [profile, setProfile] = useState<Profile>({ name: 'Boss', avatar: '' });
   const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const autoUpdateChecked = useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('sidebar-collapsed') === '1';
@@ -76,6 +79,17 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   }, []);
 
   useEffect(refresh, [refresh]);
+
+  useEffect(() => {
+    if (!data || autoUpdateChecked.current) return;
+    autoUpdateChecked.current = true;
+    if (data.settings.auto_update_check === '0') return;
+    checkUpdate()
+      .then((next) => {
+        if (next.hasUpdate) setUpdateInfo(next);
+      })
+      .catch(() => undefined);
+  }, [data]);
 
   useEffect(() => {
     if (!data) return;
@@ -438,6 +452,11 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           setSetupSpec(null);
           void begin(spec);
         }}
+      />
+      <UpdateDialog
+        info={updateInfo}
+        onClose={() => setUpdateInfo(null)}
+        onNotice={onNotice}
       />
     </div>
   );

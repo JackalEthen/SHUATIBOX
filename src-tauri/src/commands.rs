@@ -9,10 +9,15 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value as Json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration as StdDuration, Instant, SystemTime, UNIX_EPOCH};
 
-const UPDATE_REPO: &str = "JackalEthen/SHUATIBOX";
-const UPDATE_MIRROR: &str = "https://fastgit.cc/";
+const UPDATE_API: &str = "https://api.github.com/repos/JackalEthen/SHUATIBOX/releases/latest";
+const UPDATE_PAGE: &str = "https://github.com/JackalEthen/SHUATIBOX/releases";
+const UPDATE_MIRRORS: [(&str, &str); 3] = [
+    ("gh-proxy.com", "https://gh-proxy.com/"),
+    ("ghproxy.net", "https://ghproxy.net/"),
+    ("fastgit.cc", "https://fastgit.cc/"),
+];
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +39,7 @@ pub struct UpdateInfo {
 pub struct UpdateDownload {
     url: String,
     mirrored: bool,
+    mirror: Option<String>,
 }
 
 fn update_version_parts(value: &str) -> Vec<u64> {
@@ -76,21 +82,26 @@ fn update_asset(release: &Json) -> Option<(String, String, i64)> {
                 .unwrap_or(false)
         })
     };
-    let first = || assets.first();
+    let _first = || assets.first();
     #[cfg(all(target_os = "android", target_arch = "aarch64"))]
-    let asset = find("arm64-v8a").or_else(|| find(".apk")).or_else(first);
+    let asset = find("arm64-v8a");
     #[cfg(all(target_os = "android", target_arch = "arm"))]
-    let asset = find("armeabi-v7a").or_else(|| find(".apk")).or_else(first);
+    let asset = find("armeabi-v7a");
+    #[cfg(all(
+        target_os = "android",
+        not(any(target_arch = "aarch64", target_arch = "arm"))
+    ))]
+    let asset: Option<&Json> = None;
     #[cfg(target_os = "windows")]
     let asset = find("x64-setup.exe")
         .or_else(|| find("portable.exe"))
-        .or_else(first);
+        .or_else(_first);
     #[cfg(not(any(
         all(target_os = "android", target_arch = "aarch64"),
         all(target_os = "android", target_arch = "arm"),
         target_os = "windows"
     )))]
-    let asset = first();
+    let asset = _first();
     let asset = asset?;
     Some((
         asset.get("browser_download_url")?.as_str()?.to_string(),
@@ -102,41 +113,46 @@ fn update_asset(release: &Json) -> Option<(String, String, i64)> {
 fn update_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent("SHUATIBOX-update-check")
-        .timeout(StdDuration::from_secs(10))
+        .timeout(StdDuration::from_secs(8))
         .build()
         .map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-pub async fn check_update() -> Result<UpdateInfo, String> {
-    let response = update_client()?
-        .get(format!(
-            "https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
-        ))
+fn update_candidates(url: &str) -> Vec<(Option<String>, String)> {
+    let mut candidates = vec![(None, url.to_string())];
+    for (name, prefix) in UPDATE_MIRRORS {
+        candidates.push((Some(name.to_string()), format!("{prefix}{url}")));
+    }
+    candidates
+}
+
+async fn fetch_release(client: &reqwest::Client, url: &str) -> Result<Json, String> {
+    let response = client
+        .get(url)
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
-        .map_err(|error| format!("检查更新失败：{error}"))?;
+        .map_err(|error| error.to_string())?;
     if !response.status().is_success() {
-        return Err(format!("检查更新失败：GitHub 返回 {}", response.status()));
+        return Err(format!("GitHub 返回 {}", response.status()));
     }
-    let release: Json = response
-        .json()
-        .await
-        .map_err(|error| format!("检查更新失败：{error}"))?;
+    response.json().await.map_err(|error| error.to_string())
+}
+
+fn update_info_from_release(release: &Json) -> Result<UpdateInfo, String> {
     let tag = release
         .get("tag_name")
         .and_then(Json::as_str)
         .unwrap_or("")
         .trim();
     if tag.is_empty() {
-        return Err("检查更新失败：GitHub 未返回版本号".to_string());
+        return Err("GitHub 未返回版本号".to_string());
     }
     let latest_version = tag
         .trim_start_matches(|ch| ch == 'v' || ch == 'V')
         .to_string();
     let current_version = env!("CARGO_PKG_VERSION").to_string();
-    let (download_url, asset_name, asset_size) = update_asset(&release)
+    let (download_url, asset_name, asset_size) = update_asset(release)
         .map(|(url, name, size)| (Some(url), Some(name), Some(size)))
         .unwrap_or((None, None, None));
     let title = release
@@ -165,7 +181,7 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
         page_url: release
             .get("html_url")
             .and_then(Json::as_str)
-            .unwrap_or("https://github.com/JackalEthen/SHUATIBOX/releases")
+            .unwrap_or(UPDATE_PAGE)
             .to_string(),
         download_url,
         asset_name,
@@ -174,27 +190,76 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
 }
 
 #[tauri::command]
+pub async fn check_update() -> Result<UpdateInfo, String> {
+    let client = update_client()?;
+    let mut tasks = tokio::task::JoinSet::new();
+    for (_mirror, url) in update_candidates(UPDATE_API) {
+        let client = client.clone();
+        tasks.spawn(async move { fetch_release(&client, &url).await });
+    }
+    let mut last_error = "GitHub 无响应".to_string();
+    while let Some(result) = tasks.join_next().await {
+        match result {
+            Ok(Ok(release)) => return update_info_from_release(&release),
+            Ok(Err(error)) => last_error = error,
+            Err(error) => last_error = error.to_string(),
+        }
+    }
+    Err(format!("检查更新失败：{last_error}"))
+}
+
+async fn probe_download(
+    client: &reqwest::Client,
+    url: String,
+    mirror: Option<String>,
+) -> Option<(u128, String, Option<String>)> {
+    let started = Instant::now();
+    let response = client
+        .get(&url)
+        .header("Range", "bytes=0-0")
+        .send()
+        .await
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    if let Some(content_type) = response.headers().get(reqwest::header::CONTENT_TYPE) {
+        if content_type
+            .to_str()
+            .map(|value| value.contains("text/html"))
+            .unwrap_or(false)
+        {
+            return None;
+        }
+    }
+    Some((started.elapsed().as_millis(), url, mirror))
+}
+
+#[tauri::command]
 pub async fn resolve_update_download(url: String) -> Result<UpdateDownload, String> {
     let url = url.trim().to_string();
     if !url.starts_with("https://github.com/") {
         return Err("更新链接不是 GitHub 地址".to_string());
     }
-    let reachable = match update_client()?
-        .get(&url)
-        .header("Range", "bytes=0-0")
-        .send()
-        .await
-    {
-        Ok(response) => response.status().is_success(),
-        Err(_) => false,
-    };
+    let client = update_client()?;
+    let mut tasks = tokio::task::JoinSet::new();
+    for (mirror, candidate) in update_candidates(&url) {
+        let client = client.clone();
+        tasks.spawn(async move { probe_download(&client, candidate, mirror).await });
+    }
+    let mut best: Option<(u128, String, Option<String>)> = None;
+    while let Some(result) = tasks.join_next().await {
+        if let Ok(Some(item)) = result {
+            if best.as_ref().map(|current| item.0 < current.0).unwrap_or(true) {
+                best = Some(item);
+            }
+        }
+    }
+    let (_, url, mirror) = best.ok_or_else(|| "下载地址不可用，请检查网络".to_string())?;
     Ok(UpdateDownload {
-        url: if reachable {
-            url
-        } else {
-            format!("{UPDATE_MIRROR}{url}")
-        },
-        mirrored: !reachable,
+        url,
+        mirrored: mirror.is_some(),
+        mirror,
     })
 }
 
@@ -2028,7 +2093,10 @@ pub fn load_practice_questions(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_session, merge_mixed, update_asset, update_is_newer, update_review_item};
+    use super::{
+        build_session, merge_mixed, update_asset, update_candidates, update_is_newer,
+        update_review_item,
+    };
     use crate::models::SessionSpec;
     use rusqlite::{params, Connection};
 
@@ -2197,6 +2265,20 @@ mod tests {
 
         user.execute("UPDATE settings SET value='0' WHERE key='review_enabled'", []).unwrap();
         assert!(build_session(&bank, &user, "b", &spec).is_err());
+    }
+
+    #[test]
+    fn update_candidates_include_all_mirrors() {
+        let candidates = update_candidates("https://github.com/a/b.apk");
+        assert_eq!(candidates.len(), 4);
+        assert_eq!(candidates[0], (None, "https://github.com/a/b.apk".to_string()));
+        assert_eq!(
+            candidates[1],
+            (
+                Some("gh-proxy.com".to_string()),
+                "https://gh-proxy.com/https://github.com/a/b.apk".to_string()
+            )
+        );
     }
 
     #[test]

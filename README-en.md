@@ -1,4 +1,4 @@
-﻿# SHUATIBOX
+﻿<h1 align="center">SHUATIBOX</h1>
 
 <p align="center">
   <b>A local-first, offline practice app</b><br>
@@ -32,11 +32,11 @@
 
 **Windows**
 
-<img src="screenshots/Windows-example-1.jpg" width="49%"> <img src="screenshots/Windows-example-2.jpg" width="49%">
+<img src="screenshots/Windows-example-1.png" width="32%"> <img src="screenshots/Windows-example-2.png" width="32%"> <img src="screenshots/Windows-example-3.png" width="32%">
 
 **Android**
 
-<img src="screenshots/Android-example-1.png" width="26%"> <img src="screenshots/Android-example-2.png" width="26%">
+<img src="screenshots/Android-example-1.jpg" width="19%"> <img src="screenshots/Android-example-2.jpg" width="19%"> <img src="screenshots/Android-example-3.jpg" width="19%"> <img src="screenshots/Android-example-4.jpg" width="19%"> <img src="screenshots/Android-example-5.jpg" width="19%">
 
 ## Features
 
@@ -53,7 +53,7 @@
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
 - AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
-- Updates: check the latest GitHub release in Settings, with version notes and a download link
+- Updates: automatic or manual GitHub release checks; a prompt appears for new versions, mirrors are used when GitHub is unreachable, and Android downloads the APK to Downloads with an install notification
 - Mobile: Android status-bar and navigation-bar safe areas, improved dialogs and font sizes
 - Backup: export / import study records (question images excluded)
 

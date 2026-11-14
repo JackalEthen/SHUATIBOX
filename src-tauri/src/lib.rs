@@ -4,6 +4,7 @@ mod db;
 mod importer;
 mod models;
 mod saf;
+mod update;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -11,6 +12,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(saf::plugin())
+        .plugin(update::plugin())
         .setup(|app| {
             if let Err(error) = db::init_user(app.handle()) {
                 eprintln!("初始化本地数据库失败：{error}");
@@ -40,6 +42,7 @@ pub fn run() {
             commands::set_settings,
             commands::check_update,
             commands::resolve_update_download,
+            update::download_update,
             commands::stats,
             commands::list_banks_cmd,
             commands::switch_bank,
