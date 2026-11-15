@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useState } from 'react';
 import { errorText, listFavorites, toggleFavorite, type QuestionDto } from './api';
 import { Icon } from './icons';
@@ -25,7 +26,7 @@ export function MobileFavorites({ assetDir, reloadKey, onBack, onRefresh, onNoti
     setLoading(true);
     listFavorites(500)
       .then((value) => !cancelled && setItems(value))
-      .catch((error) => !cancelled && onNotice(`收藏加载失败：${errorText(error)}`))
+      .catch((error) => !cancelled && onNotice(t("收藏加载失败：{p0}", { p0: errorText(error) })))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -53,9 +54,9 @@ export function MobileFavorites({ assetDir, reloadKey, onBack, onRefresh, onNoti
       setItems((current) => current.filter((item) => item.id !== selected.id));
       setSelected(null);
       onRefresh();
-      onNotice('已取消收藏');
+      onNotice(t("已取消收藏"));
     } catch (error) {
-      onNotice(`操作失败：${errorText(error)}`);
+      onNotice(t("操作失败：{p0}", { p0: errorText(error) }));
     }
   };
 
@@ -63,10 +64,10 @@ export function MobileFavorites({ assetDir, reloadKey, onBack, onRefresh, onNoti
     return (
       <div className="px-4 pt-4">
         <div className="flex items-center gap-2">
-          <button className="icon-btn -ml-2" onClick={() => setSelected(null)} aria-label="返回收藏">
+          <button className="icon-btn -ml-2" onClick={() => setSelected(null)} aria-label={t("返回收藏")}>
             <Icon name="chevronLeft" strokeWidth={1.8} />
           </button>
-          <h2 className="text-[18px] font-semibold">收藏详情</h2>
+          <h2 className="text-[18px] font-semibold">{t("收藏详情")}</h2>
         </div>
         <div className="mt-4">
           <QuestionReview
@@ -84,21 +85,21 @@ export function MobileFavorites({ assetDir, reloadKey, onBack, onRefresh, onNoti
   return (
     <div className="px-4 pt-4">
       <div className="flex items-center gap-2">
-        <button className="icon-btn -ml-2" onClick={onBack} aria-label="返回我的">
+        <button className="icon-btn -ml-2" onClick={onBack} aria-label={t("返回我的")}>
           <Icon name="chevronLeft" strokeWidth={1.8} />
         </button>
         <div className="flex-1">
-          <h2 className="text-[18px] font-semibold">我的收藏</h2>
-          <p className="text-[10.5px] text-[var(--muted)]">只读查看 · 不产生答题记录</p>
+          <h2 className="text-[18px] font-semibold">{t("我的收藏")}</h2>
+          <p className="text-[10.5px] text-[var(--muted)]">{t("只读查看 · 不产生答题记录")}</p>
         </div>
-        <span className="chip">{items.length} 题</span>
+        <span className="chip">{items.length}  {t("题")}</span>
       </div>
 
       <div className="mt-4 space-y-2.5">
         {loading ? (
-          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">读取收藏…</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">{t("读取收藏…")}</div>
         ) : items.length === 0 ? (
-          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">还没有收藏题目</div>
+          <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">{t("还没有收藏题目")}</div>
         ) : (
           items.map((item) => (
             <button key={item.id} className="card p-4 w-full text-left" onClick={() => setSelected(item)}>

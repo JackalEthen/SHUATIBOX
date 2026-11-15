@@ -1,3 +1,4 @@
+import { t, fmtNumber } from './i18n';
 import type { CSSProperties } from 'react';
 import type { HomeSummary, SessionSpec } from './api';
 import { Icon } from './icons';
@@ -17,20 +18,20 @@ interface Props {
 
 function greeting() {
   const hour = new Date().getHours();
-  if (hour < 6) return '夜深了';
-  if (hour < 12) return '上午好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
+  if (hour < 6) return t("夜深了");
+  if (hour < 12) return t("上午好");
+  if (hour < 18) return t("下午好");
+  return t("晚上好");
 }
 
 function dateLine() {
   const now = new Date();
-  const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()];
-  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${week}`;
+  const week = [t("周日"), t("周一"), t("周二"), t("周三"), t("周四"), t("周五"), t("周六")][now.getDay()];
+  return t("{p0} 年 {p1} 月 {p2} 日 · {p3}", { p0: now.getFullYear(), p1: now.getMonth() + 1, p2: now.getDate(), p3: week });
 }
 
 function fmt(value: number) {
-  return value.toLocaleString('zh-CN');
+  return fmtNumber(value);
 }
 
 export function DesktopHome({
@@ -59,12 +60,12 @@ export function DesktopHome({
           <div>
             <h1 className="text-[26px] font-semibold tracking-tight">{greeting()}，{profileName}</h1>
             <p className="text-[12.5px] text-[var(--muted)] mt-1.5">
-              {dateLine()} · {bank.questionCount.toLocaleString('zh-CN')} 题 · 今日 {today.answered} 题
+              {dateLine()} · {fmtNumber(bank.questionCount)}  {t("题 · 今日")} {today.answered}  {t("题")}
             </p>
           </div>
-          <button className="btn btn-ghost" onClick={() => onNotice(`今日目标 ${target} 题，已完成 ${today.answered} 题`)}>
+          <button className="btn btn-ghost" onClick={() => onNotice(t("今日目标 {p0} 题，已完成 {p1} 题", { p0: target, p1: today.answered }))}>
             <Icon name="calendar" />
-            今日计划
+            {t("今日计划")}
           </button>
         </div>
 
@@ -75,18 +76,18 @@ export function DesktopHome({
           />
           <div className="relative">
             <div className="flex items-center gap-2">
-              <span className="chip-accent">{continueSession ? '继续上次' : '开始今天'}</span>
+              <span className="chip-accent">{continueSession ? t("继续上次") : t("开始今天")}</span>
               <span className="text-[11px] text-[var(--muted)]">
-                {continueSession ? continueSession.updatedAt : '还没有进行中的练习'}
+                {continueSession ? continueSession.updatedAt : t("还没有进行中的练习")}
               </span>
             </div>
             <h2 className="serif text-[21px] mt-3 leading-snug">
-              {continueSession ? continueSession.title : '从任意模块开始一组练习'}
+              {continueSession ? continueSession.title : t("从任意模块开始一组练习")}
             </h2>
             <p className="text-[12.5px] text-[var(--ink-2)] mt-2">
               {continueSession
-                ? `第 ${Math.min(continueSession.answered + 1, continueSession.total)} 题 / 共 ${continueSession.total} 题 · 已答对 ${continueSession.correct} 题`
-                : '题目来自本地题库，答题记录自动保存，可随时继续。'}
+                ? t("第 {p0} 题 / 共 {p1} 题 · 已答对 {p2} 题", { p0: Math.min(continueSession.answered + 1, continueSession.total), p1: continueSession.total, p2: continueSession.correct })
+                : t("题目来自本地题库，答题记录自动保存，可随时继续。")}
             </p>
             <div className="mt-4 flex items-center gap-4">
               <button
@@ -95,7 +96,7 @@ export function DesktopHome({
                   continueSession ? onResume(continueSession.id) : onStart({ mode: 'module', count: 20 })
                 }
               >
-                {continueSession ? '继续刷题' : '开始练习'}
+                {continueSession ? t("继续刷题") : t("开始练习")}
                 <Icon name="arrowRight" strokeWidth={2} />
               </button>
               {continueSession ? (
@@ -103,7 +104,7 @@ export function DesktopHome({
                   className="text-[12px] text-[var(--muted)] hover:text-[var(--ink)]"
                   onClick={() => onStart({ mode: 'module', count: 20 })}
                 >
-                  新开一组
+                  {t("新开一组")}
                 </button>
               ) : null}
             </div>
@@ -113,7 +114,7 @@ export function DesktopHome({
               <div>{continueProgress}%</div>
             </div>
             <div className="text-[11.5px] text-[var(--muted)] leading-5">
-              <div>{continueSession ? '本组进度' : '今日进度'}</div>
+              <div>{continueSession ? t("本组进度") : t("今日进度")}</div>
               <div className="text-[var(--ink)] font-medium mt-0.5">
                 {continueSession ? `${continueSession.answered} / ${continueSession.total}` : `${today.answered} / ${target}`}
               </div>
@@ -123,21 +124,21 @@ export function DesktopHome({
 
         <div className="grid grid-cols-3 gap-4 mt-4">
           <div className="card p-5">
-            <div className="text-[11.5px] text-[var(--muted)]">今日已刷</div>
+            <div className="text-[11.5px] text-[var(--muted)]">{t("今日已刷")}</div>
             <div className="flex items-end gap-2 mt-2">
               <span className="stat-num">{today.answered}</span>
-              <span className="text-[11px] text-[var(--muted)] mb-1">题 · 目标 {target}</span>
+              <span className="text-[11px] text-[var(--muted)] mb-1">{t("题 · 目标")} {target}</span>
             </div>
             <div className="progress mt-3">
               <i style={{ width: `${goalPercent}%` }} />
             </div>
           </div>
           <div className="card p-5">
-            <div className="text-[11.5px] text-[var(--muted)]">今日正确率</div>
+            <div className="text-[11.5px] text-[var(--muted)]">{t("今日正确率")}</div>
             <div className="flex items-end gap-2 mt-2">
               <span className="stat-num">{today.accuracy.toFixed(1)}</span>
               <span className="text-[11px] text-[var(--muted)] mb-1">%</span>
-              <span className="text-[10.5px] text-[var(--muted)] mb-1 ml-auto">答对 {today.correct} 题</span>
+              <span className="text-[10.5px] text-[var(--muted)] mb-1 ml-auto">{t("答对")} {today.correct}  {t("题")}</span>
             </div>
             <div className="flex gap-1 mt-3">
               {[0, 1, 2, 3, 4].map((index) => (
@@ -150,11 +151,11 @@ export function DesktopHome({
             </div>
           </div>
           <div className="card p-5">
-            <div className="text-[11.5px] text-[var(--muted)]">连续学习</div>
+            <div className="text-[11.5px] text-[var(--muted)]">{t("连续学习")}</div>
             <div className="flex items-end gap-2 mt-2">
               <span className="stat-num">{streak.current}</span>
-              <span className="text-[11px] text-[var(--muted)] mb-1">天</span>
-              <span className="ml-auto text-[10.5px] text-[var(--muted)] mb-1">最长 {streak.max} 天</span>
+              <span className="text-[11px] text-[var(--muted)] mb-1">{t("天")}</span>
+              <span className="ml-auto text-[10.5px] text-[var(--muted)] mb-1">{t("最长")} {streak.max}  {t("天")}</span>
             </div>
             <div className="flex gap-1.5 mt-3">
               {[0, 1, 2, 3, 4, 5, 6].map((index) => (
@@ -183,32 +184,32 @@ export function DesktopHome({
               <Icon name="calendar" className="w-4 h-4" strokeWidth={1.8} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium">艾宾浩斯复习 · 今日 {data.reviewDueCount} 题</div>
+              <div className="text-[13px] font-medium">{t("艾宾浩斯复习 · 今日")} {data.reviewDueCount}  {t("题")}</div>
               <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
                 {data.reviewDueCount > 0
-                  ? '按到期顺序复习，答对进入下一阶段'
+                  ? t("按到期顺序复习，答对进入下一阶段")
                   : data.reviewNextDue
-                    ? `下次复习 ${data.reviewNextDue.slice(0, 10)}`
-                    : '暂无复习计划'}
+                    ? t("下次复习 {p0}", { p0: data.reviewNextDue.slice(0, 10) })
+                    : t("暂无复习计划")}
               </div>
             </div>
             <span className="btn btn-soft btn-sm">
-              {data.reviewDueCount > 0 ? '开始复习' : data.reviewNextDue ? '未到期' : '暂无'}
+              {data.reviewDueCount > 0 ? t("开始复习") : data.reviewNextDue ? t("未到期") : t("暂无")}
             </span>
           </button>
         ) : null}
 
         <div className="grid grid-cols-4 gap-3 mt-4">
           {[
-            { icon: 'library' as const, title: '模块刷题', sub: '按模块 / 题型 / 年份', action: onLibrary },
-            { icon: 'clock' as const, title: '模拟考试', sub: '整卷计时 · 交卷判分', action: onExam },
-            { icon: 'wrong' as const, title: '错题重做', sub: `${wrongCount} 题待攻克`, action: onWrong },
-            { icon: 'search' as const, title: '搜索题目', sub: '题干 / 选项 / 解析', action: onSearch },
+            { icon: 'library' as const, title: t("模块刷题"), sub: t("按模块 / 题型 / 年份"), action: onLibrary },
+            { icon: 'clock' as const, title: t("模拟考试"), sub: t("整卷计时 · 交卷判分"), action: onExam },
+            { icon: 'wrong' as const, title: t("错题重做"), sub: t("{p0} 题待攻克", { p0: wrongCount }), action: onWrong },
+            { icon: 'search' as const, title: t("搜索题目"), sub: t("题干 / 选项 / 解析"), action: onSearch },
           ].map((item) => (
             <button key={item.title} className="card p-4 text-left hover:border-[var(--accent)] transition" onClick={item.action}>
               <div
                 className={`w-8 h-8 rounded-lg grid place-items-center mb-3 ${
-                  item.title === '错题重做' ? 'bg-[var(--bad-soft)] text-[var(--bad)]' : 'bg-[var(--accent-soft)] text-[var(--accent-ink)]'
+                  item.title === t("错题重做") ? 'bg-[var(--bad-soft)] text-[var(--bad)]' : 'bg-[var(--accent-soft)] text-[var(--accent-ink)]'
                 }`}
               >
                 <Icon name={item.icon} className="w-4 h-4" strokeWidth={1.8} />
@@ -222,14 +223,14 @@ export function DesktopHome({
         <div className="grid grid-cols-[1.25fr_1fr] gap-4 mt-4">
           <div className="card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-[13.5px] font-semibold">最近模考</h3>
+              <h3 className="text-[13.5px] font-semibold">{t("最近模考")}</h3>
               <button className="text-[11px] text-[var(--muted)] hover:text-[var(--ink)]" onClick={onStats}>
-                全部记录
+                {t("全部记录")}
               </button>
             </div>
             <div className="mt-3 divide-y divide-[var(--line)]">
               {recent.length === 0 ? (
-                <div className="py-6 text-center text-[11.5px] text-[var(--muted)]">还没有完成过整卷或模考</div>
+                <div className="py-6 text-center text-[11.5px] text-[var(--muted)]">{t("还没有完成过整卷或模考")}</div>
               ) : (
                 recent.map((item) => (
                   <button
@@ -243,10 +244,10 @@ export function DesktopHome({
                     <div className="flex-1 min-w-0">
                       <div className="text-[12.5px] truncate">{item.title}</div>
                       <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
-                        {item.completedAt} · 用时 {Math.round(item.durationSec / 60)} 分钟
+                        {item.completedAt}  {t("· 用时")} {Math.round(item.durationSec / 60)}  {t("分钟")}
                       </div>
                     </div>
-                    <div className="text-[11px] text-[var(--muted)]">{item.mode === 'exam' ? '模考' : '整卷'}</div>
+                    <div className="text-[11px] text-[var(--muted)]">{item.mode === 'exam' ? t("模考") : t("整卷")}</div>
                   </button>
                 ))
               )}
@@ -255,8 +256,8 @@ export function DesktopHome({
 
           <div className="card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-[13.5px] font-semibold">模块进度</h3>
-              <span className="text-[10.5px] text-[var(--muted)]">按已刷题数</span>
+              <h3 className="text-[13.5px] font-semibold">{t("模块进度")}</h3>
+              <span className="text-[10.5px] text-[var(--muted)]">{t("按已刷题数")}</span>
             </div>
             <div className="mt-4 space-y-3">
               {modules.map((item) => (

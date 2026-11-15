@@ -29,8 +29,6 @@ body{margin:0;background:color-mix(in srgb,var(--paper) 60%,#6B675F);color:var(-
 .muted{color:var(--muted)}.ink2{color:var(--ink-2)}
 .qtext{font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif;line-height:1.95;font-size:calc(16.5px * var(--read-scale))}
 .serif{font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif}
-.seal{width:34px;height:34px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:"Songti SC",serif;font-size:18px;flex:none}
-html[data-theme=dark] .seal{color:#171614}
 .icon-btn{width:36px;height:36px;border-radius:10px;display:inline-grid;place-items:center;color:var(--ink-2);border:1px solid transparent;flex:none}
 .icon-btn:active{background:var(--paper-2);border-color:var(--line)}
 .icon-btn svg{width:19px;height:19px}
@@ -112,8 +110,6 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system
 .muted{color:var(--muted)}.ink2{color:var(--ink-2)}
 .qtext{font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif;line-height:1.95;font-size:calc(17px * var(--read-scale))}
 .serif{font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif}
-.seal{width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:"Songti SC",serif;font-size:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-html[data-theme=dark] .seal{color:#171614}
 .nav-btn{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;font-size:13.5px;color:var(--ink-2);width:100%;text-align:left;transition:.15s}
 .nav-btn:hover{background:var(--paper);color:var(--ink)}
 .nav-btn.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}

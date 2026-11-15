@@ -1,3 +1,4 @@
+import { fmtNumber, t } from '../i18n';
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -24,12 +25,12 @@ interface Props {
 }
 
 const PHASE_LABEL: Record<string, string> = {
-  prepare: '准备文件',
-  scan: '扫描文件',
-  convert: 'AI 转换',
-  parse: '解析题库',
-  import: '写入题库',
-  done: '完成',
+  prepare: "准备文件",
+  scan: "扫描文件",
+  convert: "AI 转换",
+  parse: "解析题库",
+  import: "写入题库",
+  done: "完成",
 };
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
@@ -65,7 +66,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
       if (isAndroid()) {
         const uri = await invoke<string>('saf_pick', { kind });
         setPath(uri);
-        setLabel(kind === 'folder' ? '已选择文件夹' : '已选择 zip');
+        setLabel(kind === 'folder' ? t("已选择文件夹") : t("已选择 zip"));
         setSummary(null);
         setAiResult(null);
         setError('');
@@ -74,7 +75,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
       const value = await open(
         kind === 'folder'
           ? { directory: true, multiple: false }
-          : { directory: false, multiple: false, filters: [{ name: '题库压缩包', extensions: ['zip', 'md'] }] },
+          : { directory: false, multiple: false, filters: [{ name: t("题库压缩包"), extensions: ['zip', 'md'] }] },
       );
       if (!value || Array.isArray(value)) return;
       setPath(value);
@@ -83,7 +84,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
       setAiResult(null);
       setError('');
     } catch (reason) {
-      onNotice(`选择失败：${errorText(reason)}`);
+      onNotice(t("选择失败：{p0}", { p0: errorText(reason) }));
     }
   };
 
@@ -107,11 +108,11 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
         const result = await aiImport(target_path, true, target);
         setAiResult(result);
         setSummary(result.summary);
-        onNotice(result.failed > 0 ? `导入完成，${result.failed} 个文件转换失败` : 'AI 转换导入完成');
+        onNotice(result.failed > 0 ? t("导入完成，{p0} 个文件转换失败", { p0: result.failed }) : t("AI 转换导入完成"));
       } else {
         const value = await importBank(target_path, true, target);
         setSummary(value);
-        onNotice('题库导入完成');
+        onNotice(t("题库导入完成"));
       }
       onDone();
     } catch (reason) {
@@ -143,25 +144,25 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
   return (
     <MobileSheet open={isOpen} onClose={close} closable={!busy}>
       <div className="grabber" />
-      <h3 className="text-[15px] font-semibold">导入题库</h3>
-      <p className="text-[11px] text-[var(--muted)] mt-1">选择题库文件夹或 zip，图片自动复制并去重。</p>
+      <h3 className="text-[15px] font-semibold">{t("导入题库")}</h3>
+      <p className="text-[11px] text-[var(--muted)] mt-1">{t("选择题库文件夹或 zip，图片自动复制并去重。")}</p>
 
       {!summary ? (
         <>
           <div className="mt-4 rounded-2xl border border-dashed p-6 text-center" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
-            <div className="text-[13px]">{label || '选择题库文件夹或 zip'}</div>
+            <div className="text-[13px]">{label || t("选择题库文件夹或 zip")}</div>
             <div className="flex gap-2 mt-3">
-              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('folder')}>文件夹</button>
+              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('folder')}>{t("文件夹")}</button>
               <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip / md</button>
             </div>
             <div className="text-[9px] text-[var(--muted)] mt-3">
-              {isAndroid() ? '通过系统文件选择器授权，复制到应用私有目录' : '选择本地 Markdown 题库根目录'}
+              {isAndroid() ? t("通过系统文件选择器授权，复制到应用私有目录") : t("选择本地 Markdown 题库根目录")}
             </div>
           </div>
 
           {bank ? (
             <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
-              <div className="text-[10.5px] text-[var(--muted)] mb-1">导入到</div>
+              <div className="text-[10.5px] text-[var(--muted)] mb-1">{t("导入到")}</div>
               <select
                 className="w-full rounded-lg border px-2 py-2 text-[12px] outline-none"
                 style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
@@ -169,7 +170,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
                 disabled={busy}
                 onChange={(event) => setTargetId(event.target.value)}
               >
-                <option value="current">当前题库 · {bank.title}</option>
+                <option value="current">{t("当前题库 ·")} {bank.title}</option>
                 {(banks ?? [])
                   .filter((item) => item.id !== bank.id)
                   .map((item) => (
@@ -177,41 +178,41 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
                       {item.title}
                     </option>
                   ))}
-                <option value="new">新建题库…</option>
+                <option value="new">{t("新建题库…")}</option>
               </select>
               {targetId === 'new' ? (
                 <input
                   className="mt-2 w-full rounded-lg border px-3 py-2 text-[12px] outline-none"
                   style={{ borderColor: 'var(--line)', background: 'var(--card)', color: 'var(--ink)' }}
-                  placeholder="题库名称（留空自动命名）"
+                  placeholder={t("题库名称（留空自动命名）")}
                   value={newTitle}
                   maxLength={40}
                   disabled={busy}
                   onChange={(event) => setNewTitle(event.target.value)}
                 />
               ) : null}
-              <div className="text-[9px] text-[var(--muted)] mt-1.5">已存在的试卷会跳过，不会覆盖</div>
+              <div className="text-[9px] text-[var(--muted)] mt-1.5">{t("已存在的试卷会跳过，不会覆盖")}</div>
             </div>
           ) : null}
 
           <label className="flex items-center gap-2 mt-3 text-[12px] text-[var(--ink-2)]">
             <input type="checkbox" checked={useAi} disabled={busy} onChange={(event) => setUseAi(event.target.checked)} />
-            AI 智能转换（需先在设置中配置接口）
+            {t("AI 智能转换（需先在设置中配置接口）")}
           </label>
 
           {busy ? (
             <div className="mt-4">
               <div className="flex items-center gap-2 text-[11.5px]">
                 <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                <span className="truncate">{progress?.message || '准备中…'}</span>
+                <span className="truncate">{progress?.message || t("准备中…")}</span>
               </div>
               <div className="progress mt-2" style={{ height: 7 }}>
                 <i style={{ width: `${percent}%` }} />
               </div>
               <div className="text-[10.5px] text-[var(--muted)] mt-2">
-                {PHASE_LABEL[progress?.phase ?? ''] ?? '处理中'}
+                {t(PHASE_LABEL[progress?.phase ?? ''] ?? '处理中')}
                 {progress && progress.total > 0 ? ` · ${progress.current}/${progress.total}` : ''}
-                {' · '}导入完成前不可关闭
+                {' · '}{t("导入完成前不可关闭")}
               </div>
             </div>
           ) : null}
@@ -225,33 +226,33 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
           <ImportFormatHelp />
 
           <button className="btn btn-primary btn-block mt-3" disabled={!path || busy} onClick={() => void run()}>
-            {busy ? '正在导入…' : useAi ? 'AI 转换并导入' : '开始导入'}
+            {busy ? t("正在导入…") : useAi ? t("AI 转换并导入") : t("开始导入")}
           </button>
         </>
       ) : (
         <>
           <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--paper-2)] p-3.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="chip-accent">导入完成</span>
+              <span className="chip-accent">{t("导入完成")}</span>
               <span className="text-[11px] text-[var(--muted)]">{summary.title}</span>
-              {summary.review > 0 ? <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>{summary.review} 题待校对</span> : null}
+              {summary.review > 0 ? <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>{summary.review}  {t("题待校对")}</span> : null}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3 text-[12px]">
-              <div><div className="text-[9px] text-[var(--muted)]">题目</div><div className="text-[14px] font-semibold">{summary.questions.toLocaleString('zh-CN')}</div></div>
-              <div><div className="text-[9px] text-[var(--muted)]">试卷</div><div className="text-[14px] font-semibold">{summary.papers.toLocaleString('zh-CN')}</div></div>
-              <div><div className="text-[9px] text-[var(--muted)]">图片</div><div className="text-[14px] font-semibold">{summary.images.toLocaleString('zh-CN')}</div></div>
-              <div><div className="text-[9px] text-[var(--muted)]">含图题</div><div className="text-[14px] font-semibold">{summary.imageQuestions.toLocaleString('zh-CN')}</div></div>
+              <div><div className="text-[9px] text-[var(--muted)]">{t("题目")}</div><div className="text-[14px] font-semibold">{fmtNumber(summary.questions)}</div></div>
+              <div><div className="text-[9px] text-[var(--muted)]">{t("试卷")}</div><div className="text-[14px] font-semibold">{fmtNumber(summary.papers)}</div></div>
+              <div><div className="text-[9px] text-[var(--muted)]">{t("图片")}</div><div className="text-[14px] font-semibold">{fmtNumber(summary.images)}</div></div>
+              <div><div className="text-[9px] text-[var(--muted)]">{t("含图题")}</div><div className="text-[14px] font-semibold">{fmtNumber(summary.imageQuestions)}</div></div>
             </div>
           </div>
 
           {aiResult ? (
             <div className="mt-3 rounded-xl border border-[var(--line)] p-3.5">
               <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
-                <span className="font-semibold text-[12px]">AI 转换报告</span>
-                <span className="chip">转换 {aiResult.converted}</span>
-                <span className="chip">已合规 {aiResult.valid}</span>
+                <span className="font-semibold text-[12px]">{t("AI 转换报告")}</span>
+                <span className="chip">{t("转换")} {aiResult.converted}</span>
+                <span className="chip">{t("已合规")} {aiResult.valid}</span>
                 {aiResult.failed > 0 ? (
-                  <span className="chip" style={{ color: 'var(--bad)', borderColor: 'var(--bad)' }}>失败 {aiResult.failed}</span>
+                  <span className="chip" style={{ color: 'var(--bad)', borderColor: 'var(--bad)' }}>{t("失败")} {aiResult.failed}</span>
                 ) : null}
               </div>
               <div className="max-h-52 overflow-y-auto scroll mt-2 space-y-2 text-[11px] leading-5">
@@ -261,10 +262,10 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
                     <div key={`${item.file}-${index}`} className="border-b border-[var(--line)] pb-1.5 last:border-0">
                       <div className="break-all">
                         <span style={{ color: item.status === 'failed' ? 'var(--bad)' : 'var(--accent-ink)' }}>
-                          [{item.status === 'failed' ? '失败' : item.status === 'valid' ? '已合规' : 'AI 转换'}]
+                          [{item.status === 'failed' ? t("失败") : item.status === 'valid' ? t("已合规") : t("AI 转换")}]
                         </span>{' '}
-                        {item.file} · {item.questions} 题
-                        {item.expected > 0 ? ` / 原文约 ${item.expected} 题` : ''}
+                        {item.file} · {item.questions}  {t("题")}
+                        {item.expected > 0 ? t(" / 原文约 {p0} 题", { p0: item.expected }) : ''}
                       </div>
                       {item.error ? <div style={{ color: 'var(--bad)' }}>{item.error}</div> : null}
                       {(item.flags ?? []).map((flag, flagIndex) => (
@@ -276,7 +277,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
             </div>
           ) : null}
 
-          <button className="btn btn-primary btn-block mt-3" onClick={close}>完成</button>
+          <button className="btn btn-primary btn-block mt-3" onClick={close}>{t("完成")}</button>
         </>
       )}
       <div className="h-4" />

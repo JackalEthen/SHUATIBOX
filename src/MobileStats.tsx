@@ -1,3 +1,4 @@
+import { t, fmtNumber } from './i18n';
 import { useEffect, useState } from 'react';
 import { errorText, loadStats, type StatsDto } from './api';
 import { Icon } from './icons';
@@ -9,7 +10,7 @@ interface Props {
 }
 
 function fmt(value: number) {
-  return value.toLocaleString('zh-CN');
+  return fmtNumber(value);
 }
 
 export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
@@ -22,7 +23,7 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
     setLoading(true);
     loadStats(days)
       .then((value) => !cancelled && setData(value))
-      .catch((error) => !cancelled && onNotice(`统计加载失败：${errorText(error)}`))
+      .catch((error) => !cancelled && onNotice(t("统计加载失败：{p0}", { p0: errorText(error) })))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -34,44 +35,44 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
   return (
     <div className="px-4 pt-4">
       <div className="flex items-center gap-2">
-        <button className="icon-btn -ml-2" onClick={onBack} aria-label="返回"><Icon name="chevronLeft" strokeWidth={1.8} /></button>
-        <h2 className="text-[18px] font-semibold">学习统计</h2>
+        <button className="icon-btn -ml-2" onClick={onBack} aria-label={t("返回")}><Icon name="chevronLeft" strokeWidth={1.8} /></button>
+        <h2 className="text-[18px] font-semibold">{t("学习统计")}</h2>
         <div className="ml-auto seg">
-          <button className={days === 14 ? 'active' : ''} onClick={() => setDays(14)}>14 天</button>
-          <button className={days === 30 ? 'active' : ''} onClick={() => setDays(30)}>30 天</button>
+          <button className={days === 14 ? 'active' : ''} onClick={() => setDays(14)}>{t("14 天")}</button>
+          <button className={days === 30 ? 'active' : ''} onClick={() => setDays(30)}>{t("30 天")}</button>
         </div>
       </div>
 
       {loading && !data ? (
-        <div className="card mt-4 p-8 text-center text-[13.5px] text-[var(--muted)]">读取统计…</div>
+        <div className="card mt-4 p-8 text-center text-[13.5px] text-[var(--muted)]">{t("读取统计…")}</div>
       ) : data ? (
         <>
           <div className="grid grid-cols-2 gap-2.5 mt-4">
             <div className="card p-4">
-              <div className="text-[11px] text-[var(--muted)]">累计已刷</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{fmt(data.totalAnswered)}</span><span className="text-[11px] text-[var(--muted)] mb-1">题</span></div>
+              <div className="text-[11px] text-[var(--muted)]">{t("累计已刷")}</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{fmt(data.totalAnswered)}</span><span className="text-[11px] text-[var(--muted)] mb-1">{t("题")}</span></div>
             </div>
             <div className="card p-4">
-              <div className="text-[11px] text-[var(--muted)]">总正确率</div>
+              <div className="text-[11px] text-[var(--muted)]">{t("总正确率")}</div>
               <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.accuracy}</span><span className="text-[11px] text-[var(--muted)] mb-1">%</span></div>
-              <div className="text-[10.5px] text-[var(--muted)] mt-1">{fmt(data.totalCorrect)} 题答对</div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">{fmt(data.totalCorrect)}  {t("题答对")}</div>
             </div>
             <div className="card p-4">
-              <div className="text-[11px] text-[var(--muted)]">学习天数</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.learnedDays}</span><span className="text-[11px] text-[var(--muted)] mb-1">天</span></div>
-              <div className="text-[10.5px] text-[var(--muted)] mt-1">日均 {data.perDay} 题</div>
+              <div className="text-[11px] text-[var(--muted)]">{t("学习天数")}</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.learnedDays}</span><span className="text-[11px] text-[var(--muted)] mb-1">{t("天")}</span></div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("日均")} {data.perDay}  {t("题")}</div>
             </div>
             <div className="card p-4">
-              <div className="text-[11px] text-[var(--muted)]">模拟考试</div>
-              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.examCount}</span><span className="text-[11px] text-[var(--muted)] mb-1">次</span></div>
-              <div className="text-[10.5px] text-[var(--muted)] mt-1">最高 {data.bestScore} 分</div>
+              <div className="text-[11px] text-[var(--muted)]">{t("模拟考试")}</div>
+              <div className="flex items-end gap-1 mt-1.5"><span className="stat-num">{data.examCount}</span><span className="text-[11px] text-[var(--muted)] mb-1">{t("次")}</span></div>
+              <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("最高")} {data.bestScore}  {t("分")}</div>
             </div>
           </div>
 
           <div className="card mt-3 p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold">每日做题量</h3>
-              <span className="text-[10.5px] text-[var(--muted)]">题 / 天</span>
+              <h3 className="text-[15px] font-semibold">{t("每日做题量")}</h3>
+              <span className="text-[10.5px] text-[var(--muted)]">{t("题 / 天")}</span>
             </div>
             <div className="flex items-end gap-1 mt-3" style={{ height: 88 }}>
               {data.daily.map((item) => (
@@ -79,7 +80,7 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
                   <div
                     className="w-full rounded-t"
                     style={{ height: `${Math.round((item.answered / maxDaily) * 72)}px`, background: item.answered > 0 ? 'var(--accent)' : 'var(--line)', minHeight: 3 }}
-                    title={`${item.day} · ${item.answered} 题`}
+                    title={t("{p0} · {p1} 题", { p0: item.day, p1: item.answered })}
                   />
                 </div>
               ))}
@@ -91,7 +92,7 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[15px] font-semibold">模块正确率</h3>
+            <h3 className="text-[15px] font-semibold">{t("模块正确率")}</h3>
             <div className="mt-3 space-y-2.5">
               {data.modules.map((module) => (
                 <div key={module.code}>
@@ -108,9 +109,9 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[15px] font-semibold">薄弱题型</h3>
+            <h3 className="text-[15px] font-semibold">{t("薄弱题型")}</h3>
             {data.weak.length === 0 ? (
-              <div className="text-[11.5px] text-[var(--muted)] mt-2">至少作答 2 题后显示</div>
+              <div className="text-[11.5px] text-[var(--muted)] mt-2">{t("至少作答 2 题后显示")}</div>
             ) : (
               <div className="mt-2 divide-y divide-[var(--line)]">
                 {data.weak.map((item, index) => (
@@ -125,9 +126,9 @@ export function MobileStats({ onBack, reloadKey, onNotice }: Props) {
           </div>
 
           <div className="card mt-3 p-4">
-            <h3 className="text-[15px] font-semibold">最近模考</h3>
+            <h3 className="text-[15px] font-semibold">{t("最近模考")}</h3>
             {data.exams.length === 0 ? (
-              <div className="text-[11.5px] text-[var(--muted)] mt-2">还没有完成模拟考试</div>
+              <div className="text-[11.5px] text-[var(--muted)] mt-2">{t("还没有完成模拟考试")}</div>
             ) : (
               <div className="mt-2 divide-y divide-[var(--line)]">
                 {data.exams.slice(0, 5).map((item) => (

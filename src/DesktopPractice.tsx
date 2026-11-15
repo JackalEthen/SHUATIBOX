@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   errorText,
@@ -77,35 +78,36 @@ function ResultView({
     <section className="screen active immersive">
       <div className="h-full overflow-y-auto scroll">
         <div className="max-w-[760px] mx-auto px-8 py-10">
-          <div className="text-[11px] tracking-[.18em] text-[var(--muted)]">交卷完成</div>
+          <div className="text-[11px] tracking-[.18em] text-[var(--muted)]">{t("交卷完成")}</div>
           <h1 className="text-[24px] font-semibold mt-2">{view.session.title}</h1>
           <p className="text-[12px] text-[var(--muted)] mt-1">
-            用时 {minutes} 分 · 未答 {result.unanswered} 题 · 正确率 {result.accuracy}%
+
+            {t("用时")} {minutes}  {t("分 · 未答")} {result.unanswered}  {t("题 · 正确率")} {result.accuracy}%
           </p>
 
           <div className="card mt-6 p-6 grid grid-cols-[auto_1fr] gap-8 items-center">
             <div className="text-center">
               <div className="stat-num" style={{ fontSize: 48 }}>{result.score}</div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">满分 100</div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">{t("满分 100")}</div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-[10.5px] text-[var(--muted)]">正确率</div>
+                <div className="text-[10.5px] text-[var(--muted)]">{t("正确率")}</div>
                 <div className="text-[20px] font-semibold mt-1">{result.accuracy}%</div>
               </div>
               <div>
-                <div className="text-[10.5px] text-[var(--muted)]">答对</div>
+                <div className="text-[10.5px] text-[var(--muted)]">{t("答对")}</div>
                 <div className="text-[20px] font-semibold mt-1">{result.correct} / {view.session.total}</div>
               </div>
               <div>
-                <div className="text-[10.5px] text-[var(--muted)]">已答</div>
+                <div className="text-[10.5px] text-[var(--muted)]">{t("已答")}</div>
                 <div className="text-[20px] font-semibold mt-1">{result.answered}</div>
               </div>
             </div>
           </div>
 
           <div className="card mt-4 p-5">
-            <h2 className="text-[13.5px] font-semibold">模块表现</h2>
+            <h2 className="text-[13.5px] font-semibold">{t("模块表现")}</h2>
             <div className="mt-4 space-y-3">
               {weak.map((item) => (
                 <div key={item.module}>
@@ -122,16 +124,16 @@ function ResultView({
             {weak.length > 0 ? (
               <div className="mt-4 text-[11.5px] text-[var(--ink-2)] leading-6">
                 {weak[0].rate < 60
-                  ? `${weak[0].module}正确率偏低，建议先回看错题与解析。`
-                  : '整体表现稳定，继续按模块推进即可。'}
+                  ? t("正确率偏低，建议先回看错题与解析。{p0}", { p0: weak[0].module })
+                  : t("整体表现稳定，继续按模块推进即可。")}
               </div>
             ) : null}
           </div>
 
           <div className="flex items-center gap-3 mt-6">
-            <button className="btn btn-ghost" onClick={onExit}>返回题库</button>
-            <button className="btn btn-soft" onClick={onGoWrong}>查看错题</button>
-            <button className="btn btn-primary" onClick={() => onRetry(view.session.spec)}>再练一次</button>
+            <button className="btn btn-ghost" onClick={onExit}>{t("返回题库")}</button>
+            <button className="btn btn-soft" onClick={onGoWrong}>{t("查看错题")}</button>
+            <button className="btn btn-primary" onClick={() => onRetry(view.session.spec)}>{t("再练一次")}</button>
           </div>
         </div>
       </div>
@@ -286,8 +288,8 @@ export function DesktopPractice({
     return (
       <section className="screen active immersive">
         <div className="p-8 text-center text-[12px] text-[var(--muted)]">
-          本组题目为空。
-          <button className="btn btn-ghost ml-3" onClick={onExit}>返回</button>
+          {t("本组题目为空。")}
+          <button className="btn btn-ghost ml-3" onClick={onExit}>{t("返回")}</button>
         </div>
       </section>
     );
@@ -328,7 +330,7 @@ export function DesktopPractice({
       selected: labels,
       submitted: false,
       elapsedMs: Date.now() - questionStart.current,
-    }).catch((error) => onNotice(`保存失败：${errorText(error)}`));
+    }).catch((error) => onNotice(t("保存失败：{p0}", { p0: errorText(error) })));
   };
 
   const grade = async (labels: string[]) => {
@@ -351,7 +353,7 @@ export function DesktopPractice({
       });
       setSubmitted(true);
     } catch (error) {
-      onNotice(`判分失败：${errorText(error)}`);
+      onNotice(t("判分失败：{p0}", { p0: errorText(error) }));
     } finally {
       setBusy(false);
     }
@@ -386,7 +388,7 @@ export function DesktopPractice({
       selected,
       submitted: isSubmitted,
       flagged: next.has(question.id),
-    }).catch((error) => onNotice(`标记失败：${errorText(error)}`));
+    }).catch((error) => onNotice(t("标记失败：{p0}", { p0: errorText(error) })));
   }
 
   async function reveal() {
@@ -411,7 +413,7 @@ export function DesktopPractice({
       setConfirmSubmit(false);
       onFinished();
     } catch (error) {
-      onNotice(`交卷失败：${errorText(error)}`);
+      onNotice(t("交卷失败：{p0}", { p0: errorText(error) }));
     } finally {
       finishing.current = false;
       setBusy(false);
@@ -424,7 +426,7 @@ export function DesktopPractice({
       const value = await getNote(question.id);
       setNote(value.content);
     } catch (error) {
-      onNotice(`笔记读取失败：${errorText(error)}`);
+      onNotice(t("笔记读取失败：{p0}", { p0: errorText(error) }));
     }
   };
 
@@ -450,9 +452,9 @@ export function DesktopPractice({
       );
       setEdits((prev) => ({ ...prev, [updated.id]: updated }));
       setEditOpen(false);
-      onNotice('已保存修改');
+      onNotice(t("已保存修改"));
     } catch (error) {
-      onNotice(`保存失败：${errorText(error)}`);
+      onNotice(t("保存失败：{p0}", { p0: errorText(error) }));
     } finally {
       setEditBusy(false);
     }
@@ -464,12 +466,12 @@ export function DesktopPractice({
     <section id="screen-practice" className="screen immersive active">
       <div className="h-full flex flex-col min-h-0">
         <div className="h-14 shrink-0 border-b border-[var(--line)] flex items-center gap-3 px-5">
-          <button className="icon-btn" onClick={onExit} aria-label="返回">
+          <button className="icon-btn" onClick={onExit} aria-label={t("返回")}>
             <Icon name="chevronLeft" strokeWidth={1.8} />
           </button>
           <span className="chip-accent">{question.module}</span>
           <span className="text-[11px] text-[var(--muted)]">
-            第 <b className="text-[var(--ink-2)]">{index + 1}</b> / <span>{questions.length}</span> 题
+            {t("第")} <b className="text-[var(--ink-2)]">{index + 1}</b> / <span>{questions.length}</span> {t("题")}
           </span>
           <div className="w-28">
             <div className="progress">
@@ -485,24 +487,24 @@ export function DesktopPractice({
             <div className="ml-auto flex items-center gap-3">
               <div className="seg">
                 <button className={mode === 'instant' ? 'active' : ''} onClick={() => setMode('instant')}>
-                  逐题显示
+                  {t("逐题显示")}
                 </button>
                 <button className={mode === 'deferred' ? 'active' : ''} onClick={() => setMode('deferred')}>
-                  交卷后显示
+                  {t("交卷后显示")}
                 </button>
               </div>
               <span className="text-[10px] text-[var(--muted)]">
-                {mode === 'instant' ? '点击选项立即判分' : '交卷后统一显示'}
+                {mode === 'instant' ? t("点击选项立即判分") : t("交卷后统一显示")}
               </span>
             </div>
           )}
           <div className={isExam ? 'ml-auto flex items-center gap-2' : 'flex items-center gap-2'}>
             <button className="btn btn-ghost btn-sm" onClick={() => setSheet(true)}>
-              答题卡
+              {t("答题卡")}
             </button>
             {isExam ? (
               <button className="btn btn-primary btn-sm" onClick={() => void finish(false)}>
-                交卷
+                {t("交卷")}
               </button>
             ) : null}
           </div>
@@ -511,9 +513,9 @@ export function DesktopPractice({
         <div className={`practice-grid flex-1 min-h-0 ${question.material ? '' : 'no-material'}`}>
           <div id="p-material-pane" className="min-h-0 flex flex-col border-r border-[var(--line)] bg-[var(--paper-2)]">
             <div className="px-6 py-3 border-b border-[var(--line)] flex items-center gap-2 shrink-0">
-              <span className="text-[11px] font-medium text-[var(--ink-2)]">{question.material?.title ?? '材料'}</span>
-              <span className="text-[10px] text-[var(--muted)]">题面材料 · 可滚动</span>
-              <button className="icon-btn ml-auto" onClick={() => setMaterialOpen(true)} aria-label="放大材料">
+              <span className="text-[11px] font-medium text-[var(--ink-2)]">{question.material?.title ?? t("材料")}</span>
+              <span className="text-[10px] text-[var(--muted)]">{t("题面材料 · 可滚动")}</span>
+              <button className="icon-btn ml-auto" onClick={() => setMaterialOpen(true)} aria-label={t("放大材料")}>
                 <Icon name="expand" />
               </button>
             </div>
@@ -535,7 +537,7 @@ export function DesktopPractice({
                   <span className="ml-auto">
                     {question.review ? (
                       <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
-                        {question.review.missing ? '答案缺失' : '解析冲突'}
+                        {question.review.missing ? t("答案缺失") : t("解析冲突")}
                       </span>
                     ) : null}
                   </span>
@@ -544,15 +546,15 @@ export function DesktopPractice({
 
                 {question.imageMissing ? (
                   <div className="mt-3 text-[11px] text-[var(--warn)] leading-5">
-                    本题原始图片缺失，题干或选项中的图无法显示；不影响作答。
+                    {t("本题原始图片缺失，题干或选项中的图无法显示；不影响作答。")}
                   </div>
                 ) : null}
 
                 {question.review ? (
                   <div className="mt-4 text-[11px] text-[var(--warn)] leading-5">
                     {question.review.missing
-                      ? '源文件没有提供答案，本题不参与判分；可先浏览题目与解析。'
-                      : `答案行为 ${question.answer.join('')}，解析最终答案为 ${question.review.explanationAnswer}；已按答案行计分并标记待校对。`}
+                      ? t("源文件没有提供答案，本题不参与判分；可先浏览题目与解析。")
+                      : t("答案行为 {p0}，解析最终答案为 {p1}；已按答案行计分并标记待校对。", { p0: question.answer.join(''), p1: question.review.explanationAnswer })}
                   </div>
                 ) : null}
 
@@ -567,7 +569,7 @@ export function DesktopPractice({
 
                 {question.multi && !isSubmitted ? (
                   <button className="btn btn-soft mt-3" onClick={() => void grade(selected)} disabled={selected.length === 0 || busy}>
-                    提交答案
+                    {t("提交答案")}
                   </button>
                 ) : null}
 
@@ -579,38 +581,39 @@ export function DesktopPractice({
                           className={answer?.correct ? 'chip-accent' : 'chip'}
                           style={answer?.correct ? undefined : { color: 'var(--bad)', borderColor: 'var(--bad)' }}
                         >
-                          {answer?.correct ? '回答正确' : '回答错误'}
+                          {answer?.correct ? t("回答正确") : t("回答错误")}
                         </span>
                       ) : (
                         <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
-                          答案缺失
+                          {t("答案缺失")}
                         </span>
                       )}
                       {canGrade ? (
                         <span className="text-[11.5px] text-[var(--muted)]">
-                          正确答案 <b className="text-[var(--ink-2)]">{question.answer.join('')}</b>
+                          {t("正确答案")} <b className="text-[var(--ink-2)]">{question.answer.join('')}</b>
                         </span>
                       ) : (
-                        <span className="text-[11.5px] text-[var(--muted)]">本题不判分</span>
+                        <span className="text-[11.5px] text-[var(--muted)]">{t("本题不判分")}</span>
                       )}
-                      <span className="ml-auto text-[10.5px] text-[var(--muted)]">官方解析</span>
+                      <span className="ml-auto text-[10.5px] text-[var(--muted)]">{t("官方解析")}</span>
                     </div>
-                    <div className="mt-3 text-[12px] font-semibold text-[var(--ink-2)]">解析</div>
+                    <div className="mt-3 text-[12px] font-semibold text-[var(--ink-2)]">{t("解析")}</div>
                     <div
                       className="read-explain text-[var(--ink-2)] mt-1.5"
                       dangerouslySetInnerHTML={{ __html: question.explanationHtml }}
                     />
                     {question.review && !question.review.missing ? (
                       <div className="mt-2 text-[11px] text-[var(--warn)]">
-                        解析最终答案：{question.review.explanationAnswer}
+
+                        {t("解析最终答案：")}{question.review.explanationAnswer}
                       </div>
                     ) : null}
                   </div>
                 ) : null}
 
                 <div className="mt-6 flex items-center gap-3 text-[11px] text-[var(--muted)]">
-                  <span>本题来源：{question.paperTitle ?? question.source}</span>
-                  <span className="ml-auto">A–H 选择 · ← → 翻题 · F 收藏</span>
+                  <span>{t("本题来源：")}{question.paperTitle ?? question.source}</span>
+                  <span className="ml-auto">{t("A–H 选择 · ← → 翻题 · F 收藏")}</span>
                 </div>
               </div>
             </div>
@@ -618,7 +621,7 @@ export function DesktopPractice({
             <div className="shrink-0 border-t border-[var(--line)] bg-[var(--card)] px-6 py-3 flex flex-wrap items-center gap-2">
               <button className="btn btn-ghost" onClick={() => setIndex((value) => Math.max(0, value - 1))} disabled={index === 0}>
                 <Icon name="chevronLeft" strokeWidth={1.8} />
-                上一题
+                {t("上一题")}
               </button>
               <div className="flex items-center gap-1 ml-2">
                 <button
@@ -627,28 +630,28 @@ export function DesktopPractice({
                     toggleFavorite(question.id)
                       .then((value) => {
                         setFavorite(value);
-                        onNotice(value ? '已收藏' : '已取消收藏');
+                        onNotice(value ? t("已收藏") : t("已取消收藏"));
                       })
-                      .catch((error) => onNotice(`收藏失败：${errorText(error)}`));
+                      .catch((error) => onNotice(t("收藏失败：{p0}", { p0: errorText(error) })));
                   }}
-                  aria-label="收藏"
+                  aria-label={t("收藏")}
                   style={favorite ? { color: 'var(--warn)' } : undefined}
                 >
                   <Icon name="star" />
                 </button>
-                <button className="icon-btn" onClick={() => void openNote()} aria-label="笔记">
+                <button className="icon-btn" onClick={() => void openNote()} aria-label={t("笔记")}>
                   <Icon name="note" />
                 </button>
-                <button className="icon-btn" onClick={openEdit} aria-label="编辑本题">
+                <button className="icon-btn" onClick={openEdit} aria-label={t("编辑本题")}>
                   <Icon name="edit" />
                 </button>
                 <button
                   className="icon-btn"
                   onClick={() => {
                     if (aiReady) setAiOpen(true);
-                    else onNotice('请先在设置中配置 AI 接口');
+                    else onNotice(t("请先在设置中配置 AI 接口"));
                   }}
-                  aria-label="AI 讲解"
+                  aria-label={t("AI 讲解")}
                   aria-disabled={!aiReady}
                   style={aiReady ? undefined : { opacity: 0.35 }}
                 >
@@ -657,7 +660,7 @@ export function DesktopPractice({
                 <button
                   className="icon-btn"
                   onClick={toggleFlag}
-                  aria-label="标记"
+                  aria-label={t("标记")}
                   style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined}
                 >
                   <Icon name="check" />
@@ -666,12 +669,12 @@ export function DesktopPractice({
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 {!isExam ? (
                   <button className="btn btn-ghost" onClick={() => void reveal()} disabled={isSubmitted}>
-                    显示答案
+                    {t("显示答案")}
                   </button>
                 ) : null}
                 {!isExam ? (
                   <button className="btn btn-ghost" onClick={() => void finish(false)}>
-                    交卷本组
+                    {t("交卷本组")}
                   </button>
                 ) : null}
                 <button
@@ -679,13 +682,13 @@ export function DesktopPractice({
                   onClick={() => {
                     if (index === questions.length - 1) {
                       if (isExam) void finish(false);
-                      else onNotice('已经是最后一题');
+                      else onNotice(t("已经是最后一题"));
                     } else {
                       setIndex((value) => value + 1);
                     }
                   }}
                 >
-                  下一题
+                  {t("下一题")}
                   <Icon name="chevronRight" strokeWidth={2} />
                 </button>
               </div>
@@ -694,7 +697,7 @@ export function DesktopPractice({
         </div>
       </div>
 
-      <Modal open={sheet} title={`答题卡 · 已答 ${answeredCount} / ${questions.length}`} onClose={() => setSheet(false)}>
+      <Modal open={sheet} title={t("答题卡 · 已答 {p0} / {p1}", { p0: answeredCount, p1: questions.length })} onClose={() => setSheet(false)}>
         <div className="grid grid-cols-10 gap-2">
           {questions.map((item, itemIndex) => {
             const itemAnswer = answers[item.id];
@@ -717,69 +720,69 @@ export function DesktopPractice({
           })}
         </div>
         <div className="flex items-center gap-4 mt-4 text-[11px] text-[var(--muted)]">
-          <span>未答</span>
+          <span>{t("未答")}</span>
           <span className="ans-cell done" style={{ width: 24, height: 24 }} />
-          <span>已答</span>
+          <span>{t("已答")}</span>
           <span className="ans-cell current" style={{ width: 24, height: 24 }} />
-          <span>当前题</span>
+          <span>{t("当前题")}</span>
           <span className="ans-cell flagged" style={{ width: 24, height: 24 }} />
-          <span>已标记</span>
+          <span>{t("已标记")}</span>
         </div>
       </Modal>
 
-      <Modal open={materialOpen} title={question.material?.title ?? '材料'} onClose={() => setMaterialOpen(false)} wide>
+      <Modal open={materialOpen} title={question.material?.title ?? t("材料")} onClose={() => setMaterialOpen(false)} wide>
         <div className="material-body" dangerouslySetInnerHTML={{ __html: question.material?.html ?? '' }} />
       </Modal>
 
       <Modal
         open={noteOpen}
-        title="题目笔记"
+        title={t("题目笔记")}
         onClose={() => setNoteOpen(false)}
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setNoteOpen(false)}>取消</button>
+            <button className="btn btn-ghost" onClick={() => setNoteOpen(false)}>{t("取消")}</button>
             <button
               className="btn btn-primary"
               onClick={() => {
                 saveNote(question.id, note)
                   .then(() => {
                     setNoteOpen(false);
-                    onNotice('笔记已保存');
+                    onNotice(t("笔记已保存"));
                   })
-                  .catch((error) => onNotice(`保存失败：${errorText(error)}`));
+                  .catch((error) => onNotice(t("保存失败：{p0}", { p0: errorText(error) })));
               }}
             >
-              保存笔记
+              {t("保存笔记")}
             </button>
           </>
         }
       >
-        <div className="text-[11px] text-[var(--muted)] mb-2">qid {question.qid} · 自动保存到本地</div>
+        <div className="text-[11px] text-[var(--muted)] mb-2">qid {question.qid}  {t("· 自动保存到本地")}</div>
         <textarea
           className="w-full h-40 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none"
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="记录解题思路、易错点…"
+          placeholder={t("记录解题思路、易错点…")}
         />
       </Modal>
 
       <Modal
         open={editOpen}
-        title="编辑本题"
+        title={t("编辑本题")}
         onClose={() => setEditOpen(false)}
         wide
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setEditOpen(false)} disabled={editBusy}>取消</button>
+            <button className="btn btn-ghost" onClick={() => setEditOpen(false)} disabled={editBusy}>{t("取消")}</button>
             <button className="btn btn-primary" onClick={() => void saveEdit()} disabled={editBusy}>
-              {editBusy ? '保存中…' : '保存'}
+              {editBusy ? t("保存中…") : t("保存")}
             </button>
           </>
         }
       >
         <div className="max-h-[58vh] overflow-y-auto scroll space-y-3 pr-1">
           <label className="block">
-            <div className="text-[11px] text-[var(--muted)] mb-1">题干（支持 Markdown / HTML）</div>
+            <div className="text-[11px] text-[var(--muted)] mb-1">{t("题干（支持 Markdown / HTML）")}</div>
             <textarea
               className="w-full h-28 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none"
               value={editStem}
@@ -788,7 +791,7 @@ export function DesktopPractice({
           </label>
 
           <div>
-            <div className="text-[11px] text-[var(--muted)] mb-1">选项</div>
+            <div className="text-[11px] text-[var(--muted)] mb-1">{t("选项")}</div>
             <div className="space-y-2">
               {editOptions.map((option, position) => (
                 <div key={option.label} className="flex items-start gap-2">
@@ -808,7 +811,7 @@ export function DesktopPractice({
           </div>
 
           <label className="block">
-            <div className="text-[11px] text-[var(--muted)] mb-1">答案（如 A,C；留空表示不判分）</div>
+            <div className="text-[11px] text-[var(--muted)] mb-1">{t("答案（如 A,C；留空表示不判分）")}</div>
             <input
               className="w-full h-10 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3 text-[13px] outline-none"
               value={editAnswer}
@@ -817,7 +820,7 @@ export function DesktopPractice({
           </label>
 
           <label className="block">
-            <div className="text-[11px] text-[var(--muted)] mb-1">解析</div>
+            <div className="text-[11px] text-[var(--muted)] mb-1">{t("解析")}</div>
             <textarea
               className="w-full h-32 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 text-[13px] outline-none"
               value={editExplanation}
@@ -826,24 +829,25 @@ export function DesktopPractice({
           </label>
 
           <div className="text-[10.5px] text-[var(--muted)] leading-5">
-            修改直接保存到本地题库，错题本、收藏、搜索会同步更新；此处不能新增图片。
+            {t("修改直接保存到本地题库，错题本、收藏、搜索会同步更新；此处不能新增图片。")}
           </div>
         </div>
       </Modal>
 
       <Modal
         open={confirmSubmit}
-        title="确认交卷？"
+        title={t("确认交卷？")}
         onClose={() => setConfirmSubmit(false)}
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setConfirmSubmit(false)}>继续答题</button>
-            <button className="btn btn-primary" onClick={() => void finish(true)} disabled={busy}>确认交卷</button>
+            <button className="btn btn-ghost" onClick={() => setConfirmSubmit(false)}>{t("继续答题")}</button>
+            <button className="btn btn-primary" onClick={() => void finish(true)} disabled={busy}>{t("确认交卷")}</button>
           </>
         }
       >
         <p className="text-[13px] text-[var(--ink-2)] leading-7">
-          共 {questions.length} 题，未答 {questions.length - answeredCount} 题。交卷后不可修改答案，未答按错处理。
+
+          {t("共")} {questions.length}  {t("题，未答")} {questions.length - answeredCount}  {t("题。交卷后不可修改答案，未答按错处理。")}
         </p>
       </Modal>
 

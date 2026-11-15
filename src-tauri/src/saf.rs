@@ -33,7 +33,7 @@ pub async fn saf_materialize(
         .lock()
         .map_err(|error| error.to_string())?
         .clone()
-        .ok_or_else(|| "复制插件未就绪".to_string())?;
+        .ok_or_else(|| crate::i18n::tr("复制插件未就绪", "Copy plugin is not ready").to_string())?;
     let payload = serde_json::json!({
         "uri": uri,
         "maxDepth": max_depth.unwrap_or(6),
@@ -46,13 +46,13 @@ pub async fn saf_materialize(
         .get("path")
         .and_then(|value| value.as_str())
         .map(ToString::to_string)
-        .ok_or_else(|| "复制结果缺少路径".to_string())
+        .ok_or_else(|| crate::i18n::tr("复制结果缺少路径", "Copy result is missing a path").to_string())
 }
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn saf_materialize(_uri: String, _max_depth: Option<u32>) -> Result<String, String> {
-    Err("该功能仅在 Android 端可用".to_string())
+    Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
 }
 
 #[cfg(target_os = "android")]
@@ -64,7 +64,7 @@ pub async fn saf_pick(app: tauri::AppHandle, kind: Option<String>) -> Result<Str
         .lock()
         .map_err(|error| error.to_string())?
         .clone()
-        .ok_or_else(|| "文件选择插件未就绪".to_string())?;
+        .ok_or_else(|| crate::i18n::tr("文件选择插件未就绪", "File picker plugin is not ready").to_string())?;
     let payload = serde_json::json!({ "kind": kind.unwrap_or_else(|| "folder".to_string()) });
     let result: serde_json::Value = handle
         .run_mobile_plugin_async("pick", payload)
@@ -74,11 +74,11 @@ pub async fn saf_pick(app: tauri::AppHandle, kind: Option<String>) -> Result<Str
         .get("uri")
         .and_then(|value| value.as_str())
         .map(ToString::to_string)
-        .ok_or_else(|| "选择结果缺少 uri".to_string())
+        .ok_or_else(|| crate::i18n::tr("选择结果缺少 uri", "Selection result is missing a uri").to_string())
 }
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn saf_pick(_kind: Option<String>) -> Result<String, String> {
-    Err("该功能仅在 Android 端可用".to_string())
+    Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
 }

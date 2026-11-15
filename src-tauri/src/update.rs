@@ -33,7 +33,7 @@ pub async fn download_update(
         .lock()
         .map_err(|error| error.to_string())?
         .clone()
-        .ok_or_else(|| "下载插件未就绪".to_string())?;
+        .ok_or_else(|| crate::i18n::tr("下载插件未就绪", "Download plugin is not ready").to_string())?;
     let payload = serde_json::json!({ "url": url, "fileName": file_name });
     let result: serde_json::Value = handle
         .run_mobile_plugin_async("download", payload)
@@ -43,11 +43,11 @@ pub async fn download_update(
         .get("status")
         .and_then(|value| value.as_str())
         .map(ToString::to_string)
-        .ok_or_else(|| "下载启动失败".to_string())
+        .ok_or_else(|| crate::i18n::tr("下载启动失败", "Failed to start download").to_string())
 }
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn download_update(_url: String, _file_name: String) -> Result<String, String> {
-    Err("该功能仅在 Android 端可用".to_string())
+    Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
 }

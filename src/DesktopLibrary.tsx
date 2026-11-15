@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react';
+import { t, fmtNumber } from './i18n';
+import { useEffect, useState } from 'react';
 import { errorText, listPapers, type Bootstrap, type PaperDto, type PaperPage, type SessionSpec } from './api';
 import { Icon } from './icons';
 
@@ -13,7 +14,7 @@ interface Props {
 }
 
 function fmt(value: number) {
-  return value.toLocaleString('zh-CN');
+  return fmtNumber(value);
 }
 
 export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, onBank, refreshKey }: Props) {
@@ -39,7 +40,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
           if (!cancelled) setResult(value);
         })
         .catch((error) => {
-          if (!cancelled) onNotice(`题库加载失败：${errorText(error)}`);
+          if (!cancelled) onNotice(t("题库加载失败：{p0}", { p0: errorText(error) }));
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -63,7 +64,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
 
   const startPaper = (paper: PaperDto) => {
     if (paper.availableCount === 0) {
-      onNotice('这张试卷目前没有可练题目，请先导入题库图片');
+      onNotice(t("这张试卷目前没有可练题目，请先导入题库图片"));
       return;
     }
     onStart({ mode: 'paper', paperKey: paper.key });
@@ -74,29 +75,29 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
       <div className="max-w-[1180px] mx-auto px-8 py-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-semibold tracking-tight">题库</h1>
+            <h1 className="text-[24px] font-semibold tracking-tight">{t("题库")}</h1>
             <p className="text-[12.5px] text-[var(--muted)] mt-1.5">
-              {data.bank.title} · {fmt(data.bank.paperCount)} 套卷 · {fmt(data.bank.questionCount)} 题 · 图片 {fmt(data.bank.imageCount)} 张
+              {data.bank.title} · {fmt(data.bank.paperCount)}  {t("套卷 ·")} {fmt(data.bank.questionCount)}  {t("题 · 图片")} {fmt(data.bank.imageCount)}  {t("张")}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {data.bank.reviewCount > 0 ? (
               <span className="chip">
                 <i className="w-1.5 h-1.5 rounded-full bg-[var(--warn)] inline-block" />
-                {data.bank.reviewCount} 题待校对
+                {data.bank.reviewCount}  {t("题待校对")}
               </span>
             ) : null}
             <button className="btn btn-ghost" onClick={onBank}>
               <Icon name="library" />
-              切换题库
+              {t("切换题库")}
             </button>
             <button className="btn btn-ghost" onClick={onCustom}>
               <Icon name="book" />
-              自定义组卷
+              {t("自定义组卷")}
             </button>
             <button className="btn btn-primary" onClick={onImport}>
               <Icon name="library" />
-              导入题库
+              {t("导入题库")}
             </button>
           </div>
         </div>
@@ -110,14 +111,15 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
             >
               <div className="flex items-center justify-between">
                 <span className="text-[12px] text-[var(--muted)]">{module.code}</span>
-                <span className="text-[10px] text-[var(--muted)]">{fmt(module.total)} 题</span>
+                <span className="text-[10px] text-[var(--muted)]">{fmt(module.total)}  {t("题")}</span>
               </div>
               <div className="serif text-[16px] mt-2">{module.name}</div>
               <div className="progress mt-3">
                 <i style={{ width: `${Math.max(module.progress, module.done > 0 ? 1 : 0)}%` }} />
               </div>
               <div className="text-[10.5px] text-[var(--muted)] mt-2">
-                已刷 {fmt(module.done)} 题 · 正确率 {module.accuracy}% · 可练 {fmt(module.available)}
+
+                {t("已刷")} {fmt(module.done)}  {t("题 · 正确率")} {module.accuracy}{t("% · 可练")} {fmt(module.available)}
               </div>
             </button>
           ))}
@@ -125,13 +127,13 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
 
         <div className="card mt-4 overflow-hidden">
           <div className="p-4 flex items-center gap-2 border-b border-[var(--line)] flex-wrap">
-            <span className="text-[11px] text-[var(--muted)] mr-1">筛选</span>
+            <span className="text-[11px] text-[var(--muted)] mr-1">{t("筛选")}</span>
             <select
               className="chip bg-transparent"
               value={year}
               onChange={(event) => setYear(event.target.value)}
             >
-              <option value="">全部年份</option>
+              <option value="">{t("全部年份")}</option>
               {data.years.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -143,7 +145,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
               value={region}
               onChange={(event) => setRegion(event.target.value)}
             >
-              <option value="">全部地区</option>
+              <option value="">{t("全部地区")}</option>
               {data.regions.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -155,7 +157,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
               value={examType}
               onChange={(event) => setExamType(event.target.value)}
             >
-              <option value="">考试类型：全部</option>
+              <option value="">{t("考试类型：全部")}</option>
               {data.examTypes.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -164,7 +166,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
             </select>
             <input
               className="chip bg-transparent w-[190px] outline-none"
-              placeholder="搜索试卷"
+              placeholder={t("搜索试卷")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -178,11 +180,11 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
                     examType: examType || undefined,
                     count: 20,
                     order: 'random',
-                    title: '按当前筛选随机 20 题',
+                    title: t("按当前筛选随机 20 题"),
                   })
                 }
               >
-                开始练习
+                {t("开始练习")}
               </button>
               <button
                 className="btn btn-primary btn-sm"
@@ -193,27 +195,27 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
                     examType: examType || undefined,
                     count: 20,
                     order: 'random',
-                    title: '随机 20 题',
+                    title: t("随机 20 题"),
                   })
                 }
               >
-                随机 20 题
+                {t("随机 20 题")}
               </button>
             </div>
           </div>
 
           <div className="tr text-[10.5px] text-[var(--muted)]" style={{ gridTemplateColumns: '2.4fr 70px 70px 70px 150px 110px' }}>
-            <div>试卷</div>
-            <div>年份</div>
-            <div>地区</div>
-            <div>题数</div>
-            <div>进度</div>
-            <div className="text-right">操作</div>
+            <div>{t("试卷")}</div>
+            <div>{t("年份")}</div>
+            <div>{t("地区")}</div>
+            <div>{t("题数")}</div>
+            <div>{t("进度")}</div>
+            <div className="text-right">{t("操作")}</div>
           </div>
           {loading ? (
-            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">读取题库…</div>
+            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">{t("读取题库…")}</div>
           ) : result.items.length === 0 ? (
-            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">没有匹配的试卷</div>
+            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">{t("没有匹配的试卷")}</div>
           ) : (
             result.items.map((paper) => (
               <div key={paper.key} className="tr" style={{ gridTemplateColumns: '2.4fr 70px 70px 70px 150px 110px' }}>
@@ -229,13 +231,13 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
                     <i style={{ width: `${Math.max(paper.progress, paper.answered > 0 ? 1 : 0)}%` }} />
                   </div>
                   {paper.lastScore !== null && paper.lastScore !== undefined ? (
-                    <div className="text-[10px] text-[var(--good)] mt-1">已完成 · {paper.lastScore} 分</div>
+                    <div className="text-[10px] text-[var(--good)] mt-1">{t("已完成 ·")} {paper.lastScore}  {t("分")}</div>
                   ) : paper.answered > 0 ? (
                     <div className="text-[10px] text-[var(--muted)] mt-1">
                       {paper.answered} / {paper.questionCount}
                     </div>
                   ) : (
-                    <div className="text-[10px] text-[var(--muted)] mt-1">未开始</div>
+                    <div className="text-[10px] text-[var(--muted)] mt-1">{t("未开始")}</div>
                   )}
                 </div>
                 <div className="text-right">
@@ -244,7 +246,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
                     onClick={() => startPaper(paper)}
                     disabled={paper.availableCount === 0}
                   >
-                    {paper.availableCount === 0 ? '缺图' : paper.answered > 0 ? '继续' : '开始'}
+                    {paper.availableCount === 0 ? t("缺图") : paper.answered > 0 ? t("继续") : t("开始")}
                   </button>
                 </div>
               </div>
@@ -252,11 +254,12 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
           )}
           <div className="p-3 flex items-center justify-between text-[11px] text-[var(--muted)]">
             <span>
-              共 {fmt(result.total)} 套卷 · 第 {page} / {pages} 页
+
+              {t("共")} {fmt(result.total)}  {t("套卷 · 第")} {page} / {pages}  {t("页")}
             </span>
             <div className="flex items-center gap-1">
               <button className="chip" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                上一页
+                {t("上一页")}
               </button>
               {pageNumbers.map((value) => (
                 <button key={value} className={`chip ${value === page ? 'active' : ''}`} onClick={() => setPage(value)}>
@@ -264,7 +267,7 @@ export function DesktopLibrary({ data, onStart, onNotice, onCustom, onImport, on
                 </button>
               ))}
               <button className="chip" disabled={page >= pages} onClick={() => setPage((value) => Math.min(pages, value + 1))}>
-                下一页
+                {t("下一页")}
               </button>
             </div>
           </div>

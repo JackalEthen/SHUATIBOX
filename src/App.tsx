@@ -2,8 +2,10 @@
 import { DesktopApp } from './DesktopApp';
 import { MobileApp } from './MobileApp';
 import { useAppearance } from './theme';
+import { useLang } from './i18n';
 
 export default function App() {
+  useLang();
   const appearance = useAppearance();
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [notice, setNotice] = useState('');

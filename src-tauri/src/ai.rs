@@ -2,6 +2,7 @@ use crate::db::{asset_dir, base_dir, ensure_active_bank, open_user};
 use crate::importer::{
     derive_exam_type, extract_zip, make_temp_dir, parse_meta, probe_file, walk_markdown,
 };
+use crate::i18n::{is_en, tr};
 use crate::models::{AiFileReport, AiImportSummary, ImportProgress};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
@@ -100,9 +101,9 @@ pub async fn ai_import(
     let base = base_dir(&app)?;
     let source = PathBuf::from(&path);
     if !source.exists() {
-        return Err("路径不存在".to_string());
+        return Err(tr("路径不存在", "Path does not exist").to_string());
     }
-    emit(&app, "prepare", 0, 0, "准备文件");
+    emit(&app, "prepare", 0, 0, tr("准备文件", "Preparing files"));
     let (temp_root, root) = prepare_workspace(&base, &source)?;
     let result = run_import(&app, &config, &root, set_active, bank_id, title).await;
     let _ = fs::remove_dir_all(&temp_root);
@@ -125,7 +126,7 @@ fn load_config(app: &AppHandle) -> Result<AiConfig, String> {
     let key = map.get("ai_key").cloned().unwrap_or_default().trim().to_string();
     let model = map.get("ai_model").cloned().unwrap_or_default().trim().to_string();
     if url.is_empty() || key.is_empty() || model.is_empty() {
-        return Err("请先在设置中填写 AI 接口地址、密钥和模型".to_string());
+        return Err(tr("请先在设置中填写 AI 接口地址、密钥和模型", "Set the AI endpoint, key, and model in Settings first").to_string());
     }
     Ok(AiConfig { url, key, model })
 }
@@ -138,14 +139,14 @@ pub async fn ai_chat(
     request_id: String,
 ) -> Result<String, String> {
     if messages.is_empty() {
-        return Err("没有可发送的内容".to_string());
+        return Err(tr("没有可发送的内容", "Nothing to send").to_string());
     }
     let config = load_config(&app)?;
     let image_parts = build_image_parts(&app, images.unwrap_or_default());
 
     let mut payload: Vec<Value> = vec![json!({
         "role": "system",
-        "content": TUTOR_SYSTEM_PROMPT
+        "content": tutor_system_prompt()
     })];
     let mut first_user = true;
     for message in messages {
@@ -177,26 +178,27 @@ pub async fn ai_chat(
     {
         let mut state = cancel_state().lock().unwrap();
         if state.cancelled.remove(&request_id) {
-            return Err("已取消".to_string());
+            return Err(tr("已取消", "Cancelled").to_string());
         }
         state.active.insert(request_id.clone(), cancel_tx);
     }
     let result = tokio::select! {
         result = send_chat(&client, &config, &body) => result,
-        _ = cancel_rx => Err("已取消".to_string()),
+        _ = cancel_rx => Err(tr("已取消", "Cancelled").to_string()),
     };
     cancel_state().lock().unwrap().active.remove(&request_id);
     let (content, truncated) = result.map_err(|error| {
         match error.strip_prefix("$CONTEXT$") {
-            Some(rest) => format!(
-                "上下文过长，请关闭本对话框重新打开后再试。{}",
-                clip(rest, 120)
-            ),
+            Some(rest) => if is_en() {
+                format!("Context is too long. Close and reopen this dialog, then try again. {}", clip(rest, 120))
+            } else {
+                format!("上下文过长，请关闭本对话框重新打开后再试。{}", clip(rest, 120))
+            },
             None => error,
         }
     })?;
     if truncated {
-        Ok(format!("{content}\n\n（回答达到长度上限，已截断）"))
+        Ok(if is_en() { format!("{content}\n\n(Response reached the length limit and was truncated.)") } else { format!("{content}\n\n（回答达到长度上限，已截断）") })
     } else {
         Ok(content)
     }
@@ -223,11 +225,11 @@ pub async fn ai_test(app: AppHandle) -> Result<AiTestResult, String> {
     let text_body = json!({
         "model": config.model,
         "temperature": 0.0,
-        "messages": [{"role": "user", "content": "只回复：ok"}]
+        "messages": [{"role": "user", "content": "Reply only: ok"}]
     });
     probe_chat(&client, &config, &text_body)
         .await
-        .map_err(|error| format!("连通性测试失败：{error}"))?;
+        .map_err(|error| if is_en() { format!("Connectivity test failed: {error}") } else { format!("连通性测试失败：{error}") })?;
 
     let vision_body = json!({
         "model": config.model,
@@ -235,7 +237,7 @@ pub async fn ai_test(app: AppHandle) -> Result<AiTestResult, String> {
         "messages": [{
             "role": "user",
             "content": [
-                {"type": "text", "text": "这张图片是什么颜色？只回答颜色。"},
+                {"type": "text", "text": "What color is this image? Answer only the color."},
                 {"type": "image_url", "image_url": {
                     "url": format!("data:image/png;base64,{TEST_PNG}")
                 }}
@@ -245,7 +247,7 @@ pub async fn ai_test(app: AppHandle) -> Result<AiTestResult, String> {
     match probe_chat(&client, &config, &vision_body).await {
         Ok(_) => Ok(AiTestResult {
             vision_ok: true,
-            message: "连接正常，模型可读图".to_string(),
+            message: tr("连接正常，模型可读图", "Connected; model can read images").to_string(),
         }),
         Err(error)
             if error.starts_with("HTTP 400")
@@ -254,10 +256,10 @@ pub async fn ai_test(app: AppHandle) -> Result<AiTestResult, String> {
         {
             Ok(AiTestResult {
                 vision_ok: false,
-                message: format!("模型不可读图：{error}"),
+                message: if is_en() { format!("Model cannot read images: {error}") } else { format!("模型不可读图：{error}") },
             })
         }
-        Err(error) => Err(format!("读图测试失败：{error}")),
+        Err(error) => Err(if is_en() { format!("Image test failed: {error}") } else { format!("读图测试失败：{error}") }),
     }
 }
 
@@ -272,20 +274,20 @@ async fn probe_chat(
         .json(body)
         .send()
         .await
-        .map_err(|error| format!("请求失败：{error}"))?;
+        .map_err(|error| if is_en() { format!("Request failed: {error}") } else { format!("请求失败：{error}") })?;
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
     if !status.is_success() {
         return Err(format!("HTTP {status}：{}", clip(&text, 200)));
     }
     let value: Value =
-        serde_json::from_str(&text).map_err(|error| format!("AI 返回不是合法 JSON：{error}"))?;
+        serde_json::from_str(&text).map_err(|error| if is_en() { format!("AI returned invalid JSON: {error}") } else { format!("AI 返回不是合法 JSON：{error}") })?;
     let content = value["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or("")
         .to_string();
     if content.trim().is_empty() {
-        return Err("AI 返回空内容".to_string());
+        return Err(tr("AI 返回空内容", "AI returned empty content").to_string());
     }
     Ok(content)
 }
@@ -359,12 +361,23 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
     None
 }
 
-const TUTOR_SYSTEM_PROMPT: &str = r#"你是一位耐心的考试辅导老师，帮助用户理解题目。
+const TUTOR_SYSTEM_PROMPT_ZH: &str = r#"你是一位耐心的考试辅导老师，帮助用户理解题目。
 回答要求：
 1. 先明确给出正确答案（选项字母 + 内容），再逐步讲解解题思路。
 2. 讲清关键概念、干扰项为什么错、常见易错点。
 3. 使用简体中文，可用 Markdown 列表、表格、公式。
 4. 不要编造题目中没有的信息；不确定时说明。"#;
+
+const TUTOR_SYSTEM_PROMPT_EN: &str = r#"You are a patient exam tutor helping the user understand a question.
+Requirements:
+1. State the correct answer first (option letter + content), then explain the reasoning step by step.
+2. Explain key concepts, why distractors are wrong, and common pitfalls.
+3. Answer in English. Markdown lists, tables, and formulas are allowed.
+4. Do not invent information not present in the question; say when you are unsure."#;
+
+fn tutor_system_prompt() -> &'static str {
+    if is_en() { TUTOR_SYSTEM_PROMPT_EN } else { TUTOR_SYSTEM_PROMPT_ZH }
+}
 
 fn prepare_workspace(base: &Path, source: &Path) -> Result<(PathBuf, PathBuf), String> {
     let temp_root = make_temp_dir(base, "ai")?;
@@ -372,7 +385,7 @@ fn prepare_workspace(base: &Path, source: &Path) -> Result<(PathBuf, PathBuf), S
         .file_stem()
         .map(|value| value.to_string_lossy().to_string())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "题库".to_string());
+        .unwrap_or_else(|| tr("题库", "Bank").to_string());
     let root = temp_root.join(sanitize_name(&stem));
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
     if source.is_dir() {
@@ -394,7 +407,7 @@ fn prepare_workspace(base: &Path, source: &Path) -> Result<(PathBuf, PathBuf), S
             .unwrap_or_else(|| "import.md".to_string());
         fs::copy(source, root.join(name)).map_err(|error| error.to_string())?;
     } else {
-        return Err("请选择 Markdown 文件、文件夹或 zip".to_string());
+        return Err(tr("请选择 Markdown 文件、文件夹或 zip", "Choose a Markdown file, folder, or zip").to_string());
     }
     Ok((temp_root, root))
 }
@@ -412,7 +425,7 @@ fn sanitize_name(value: &str) -> String {
         .collect();
     let cleaned = cleaned.trim_matches('-').to_string();
     if cleaned.is_empty() {
-        "题库".to_string()
+        tr("题库", "Bank").to_string()
     } else {
         cleaned
     }
@@ -443,10 +456,10 @@ async fn run_import(
 ) -> Result<AiImportSummary, String> {
     let files = walk_markdown(root);
     if files.is_empty() {
-        return Err("没有找到 Markdown 文件".to_string());
+        return Err(tr("没有找到 Markdown 文件", "No Markdown files found").to_string());
     }
     let total = files.len() as i64;
-    emit(app, "scan", 0, total, "扫描 Markdown 文件");
+    emit(app, "scan", 0, total, tr("扫描 Markdown 文件", "Scanning Markdown files"));
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
@@ -475,7 +488,7 @@ async fn run_import(
                     0,
                     0,
                     Vec::new(),
-                    Some(format!("读取失败：{error}")),
+                    Some(if is_en() { format!("Read failed: {error}") } else { format!("读取失败：{error}") }),
                 ));
                 continue;
             }
@@ -506,12 +519,21 @@ async fn run_import(
         "scan",
         total,
         total,
-        format!(
-            "共 {} 个文件，{} 个已合规，{} 个需要 AI 转换",
-            total,
-            reports.len() as i64 - jobs.len() as i64,
-            jobs.len()
-        ),
+        if is_en() {
+            format!(
+                "{} files, {} compliant, {} need AI conversion",
+                total,
+                reports.len() as i64 - jobs.len() as i64,
+                jobs.len()
+            )
+        } else {
+            format!(
+                "共 {} 个文件，{} 个已合规，{} 个需要 AI 转换",
+                total,
+                reports.len() as i64 - jobs.len() as i64,
+                jobs.len()
+            )
+        },
     );
 
     let semaphore = Arc::new(Semaphore::new(CONCURRENCY));
@@ -534,18 +556,18 @@ async fn run_import(
         match handle.await {
             Ok(report) => reports.push(report),
             Err(error) => reports.push(make_report(
-                "未知",
+                tr("未知", "Unknown"),
                 "failed",
                 0,
                 0,
                 Vec::new(),
-                Some(format!("转换任务异常：{error}")),
+                Some(if is_en() { format!("Conversion task failed: {error}") } else { format!("转换任务异常：{error}") }),
             )),
         }
     }
     reports.sort_by(|a, b| a.file.cmp(&b.file));
 
-    emit(app, "import", 0, 1, "正在写入题库");
+    emit(app, "import", 0, 1, tr("正在写入题库", "Writing to bank"));
     let app_handle = app.clone();
     let root_string = root.to_string_lossy().to_string();
     let summary = tauri::async_runtime::spawn_blocking(move || {
@@ -557,7 +579,7 @@ async fn run_import(
     let converted = reports.iter().filter(|item| item.status == "converted").count() as i64;
     let valid = reports.iter().filter(|item| item.status == "valid").count() as i64;
     let failed = reports.iter().filter(|item| item.status == "failed").count() as i64;
-    emit(app, "done", total, total, "导入完成");
+    emit(app, "done", total, total, tr("导入完成", "Import complete"));
 
     Ok(AiImportSummary {
         summary,
@@ -578,7 +600,7 @@ async fn convert_one(
     let text = match fs::read_to_string(&job.full) {
         Ok(value) => value,
         Err(error) => {
-            return make_report(&job.rel, "failed", 0, 0, Vec::new(), Some(format!("读取失败：{error}")));
+            return make_report(&job.rel, "failed", 0, 0, Vec::new(), Some(if is_en() { format!("Read failed: {error}") } else { format!("读取失败：{error}") }));
         }
     };
     let probe_before = probe_file(&text, &job.rel);
@@ -600,7 +622,7 @@ async fn convert_one(
     while let Some(chunk) = queue.pop_front() {
         guard += 1;
         if guard > 300 {
-            return make_report(&job.rel, "failed", 0, expected, flags, Some("分块数量异常，已中止".to_string()));
+            return make_report(&job.rel, "failed", 0, expected, flags, Some(tr("分块数量异常，已中止", "Chunk count is abnormal; aborted").to_string()));
         }
         let part = total_chunks - queue.len();
         emit(
@@ -608,12 +630,21 @@ async fn convert_one(
             "convert",
             (job.index + 1) as i64,
             total,
-            format!(
-                "转换第 {}/{} 个：{} · 第 {part}/{total_chunks} 块",
-                job.index + 1,
-                total,
-                job.rel
-            ),
+            if is_en() {
+                format!(
+                    "Converting {}/{}: {} · chunk {part}/{total_chunks}",
+                    job.index + 1,
+                    total,
+                    job.rel
+                )
+            } else {
+                format!(
+                    "转换第 {}/{} 个：{} · 第 {part}/{total_chunks} 块",
+                    job.index + 1,
+                    total,
+                    job.rel
+                )
+            },
         );
         match convert_chunk(client, config, &header, &job.rel, &chunk, next, part, total_chunks).await {
             Ok((content, count)) => {
@@ -628,11 +659,11 @@ async fn convert_one(
                         0,
                         expected,
                         flags,
-                        Some("单块内容过小仍超出模型限制，无法继续拆分".to_string()),
+                        Some(tr("单块内容过小仍超出模型限制，无法继续拆分", "A chunk is too small yet still exceeds the model limit; cannot split further").to_string()),
                     );
                 }
                 let (left, right) = split_chunk(&chunk);
-                flags.push("内容过长，已自动拆分转换，题序以文件为准".to_string());
+                flags.push(tr("内容过长，已自动拆分转换，题序以文件为准", "Content was too long and was split automatically; question order follows the file").to_string());
                 queue.push_front(right);
                 queue.push_front(left);
             }
@@ -651,12 +682,12 @@ async fn convert_one(
             0,
             expected,
             flags,
-            Some(format!("转换结果未通过校验：{}", probe_after.issue_text.join("；"))),
+            Some(if is_en() { format!("Conversion failed validation: {}", probe_after.issue_text.join("; ")) } else { format!("转换结果未通过校验：{}", probe_after.issue_text.join("；")) }),
         );
     }
     verify(&body, &probe_after, &mut flags);
     if let Err(error) = fs::write(&job.full, assembled) {
-        return make_report(&job.rel, "failed", 0, expected, flags, Some(format!("写入失败：{error}")));
+        return make_report(&job.rel, "failed", 0, expected, flags, Some(if is_en() { format!("Write failed: {error}") } else { format!("写入失败：{error}") }));
     }
     make_report(
         &job.rel,
@@ -689,13 +720,13 @@ async fn convert_chunk(
                 }
                 let content = strip_frontmatter(&strip_fence(&content));
                 if content.trim().is_empty() {
-                    hint = "输出为空".to_string();
+                    hint = tr("输出为空", "Output was empty").to_string();
                     continue;
                 }
                 let probe = probe_file(&format!("{header}{content}"), rel);
                 if probe.has_file_error || probe.stems.is_empty() || !probe.issue_text.is_empty() {
                     hint = if probe.issue_text.is_empty() {
-                        "没有解析出任何题目".to_string()
+                        tr("没有解析出任何题目", "No questions were parsed").to_string()
                     } else {
                         probe.issue_text.join("\n")
                     };
@@ -712,7 +743,7 @@ async fn convert_chunk(
             }
         }
     }
-    Err(ChunkError::Fail(format!("两次输出均未通过格式校验：{hint}")))
+    Err(ChunkError::Fail(if is_en() { format!("Both attempts failed format validation: {hint}") } else { format!("两次输出均未通过格式校验：{hint}") }))
 }
 
 async fn chat(
@@ -724,7 +755,7 @@ async fn chat(
         "model": config.model,
         "temperature": 0.1,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt()},
             {"role": "user", "content": user}
         ]
     });
@@ -750,29 +781,29 @@ async fn send_chat(
                 let text = response.text().await.unwrap_or_default();
                 if status.is_success() {
                     let value: Value = serde_json::from_str(&text)
-                        .map_err(|error| format!("AI 返回不是合法 JSON：{error}"))?;
+                        .map_err(|error| if is_en() { format!("AI returned invalid JSON: {error}") } else { format!("AI 返回不是合法 JSON：{error}") })?;
                     let content = value["choices"][0]["message"]["content"]
                         .as_str()
                         .unwrap_or("")
                         .to_string();
                     let truncated = value["choices"][0]["finish_reason"].as_str() == Some("length");
                     if content.trim().is_empty() {
-                        last = "AI 返回空内容".to_string();
+                        last = tr("AI 返回空内容", "AI returned empty content").to_string();
                     } else {
                         return Ok((content, truncated));
                     }
                 } else if status.as_u16() == 401 || status.as_u16() == 403 {
-                    return Err("AI 认证失败，请检查密钥".to_string());
+                    return Err(tr("AI 认证失败，请检查密钥", "AI authentication failed; check the key").to_string());
                 } else if status.as_u16() == 400 && looks_like_context_error(&text) {
                     return Err(format!("$CONTEXT${}", clip(&text, 200)));
                 } else if status.as_u16() == 429 || status.is_server_error() {
-                    last = format!("AI 接口暂时不可用 HTTP {status}：{}", clip(&text, 200));
+                    last = if is_en() { format!("AI endpoint temporarily unavailable HTTP {status}: {}", clip(&text, 200)) } else { format!("AI 接口暂时不可用 HTTP {status}：{}", clip(&text, 200)) };
                 } else {
-                    return Err(format!("AI 接口错误 HTTP {status}：{}", clip(&text, 300)));
+                    return Err(if is_en() { format!("AI endpoint error HTTP {status}: {}", clip(&text, 300)) } else { format!("AI 接口错误 HTTP {status}：{}", clip(&text, 300)) });
                 }
             }
             Err(error) => {
-                last = format!("请求失败：{error}");
+                last = if is_en() { format!("Request failed: {error}") } else { format!("请求失败：{error}") };
             }
         }
         tokio::time::sleep(Duration::from_secs(2 + attempt * 3)).await;
@@ -808,7 +839,7 @@ fn build_user_prompt(
     prompt
 }
 
-const SYSTEM_PROMPT: &str = r#"你是题库格式转换器。把用户提供的原始题目文本改写为「题库导入格式 v1」，只输出 Markdown 正文，不要解释、不要代码围栏、不要开头结尾客套。
+const SYSTEM_PROMPT_ZH: &str = r#"你是题库格式转换器。把用户提供的原始题目文本改写为「题库导入格式 v1」，只输出 Markdown 正文，不要解释、不要代码围栏、不要开头结尾客套。
 
 格式要求：
 1. 每道独立题写成：## 第 N 题　<sub>· 题型</sub>
@@ -825,13 +856,34 @@ const SYSTEM_PROMPT: &str = r#"你是题库格式转换器。把用户提供的�
 9. 如果本块开头或结尾是上一块截断的半道题，直接丢弃不完整的部分，不要补全。
 10. 除题目本身外不要输出任何内容。"#;
 
+const SYSTEM_PROMPT_EN: &str = r#"You are a question-bank format converter. Rewrite the user's raw question text into "Bank Import Format v1". Output only Markdown body text: no explanations, no code fences, no greetings.
+
+Format requirements:
+1. Each standalone question: ## Question N　<sub>· type</sub>
+   N increases consecutively from the start number given by the user. Type may be "Single choice", "Multiple choice", "True/False", or "Uncategorized".
+2. Material questions: write ## Material K first (K starts at 1 within this chunk), keep the material text verbatim, then write subquestions as: ### Question N　<sub>· type</sub>
+3. One option per line: - **A**. text
+   Labels must be consecutive from A, 2 to 8 options, never merge options.
+4. Answer line must be: **Answer**: A or **Answer**: A,C
+   If the source has no answer, write **Answer**: (missing). Never guess.
+5. Put the explanation after **Explanation** as normal paragraphs; omit it if the source has none.
+6. Preserve the source text verbatim in stems, options, and explanations: do not summarize, rewrite, complete, translate, or fix typos. Only restructure.
+7. Preserve image markers, HTML tags, tables, and line breaks exactly. Never change image paths.
+8. For true/false with no options, write - **A**. True and - **B**. False; answer A or B.
+9. If this chunk starts or ends with a partial question cut by the previous chunk, discard the incomplete part; do not complete it.
+10. Output nothing except the questions."#;
+
+fn system_prompt() -> &'static str {
+    if is_en() { SYSTEM_PROMPT_EN } else { SYSTEM_PROMPT_ZH }
+}
+
 fn build_header(probe: &crate::importer::FileProbe, rel: &str) -> String {
     let path = Path::new(rel);
     let stem = path
         .file_stem()
         .map(|value| value.to_string_lossy().to_string())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "未命名试卷".to_string());
+        .unwrap_or_else(|| tr("未命名试卷", "Untitled paper").to_string());
     let paper = if probe.paper.is_empty() {
         stem
     } else {
@@ -842,7 +894,7 @@ fn build_header(probe: &crate::importer::FileProbe, rel: &str) -> String {
             .and_then(|parent| parent.file_name())
             .map(|value| value.to_string_lossy().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "未分类".to_string())
+            .unwrap_or_else(|| tr("未分类", "Uncategorized").to_string())
     } else {
         probe.module.clone()
     };
@@ -889,7 +941,10 @@ fn chunk_body(body: &str) -> Vec<String> {
     for line in body.lines() {
         let h2 = line.starts_with("## ");
         let h3 = line.starts_with("### ");
-        let starts_material = h2 && line.trim_start_matches('#').trim_start().starts_with("材料");
+        let starts_material = h2 && {
+        let text = line.trim_start_matches('#').trim_start();
+        text.starts_with("材料") || text.starts_with("Material")
+    };
         if !current.trim().is_empty() && (h2 || (h3 && !in_material)) {
             sections.push(current);
             current = String::new();
@@ -937,7 +992,7 @@ fn split_chunk(chunk: &str) -> (String, String) {
     }
     let left: String = chars[..split].iter().collect();
     let mut right: String = chars[split..].iter().collect();
-    let material = Regex::new(r"^##\s*材料\s*(\d+)").ok().and_then(|pattern| {
+    let material = Regex::new(r"^##\s*(?:材料|Material)\s*(\d+)").ok().and_then(|pattern| {
         chunk
             .lines()
             .next()
@@ -947,7 +1002,11 @@ fn split_chunk(chunk: &str) -> (String, String) {
     });
     if let Some(number) = material {
         if !right.trim_start().starts_with("## ") {
-            right = format!("## 材料 {number}\n\n（接上文）\n\n{}", right.trim_start());
+            right = if is_en() {
+            format!("## Material {number}\n\n(continued)\n\n{}", right.trim_start())
+        } else {
+            format!("## 材料 {number}\n\n（接上文）\n\n{}", right.trim_start())
+        };
         }
     }
     (left, right)
@@ -985,7 +1044,7 @@ fn heuristic_count(text: &str) -> usize {
     let numbering =
         Regex::new(r"(?m)^[ \t]*(?:第[ \t]*\d{1,3}[ \t]*题|[（(]\d{1,3}[）)]|\d{1,3}[ \t]*[.．、])")
             .unwrap();
-    let answers = Regex::new(r"(?m)^[ \t]*(?:\*\*答案\*\*|【答案】|答案[ \t]*[：:])").unwrap();
+    let answers = Regex::new(r"(?mi)^[ \t]*(?:\*\*答案\*\*|【答案】|答案[ \t]*[：:]|\*\*Answer\*\*|Answer[ \t]*:)").unwrap();
     let numbered = numbering.find_iter(text).count();
     let answered = answers.find_iter(text).count();
     match (numbered, answered) {
@@ -1010,14 +1069,14 @@ fn verify(body: &str, probe: &crate::importer::FileProbe, flags: &mut Vec<String
         let lower = (expected as f64 * 0.85).floor() as usize;
         let upper = (expected as f64 * 1.15).ceil() as usize;
         if got < lower {
-            flags.push(format!("题目数可能缺失：原文约 {expected} 题，转换后 {got} 题"));
+            flags.push(if is_en() { format!("Possible missing questions: source has ~{expected}, converted {got}") } else { format!("题目数可能缺失：原文约 {expected} 题，转换后 {got} 题") });
         } else if got > upper {
-            flags.push(format!("题目数偏多：原文约 {expected} 题，转换后 {got} 题"));
+            flags.push(if is_en() { format!("More questions than expected: source has ~{expected}, converted {got}") } else { format!("题目数偏多：原文约 {expected} 题，转换后 {got} 题") });
         }
     }
     for pair in probe.numbers.windows(2) {
         if pair[1] <= pair[0] {
-            flags.push(format!("题号顺序异常：{} 之后出现 {}", pair[0], pair[1]));
+            flags.push(if is_en() { format!("Question numbers out of order: {} followed by {}", pair[0], pair[1]) } else { format!("题号顺序异常：{} 之后出现 {}", pair[0], pair[1]) });
             break;
         }
     }
@@ -1034,7 +1093,7 @@ fn verify(body: &str, probe: &crate::importer::FileProbe, flags: &mut Vec<String
         }
     }
     if missing > 0 {
-        flags.push(format!("{missing} 道题的题干未在原文中找到，可能被改写或错位"));
+        flags.push(if is_en() { format!("{missing} question stems were not found in the source; they may be rewritten or misplaced") } else { format!("{missing} 道题的题干未在原文中找到，可能被改写或错位") });
     }
 }
 

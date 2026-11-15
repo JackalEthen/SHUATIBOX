@@ -1,3 +1,4 @@
+import { t, fmtNumber } from '../i18n';
 import { useState } from 'react';
 import { errorText, deleteBank, revalidateBank, switchBank, type BankDto, type Bootstrap } from '../api';
 import { MobileSheet } from '../MobileSheet';
@@ -35,7 +36,7 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
       disabled={!!busy}
       onClick={() => {
         if (bank.active) return;
-        void run(bank.id, () => switchBank(bank.id), `已切换到 ${bank.title}`);
+        void run(bank.id, () => switchBank(bank.id), t("已切换到 {p0}", { p0: bank.title }));
       }}
     >
       <div className="w-8 h-8 rounded-lg bg-[var(--card)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
@@ -44,13 +45,13 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-medium truncate">{bank.title}</div>
         <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
-          {bank.paperCount} 套卷 · {bank.questionCount.toLocaleString('zh-CN')} 题
+          {bank.paperCount}  {t("套卷 ·")} {fmtNumber(bank.questionCount)}  {t("题")}
         </div>
       </div>
       {bank.active ? (
-        <span className="chip active">启用中</span>
+        <span className="chip active">{t("启用中")}</span>
       ) : (
-        <span className="text-[11px] text-[var(--muted)]">{busy === bank.id ? '…' : '切换'}</span>
+        <span className="text-[11px] text-[var(--muted)]">{busy === bank.id ? '…' : t("切换")}</span>
       )}
     </button>
   );
@@ -58,19 +59,19 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
   return (
     <MobileSheet open={open} onClose={onClose}>
       <div className="grabber" />
-      <h3 className="text-[15px] font-semibold">切换题库</h3>
-      <p className="text-[11px] text-[var(--muted)] mt-1">多个题库互斥，切换后进度、错题、统计随题库切换。</p>
+      <h3 className="text-[15px] font-semibold">{t("切换题库")}</h3>
+      <p className="text-[11px] text-[var(--muted)] mt-1">{t("多个题库互斥，切换后进度、错题、统计随题库切换。")}</p>
 
       <div className="mt-4 space-y-2">{data.banks.map(item)}</div>
 
       <div className="flex gap-2 mt-3">
-        <button className="btn btn-ghost btn-sm flex-1" onClick={onImport}>导入新题库</button>
+        <button className="btn btn-ghost btn-sm flex-1" onClick={onImport}>{t("导入新题库")}</button>
         <button
           className="btn btn-ghost btn-sm flex-1"
           disabled={!!busy}
-          onClick={() => void run(data.bank.id, () => revalidateBank(data.bank.id), '校验完成')}
+          onClick={() => void run(data.bank.id, () => revalidateBank(data.bank.id), t("校验完成"))}
         >
-          校验当前
+          {t("校验当前")}
         </button>
         {!data.bank.active || data.banks.length > 1 ? (
           <button
@@ -78,18 +79,18 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
             disabled={!!busy}
             onClick={() => {
               if (data.bank.active) {
-                onNotice('请先切换到其他题库，再删除当前题库');
+                onNotice(t("请先切换到其他题库，再删除当前题库"));
                 return;
               }
-              void run(data.bank.id, () => deleteBank(data.bank.id), '已删除');
+              void run(data.bank.id, () => deleteBank(data.bank.id), t("已删除"));
             }}
           >
-            删除当前
+            {t("删除当前")}
           </button>
         ) : null}
       </div>
 
-      <button className="btn btn-primary btn-block mt-4" onClick={onClose}>关闭</button>
+      <button className="btn btn-primary btn-block mt-4" onClick={onClose}>{t("关闭")}</button>
       <div className="h-4" />
     </MobileSheet>
   );

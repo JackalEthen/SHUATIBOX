@@ -2,6 +2,7 @@
     bank_conn, bank_by_id, ensure_active_bank, init_user, list_banks, open_user,
     question_from_row, read_bank_counts, set_active_bank, user_db_path, QUESTION_COLUMNS,
 };
+use crate::i18n::{is_en, tr};
 use crate::models::*;
 use chrono::{Duration, Local, NaiveDate};
 use rusqlite::types::Value;
@@ -134,7 +135,7 @@ async fn fetch_release(client: &reqwest::Client, url: &str) -> Result<Json, Stri
         .await
         .map_err(|error| error.to_string())?;
     if !response.status().is_success() {
-        return Err(format!("GitHub 返回 {}", response.status()));
+        return Err(if is_en() { format!("GitHub returned {}", response.status()) } else { format!("GitHub 返回 {}", response.status()) });
     }
     response.json().await.map_err(|error| error.to_string())
 }
@@ -146,7 +147,7 @@ fn update_info_from_release(release: &Json) -> Result<UpdateInfo, String> {
         .unwrap_or("")
         .trim();
     if tag.is_empty() {
-        return Err("GitHub 未返回版本号".to_string());
+        return Err(tr("GitHub 未返回版本号", "GitHub did not return a version").to_string());
     }
     let latest_version = tag
         .trim_start_matches(|ch| ch == 'v' || ch == 'V')
@@ -197,7 +198,7 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
         let client = client.clone();
         tasks.spawn(async move { fetch_release(&client, &url).await });
     }
-    let mut last_error = "GitHub 无响应".to_string();
+    let mut last_error = tr("GitHub 无响应", "GitHub did not respond").to_string();
     while let Some(result) = tasks.join_next().await {
         match result {
             Ok(Ok(release)) => return update_info_from_release(&release),
@@ -205,7 +206,7 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
             Err(error) => last_error = error.to_string(),
         }
     }
-    Err(format!("检查更新失败：{last_error}"))
+    Err(if is_en() { format!("Update check failed: {last_error}") } else { format!("检查更新失败：{last_error}") })
 }
 
 async fn probe_download(
@@ -239,7 +240,7 @@ async fn probe_download(
 pub async fn resolve_update_download(url: String) -> Result<UpdateDownload, String> {
     let url = url.trim().to_string();
     if !url.starts_with("https://github.com/") {
-        return Err("更新链接不是 GitHub 地址".to_string());
+        return Err(tr("更新链接不是 GitHub 地址", "Update URL is not a GitHub address").to_string());
     }
     let client = update_client()?;
     let mut tasks = tokio::task::JoinSet::new();
@@ -255,7 +256,7 @@ pub async fn resolve_update_download(url: String) -> Result<UpdateDownload, Stri
             }
         }
     }
-    let (_, url, mirror) = best.ok_or_else(|| "下载地址不可用，请检查网络".to_string())?;
+    let (_, url, mirror) = best.ok_or_else(|| tr("下载地址不可用，请检查网络", "Download URL unavailable; check your network").to_string())?;
     Ok(UpdateDownload {
         url,
         mirrored: mirror.is_some(),
@@ -266,12 +267,12 @@ pub async fn resolve_update_download(url: String) -> Result<UpdateDownload, Stri
 
 fn module_code(module: &str) -> String {
     match module {
-        "政治理论" => "01",
-        "常识判断" => "02",
-        "言语理解与表达" => "03",
-        "数量关系" => "04",
-        "判断推理" => "05",
-        "资料分析" => "06",
+        "政治理论" | "Political Theory" => "01",
+        "常识判断" | "General Knowledge" => "02",
+        "言语理解与表达" | "Verbal" => "03",
+        "数量关系" | "Quantitative" => "04",
+        "判断推理" | "Reasoning" => "05",
+        "资料分析" | "Data Analysis" => "06",
         _ => "00",
     }
 .to_string()
@@ -287,7 +288,7 @@ fn require_ext(path: &Path, allowed: &[&str]) -> Result<(), String> {
     if allowed.contains(&ext.as_str()) {
         Ok(())
     } else {
-        Err(format!("不支持的文件类型（仅允许 {}）", allowed.join(" / ")))
+        Err(if is_en() { format!("Unsupported file type (allowed: {})", allowed.join(" / ")) } else { format!("不支持的文件类型（仅允许 {}）", allowed.join(" / ")) })
     }
 }
 
@@ -860,7 +861,7 @@ fn build_session(
     let mut ids: Vec<String> = Vec::new();
     let mut paper_key = spec.paper_key.clone();
     let mut module = spec.module.clone();
-    let mut title = spec.title.clone().unwrap_or_else(|| "练习".to_string());
+    let mut title = spec.title.clone().unwrap_or_else(|| tr("练习", "Practice").to_string());
     let mut duration = spec.duration_sec.unwrap_or(0);
 
     if let Some(explicit) = &spec.question_ids {
@@ -874,8 +875,8 @@ fn build_session(
                 ids.push(id.clone());
             }
         }
-        if title == "练习" {
-            title = "单题练习".to_string();
+        if title == "练习" || title == "Practice" {
+            title = tr("单题练习", "Single-question practice").to_string();
         }
     } else if mode == "wrong" || mode == "favorites" {
         let sql = if mode == "wrong" {
@@ -890,10 +891,10 @@ fn build_session(
             .map_err(|error| error.to_string())?
             .flatten()
             .collect();
-        title = if mode == "wrong" { "错题重做".to_string() } else { "收藏练习".to_string() };
+        title = if mode == "wrong" { tr("错题重做", "Redo wrong answers").to_string() } else { tr("收藏练习", "Favorites practice").to_string() };
     } else if mode == "review" {
         if setting(user, "review_enabled", "1") == "0" {
-            return Err("艾宾浩斯复习已关闭".to_string());
+            return Err(tr("艾宾浩斯复习已关闭", "Spaced review is disabled").to_string());
         }
         let review_limit = spec
             .count
@@ -928,12 +929,12 @@ fn build_session(
         title = spec
             .title
             .clone()
-            .unwrap_or_else(|| format!("艾宾浩斯复习 · {} 题", ids.len()));
+            .unwrap_or_else(|| if is_en() { format!("Spaced review · {} questions", ids.len()) } else { format!("艾宾浩斯复习 · {} 题", ids.len()) });
     } else if mode == "paper" || mode == "exam" {
         let key = spec
             .paper_key
             .clone()
-            .ok_or_else(|| "缺少试卷".to_string())?;
+            .ok_or_else(|| tr("缺少试卷", "Missing paper").to_string())?;
         let paper_title: String = bank
             .query_row("SELECT title FROM papers WHERE key=?1", params![key], |row| row.get(0))
             .map_err(|error| error.to_string())?;
@@ -951,7 +952,7 @@ fn build_session(
         paper_key = Some(key);
         module = None;
         title = if mode == "exam" {
-            format!("{paper_title} · 模拟考试")
+            if is_en() { format!("{paper_title} · Mock exam") } else { format!("{paper_title} · 模拟考试") }
         } else {
             paper_title
         };
@@ -1003,7 +1004,7 @@ fn build_session(
         title = spec
             .title
             .clone()
-            .unwrap_or_else(|| format!("自定义练习 · {} 题", ids.len()));
+            .unwrap_or_else(|| if is_en() { format!("Custom practice · {} questions", ids.len()) } else { format!("自定义练习 · {} 题", ids.len()) });
         duration = spec.duration_sec.unwrap_or(0);
     } else {
         let module_name = spec.module.clone().unwrap_or_default();
@@ -1056,21 +1057,21 @@ fn build_session(
         }
 
         title = if module_name.is_empty() {
-            format!("随机练习 · {} 题", ids.len())
+            if is_en() { format!("Random practice · {} questions", ids.len()) } else { format!("随机练习 · {} 题", ids.len()) }
         } else {
-            format!("{} · {} 题", module_name, ids.len())
+            if is_en() { format!("{} · {} questions", module_name, ids.len()) } else { format!("{} · {} 题", module_name, ids.len()) }
         };
         if mixed {
-            title.push_str("（含错题）");
+            title.push_str(tr("（含错题）", " (includes wrong answers)"));
         }
         module = if module_name.is_empty() { None } else { Some(module_name) };
     }
 
     if ids.is_empty() {
         if mode == "review" {
-            return Err("今天没有到期的复习题。".to_string());
+            return Err(tr("今天没有到期的复习题。", "No reviews are due today.").to_string());
         }
-        return Err("没有可练习的题目。图片题需先导入题库图片。".to_string());
+        return Err(tr("没有可练习的题目。图片题需先导入题库图片。", "No questions available. Import bank images before using image questions.").to_string());
     }
     Ok((ids, title, paper_key, module, duration))
 }
@@ -1124,7 +1125,7 @@ pub fn resume_session(app: tauri::AppHandle, id: Option<String>) -> Result<Sessi
     } else {
         latest_active_session(&user, &bank.id)?
             .map(|session| session.id)
-            .ok_or_else(|| "没有可继续的练习".to_string())?
+            .ok_or_else(|| tr("没有可继续的练习", "No practice to continue").to_string())?
     };
     load_session_view(&app, &session_id)
 }
@@ -1142,7 +1143,7 @@ pub fn save_answer(
     let user = open_user(&app)?;
     let session = session_by_id(&user, &session_id)?;
     if session.status != "active" {
-        return Err("本组已交卷，不能继续作答".to_string());
+        return Err(tr("本组已交卷，不能继续作答", "This set was submitted; you cannot keep answering").to_string());
     }
     let bank = bank_for_session(&user, &session_id)?;
     let bank_db = bank_conn(Path::new(&bank.path))?;
@@ -1322,9 +1323,9 @@ pub fn list_papers(
             let available: i64 = row.get(7)?;
             let image_count: i64 = row.get(8)?;
             let note = if image_count > 0 {
-                format!("{} 个模块 · {} 题 · 含图 {} 题", module_count, question_count, image_count)
+                if is_en() { format!("{} modules · {} questions · {} with images", module_count, question_count, image_count) } else { format!("{} 个模块 · {} 题 · 含图 {} 题", module_count, question_count, image_count) }
             } else {
-                format!("{} 个模块 · {} 题 · 纯文本", module_count, question_count)
+                if is_en() { format!("{} modules · {} questions · text only", module_count, question_count) } else { format!("{} 个模块 · {} 题 · 纯文本", module_count, question_count) }
             };
             Ok(PaperDto {
                 key: row.get(0)?,
@@ -1679,7 +1680,7 @@ fn parse_answer_letters(raw: &str, options: &[OptionDto]) -> Result<Vec<String>,
     letters.dedup();
     for letter in &letters {
         if !allowed.contains(letter) {
-            return Err(format!("答案「{letter}」不在选项范围内"));
+            return Err(if is_en() { format!("Answer \"{letter}\" is not among the options") } else { format!("答案「{letter}」不在选项范围内") });
         }
     }
     Ok(letters.iter().map(|letter| letter.to_string()).collect())
@@ -1697,20 +1698,20 @@ pub fn update_question(
     const LABELS: [&str; 8] = ["A", "B", "C", "D", "E", "F", "G", "H"];
     let stem = stem.trim().to_string();
     if stem.is_empty() {
-        return Err("题干不能为空".to_string());
+        return Err(tr("题干不能为空", "Stem cannot be empty").to_string());
     }
     if !(2..=8).contains(&options.len()) {
-        return Err("选项数量需在 2–8 个之间".to_string());
+        return Err(tr("选项数量需在 2–8 个之间", "Option count must be between 2 and 8").to_string());
     }
     let mut clean = Vec::with_capacity(options.len());
     for (index, option) in options.iter().enumerate() {
         let expected = LABELS[index];
         if !option.label.trim().eq_ignore_ascii_case(expected) {
-            return Err(format!("选项标签必须从 A 连续，第 {} 个应为 {expected}", index + 1));
+            return Err(if is_en() { format!("Option labels must be consecutive from A; item {} should be {expected}", index + 1) } else { format!("选项标签必须从 A 连续，第 {} 个应为 {expected}", index + 1) });
         }
         let text = option.text.trim().to_string();
         if text.is_empty() {
-            return Err(format!("选项 {expected} 内容不能为空"));
+            return Err(if is_en() { format!("Option {expected} cannot be empty") } else { format!("选项 {expected} 内容不能为空") });
         }
         clean.push(OptionDto { label: expected.to_string(), text });
     }
@@ -1754,7 +1755,7 @@ pub fn update_question(
         )
         .map_err(|error| error.to_string())?;
     if changed == 0 {
-        return Err("题目不存在".to_string());
+        return Err(tr("题目不存在", "Question does not exist").to_string());
     }
     let sql = format!(
         "SELECT {QUESTION_COLUMNS} FROM questions q JOIN papers p ON p.key=q.paper_key WHERE q.id=?1"
@@ -1900,7 +1901,7 @@ pub fn delete_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let user = open_user(&app)?;
     let bank = bank_by_id(&user, &id)?;
     if bank.active {
-        return Err("请先切换到其他题库，再删除当前题库".to_string());
+        return Err(tr("请先切换到其他题库，再删除当前题库", "Switch to another bank before deleting the current one").to_string());
     }
     let path = PathBuf::from(&bank.path);
     let _ = std::fs::remove_file(&path);
@@ -1936,7 +1937,7 @@ pub fn export_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
     if let Some(parent) = target.parent() {
         if parent.canonicalize().map(|p| p.starts_with(&root)).unwrap_or(false) {
-            return Err("备份不能写入应用数据目录".to_string());
+            return Err(tr("备份不能写入应用数据目录", "Backup cannot be written into the app data directory").to_string());
         }
     }
     if let Some(parent) = target.parent() {
@@ -1955,7 +1956,7 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     let source = PathBuf::from(path);
     require_ext(&source, &["db"])?;
     if !source.exists() {
-        return Err("备份文件不存在".to_string());
+        return Err(tr("备份文件不存在", "Backup file does not exist").to_string());
     }
     let check = Connection::open_with_flags(&source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|error| error.to_string())?;
@@ -1970,7 +1971,7 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
         .unwrap_or(false);
     drop(check);
     if !valid {
-        return Err("不是有效的刷题盒子备份".to_string());
+        return Err(tr("不是有效的刷题盒子备份", "Not a valid SHUATIBOX backup").to_string());
     }
     let target = user_db_path(&app)?;
     for suffix in ["", "-wal", "-shm"] {
@@ -2043,7 +2044,7 @@ pub fn import_into_bank(
 pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let source = PathBuf::from(&path);
     if !source.is_file() {
-        return Err("图片不存在".to_string());
+        return Err(tr("图片不存在", "Image does not exist").to_string());
     }
     // ponytail: 只接受图片扩展名，杜绝 user-avatar.<任意后缀> 污染应用目录
     let allowed = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];

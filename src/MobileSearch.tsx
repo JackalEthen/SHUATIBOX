@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useState } from 'react';
 import { errorText, searchQuestions, toQuestion, type QuestionDto, type SearchResult, type SessionSpec } from './api';
 import { Icon } from './icons';
@@ -25,7 +26,7 @@ export function MobileSearch({ assetDir, onStart, onNotice }: Props) {
     try {
       setResult(await searchQuestions(query, 60));
     } catch (error) {
-      onNotice(`搜索失败：${errorText(error)}`);
+      onNotice(t("搜索失败：{p0}", { p0: errorText(error) }));
     } finally {
       setLoading(false);
     }
@@ -39,26 +40,26 @@ export function MobileSearch({ assetDir, onStart, onNotice }: Props) {
         <Icon name="search" className="w-5 h-5 text-[var(--muted)]" />
         <input
           className="flex-1 bg-transparent outline-none text-[13px]"
-          placeholder="输入关键词，例如：资料分析、qid"
+          placeholder={t("输入关键词，例如：资料分析、qid")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && void run()}
         />
-        <button className="text-[11.5px] text-[var(--muted)]" onClick={() => { setQuery(''); setResult(null); }}>清空</button>
+        <button className="text-[11.5px] text-[var(--muted)]" onClick={() => { setQuery(''); setResult(null); }}>{t("清空")}</button>
       </div>
 
       <button className="btn btn-primary btn-block mt-3" disabled={loading || !query.trim()} onClick={() => void run()}>
-        {loading ? '搜索中…' : '搜索'}
+        {loading ? t("搜索中…") : t("搜索")}
       </button>
 
       {result ? (
         <>
           <div className="flex items-center justify-between mt-3">
-            <span className="text-[11px] text-[var(--muted)]">{result.total} 条结果</span>
+            <span className="text-[11px] text-[var(--muted)]">{result.total}  {t("条结果")}</span>
           </div>
           <div className="mt-2 space-y-2.5">
             {result.items.length === 0 ? (
-              <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">没有匹配的题目</div>
+              <div className="card p-8 text-center text-[13.5px] text-[var(--muted)]">{t("没有匹配的题目")}</div>
             ) : (
               result.items.map((item) => (
                 <button key={item.id} className="card w-full p-4 text-left" onClick={() => setSelected(item)}>
@@ -76,8 +77,8 @@ export function MobileSearch({ assetDir, onStart, onNotice }: Props) {
         </>
       ) : (
         <div className="card mt-3 p-8 text-center">
-          <div className="serif text-[16px]">题干 / 选项 / 解析 / qid</div>
-          <div className="text-[11.5px] text-[var(--muted)] mt-2">全部在本地完成，不联网。</div>
+          <div className="serif text-[16px]">{t("题干 / 选项 / 解析 / qid")}</div>
+          <div className="text-[11.5px] text-[var(--muted)] mt-2">{t("全部在本地完成，不联网。")}</div>
         </div>
       )}
       <div className="h-4" />
@@ -107,27 +108,27 @@ export function MobileSearch({ assetDir, onStart, onNotice }: Props) {
             </div>
 
             {preview.answer.length > 0 ? (
-              <div className="mt-4 text-[13px] text-[var(--ink-2)]">正确答案：<b>{preview.answer.join('')}</b></div>
+              <div className="mt-4 text-[13px] text-[var(--ink-2)]">{t("正确答案：")}<b>{preview.answer.join('')}</b></div>
             ) : (
-              <div className="mt-4 text-[13px] text-[var(--warn)]">答案缺失，不参与判分</div>
+              <div className="mt-4 text-[13px] text-[var(--warn)]">{t("答案缺失，不参与判分")}</div>
             )}
 
             <div className="mt-4 border-t border-[var(--line)] pt-4">
-              <div className="text-[13px] font-semibold mb-2">解析</div>
+              <div className="text-[13px] font-semibold mb-2">{t("解析")}</div>
               <div className="text-[13.5px] leading-7 text-[var(--ink-2)]" dangerouslySetInnerHTML={{ __html: preview.explanationHtml }} />
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button className="btn btn-ghost flex-1" onClick={() => setSelected(null)}>关闭</button>
+              <button className="btn btn-ghost flex-1" onClick={() => setSelected(null)}>{t("关闭")}</button>
               <button
                 className="btn btn-primary flex-1"
                 onClick={() => {
                   if (!selected) return;
-                  onStart({ mode: 'custom', questionIds: [selected.id], title: '单题练习' });
+                  onStart({ mode: 'custom', questionIds: [selected.id], title: t("单题练习") });
                   setSelected(null);
                 }}
               >
-                开始练习
+                {t("开始练习")}
               </button>
             </div>
             <div className="h-4" />

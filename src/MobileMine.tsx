@@ -1,3 +1,4 @@
+import { t, fmtNumber } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -18,7 +19,7 @@ interface Props {
 }
 
 function fmt(value: number) {
-  return value.toLocaleString('zh-CN');
+  return fmtNumber(value);
 }
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
@@ -30,7 +31,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadStats(30).then(setStats).catch((error) => onNotice(`统计加载失败：${errorText(error)}`));
+    loadStats(30).then(setStats).catch((error) => onNotice(t("统计加载失败：{p0}", { p0: errorText(error) })));
   }, []);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
         const uri = await invoke<string>('saf_pick', { kind: 'image' });
         source = await invoke<string>('saf_materialize', { uri, maxDepth: 1 });
       } else {
-        const value = await open({ directory: false, multiple: false, filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }] });
+        const value = await open({ directory: false, multiple: false, filters: [{ name: t("图片"), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }] });
         if (!value || Array.isArray(value)) return;
         source = value;
       }
@@ -54,9 +55,9 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
       const saved = await saveAvatarFile(source);
       await saveProfile({ avatar: saved });
       onProfileChange();
-      onNotice('头像已更新');
+      onNotice(t("头像已更新"));
     } catch (error) {
-      onNotice(`设置头像失败：${errorText(error)}`);
+      onNotice(t("设置头像失败：{p0}", { p0: errorText(error) }));
     }
   };
 
@@ -70,19 +71,19 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
     try {
       await saveProfile({ name: next });
       onProfileChange();
-      onNotice('用户名已更新');
+      onNotice(t("用户名已更新"));
     } catch (error) {
       setDraft(profile.name);
-      onNotice(`修改失败：${errorText(error)}`);
+      onNotice(t("修改失败：{p0}", { p0: errorText(error) }));
     }
   };
 
   const rows = [
-    { icon: 'stats' as const, title: '学习统计', sub: '正确率、模块分布、模拟考试', onClick: onStats },
-    { icon: 'star' as const, title: '我的收藏', sub: `${fmt(data.favoriteCount)} 题 · 只读查看`, onClick: onFavorites },
-    { icon: 'library' as const, title: '题库管理', sub: `${data.bank.title} · ${fmt(data.bank.paperCount)} 套卷`, onClick: onBank },
-    { icon: 'settings' as const, title: '偏好设置', sub: '深色模式、字号、数据备份', onClick: onSettings },
-    { icon: 'library' as const, title: '导入题库', sub: '文件夹 / zip', onClick: onImport },
+    { icon: 'stats' as const, title: t("学习统计"), sub: t("正确率、模块分布、模拟考试"), onClick: onStats },
+    { icon: 'star' as const, title: t("我的收藏"), sub: t("{p0} 题 · 只读查看", { p0: fmt(data.favoriteCount) }), onClick: onFavorites },
+    { icon: 'library' as const, title: t("题库管理"), sub: t("{p0} · {p1} 套卷", { p0: data.bank.title, p1: fmt(data.bank.paperCount) }), onClick: onBank },
+    { icon: 'settings' as const, title: t("偏好设置"), sub: t("深色模式、字号、数据备份"), onClick: onSettings },
+    { icon: 'library' as const, title: t("导入题库"), sub: t("文件夹 / zip"), onClick: onImport },
   ];
 
   return (
@@ -91,10 +92,10 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
         <button
           className="w-12 h-12 rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center serif text-[22px] overflow-hidden shrink-0"
           onClick={() => void pickAvatar()}
-          aria-label="更换头像"
+          aria-label={t("更换头像")}
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt="头像" className="w-full h-full object-cover" />
+            <img src={avatarUrl} alt={t("头像")} className="w-full h-full object-cover" />
           ) : (
             profile.name.slice(0, 1)
           )}
@@ -121,22 +122,22 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
               {profile.name}
             </button>
           )}
-          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">数据仅保存在应用私有目录</div>
+          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">{t("数据仅保存在应用私有目录")}</div>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2.5 mt-4">
         <div className="card p-3 text-center">
           <div className="text-[17px] font-semibold">{stats ? fmt(stats.totalAnswered) : '—'}</div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">累计刷题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{t("累计刷题")}</div>
         </div>
         <div className="card p-3 text-center">
           <div className="text-[17px] font-semibold">{stats ? `${stats.accuracy}%` : '—'}</div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">总正确率</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{t("总正确率")}</div>
         </div>
         <div className="card p-3 text-center">
-          <div className="text-[17px] font-semibold">{data.streak.current} 天</div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">连续学习</div>
+          <div className="text-[17px] font-semibold">{data.streak.current}  {t("天")}</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{t("连续学习")}</div>
         </div>
       </div>
 
@@ -161,17 +162,18 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
 
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-medium">当前题库</span>
-          <span className="chip active">启用中</span>
+          <span className="text-[13px] font-medium">{t("当前题库")}</span>
+          <span className="chip active">{t("启用中")}</span>
         </div>
         <div className="text-[11.5px] text-[var(--muted)] mt-2 leading-5">
-          {data.bank.title} · {fmt(data.bank.questionCount)} 题 · {fmt(data.bank.paperCount)} 套卷
-          {data.bank.reviewCount > 0 ? ` · ${data.bank.reviewCount} 题待校对` : ''}
+          {data.bank.title} · {fmt(data.bank.questionCount)}  {t("题 ·")} {fmt(data.bank.paperCount)}  {t("套卷")}
+          {data.bank.reviewCount > 0 ? t(" · {p0} 题待校对", { p0: data.bank.reviewCount }) : ''}
         </div>
       </div>
 
       <div className="text-center text-[10.5px] text-[var(--muted)] mt-4 leading-5">
-        刷题盒子 SHUATIBOX v{APP_VERSION}
+
+        {t("刷题盒子 SHUATIBOX v")}{APP_VERSION}
       </div>
       <div className="h-4" />
     </div>

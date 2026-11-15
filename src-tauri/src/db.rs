@@ -1,3 +1,4 @@
+use crate::i18n::tr;
 use crate::models::{BankDto, QuestionDto, ReviewDto};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Row};
 use std::path::{Path, PathBuf};
@@ -187,7 +188,7 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     if count == 0 {
         if let Some(path) = default_bank_path(app)? {
-            register_bank(&conn, "default", "行测真题 2016–2026", &path, None, true)?;
+            register_bank(&conn, "default", tr("行测真题 2016–2026", "Civil Service Questions 2016–2026"), &path, None, true)?;
         }
     }
     let _ = ensure_active_bank(&conn)?;
@@ -270,7 +271,7 @@ pub fn register_bank(
 
 pub fn read_bank_counts(path: &Path) -> Result<(i64, i64, i64, i64), String> {
     if !path.exists() {
-        return Err(format!("题库数据库不存在：{}", path.display()));
+        return Err(if crate::i18n::is_en() { format!("Bank database does not exist: {}", path.display()) } else { format!("题库数据库不存在：{}", path.display()) });
     }
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|error| error.to_string())?;
@@ -326,7 +327,7 @@ pub fn ensure_active_bank(conn: &Connection) -> Result<BankDto, String> {
                 })
                 .ok();
             let Some(id) = id else {
-                return Err("还没有题库。请先导入题库。".to_string());
+                return Err(tr("还没有题库。请先导入题库。", "No bank yet. Import a bank first.").to_string());
             };
             conn.execute("UPDATE banks SET active = CASE WHEN id=?1 THEN 1 ELSE 0 END", rusqlite::params![id])
                 .map_err(|error| error.to_string())?;
@@ -393,7 +394,7 @@ pub fn set_active_bank(conn: &Connection, id: &str) -> Result<(), String> {
         })
         .map_err(|error| error.to_string())?;
     if exists == 0 {
-        return Err("题库不存在".to_string());
+        return Err(tr("题库不存在", "Bank does not exist").to_string());
     }
     conn.execute("UPDATE banks SET active = CASE WHEN id=?1 THEN 1 ELSE 0 END", rusqlite::params![id])
         .map_err(|error| error.to_string())?;

@@ -1,4 +1,5 @@
 ﻿use crate::db::{asset_dir, bank_by_id, base_dir, open_user, register_bank};
+use crate::i18n::{is_en, tr};
 use crate::models::{ImportProgress, ImportSummary};
 use regex::Regex;
 use rusqlite::{params, Connection};
@@ -153,19 +154,32 @@ pub(crate) fn derive_exam_type(paper: &str, explicit: &str) -> String {
     if !explicit.is_empty() {
         return explicit.to_string();
     }
-    if paper.contains("国家公务员") || paper.contains("国考") {
-        return "国考".to_string();
+    let lower = paper.to_lowercase();
+    if paper.contains("国家公务员") || paper.contains("国考") || lower.contains("national") {
+        return tr("国考", "National").to_string();
     }
-    if paper.contains("选调") {
-        return "选调".to_string();
+    if paper.contains("选调") || lower.contains("selected graduate") {
+        return tr("选调", "Selected Graduate").to_string();
     }
-    if paper.contains("事业单位") || paper.contains("综合知识") || paper.contains("公共基础知识") {
-        return "事业单位".to_string();
+    if paper.contains("事业单位") || paper.contains("综合知识") || paper.contains("公共基础知识")
+        || lower.contains("public institution") || lower.contains("comprehensive knowledge")
+    {
+        return tr("事业单位", "Public Institution").to_string();
     }
-    if paper.contains("公务员") || paper.contains("联考") || paper.contains("省考") {
-        return "省考".to_string();
+    if paper.contains("公务员") || paper.contains("联考") || paper.contains("省考")
+        || lower.contains("civil service") || lower.contains("provincial")
+    {
+        return tr("省考", "Provincial").to_string();
     }
-    "其他".to_string()
+    tr("其他", "Other").to_string()
+}
+
+fn meta_value<'a>(meta: &'a HashMap<String, String>, keys: &[&str]) -> Option<&'a String> {
+    keys.iter().find_map(|key| meta.get(*key))
+}
+
+fn meta_string(meta: &HashMap<String, String>, keys: &[&str]) -> String {
+    meta_value(meta, keys).cloned().unwrap_or_default()
 }
 
 fn answer_chars(raw: &str) -> Vec<String> {
@@ -182,7 +196,7 @@ fn answer_chars(raw: &str) -> Vec<String> {
 }
 
 fn explanation_answer(explanation: &str) -> Option<String> {
-    let pattern = re(r"故正确答案为\s*([A-H](?:[、,，\s]*[A-H])*)");
+    let pattern = re(r"(?:故正确答案为|correct answer is|answer is)\s*([A-H](?:[、,，\s]*[A-H])*)");
     let mut found = None;
     for capture in pattern.captures_iter(explanation) {
         found = Some(capture.get(1).map(|value| value.as_str()).unwrap_or("").to_string());
@@ -191,12 +205,12 @@ fn explanation_answer(explanation: &str) -> Option<String> {
 }
 
 fn explanation_judgment(explanation: &str) -> Option<String> {
-    let pattern = re(r"故(?:题干)?表述(正确|错误)");
+    let pattern = re(r"(?:故(?:题干)?表述(正确|错误)|statement is (true|false|correct|wrong))");
     let mut found = None;
     for capture in pattern.captures_iter(explanation) {
         found = capture.get(1).map(|value| value.as_str().to_string());
     }
-    found.map(|value| if value == "正确" { "A".to_string() } else { "B".to_string() })
+    found.map(|value| if value == "正确" || value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("correct") { "A".to_string() } else { "B".to_string() })
 }
 
 pub(crate) fn parse_meta(text: &str) -> Result<(HashMap<String, String>, String, usize), String> {
@@ -212,7 +226,7 @@ pub(crate) fn parse_meta(text: &str) -> Result<(HashMap<String, String>, String,
         }
     }
     let Some(end) = end else {
-        return Err("frontmatter 没有结束标记 ---".to_string());
+        return Err(tr("frontmatter 没有结束标记 ---", "frontmatter is missing the closing ---").to_string());
     };
     let mut meta = HashMap::new();
     let key_re = re(r"^([^:]+):(.*)$");
@@ -239,7 +253,7 @@ fn parse_heading_suffix(suffix: &str) -> Result<(Option<String>, String), String
         return Ok((None, value.trim().to_string()));
     }
     if !rest.starts_with("<sub>") || !rest.ends_with("</sub>") {
-        return Err(format!("题目标题后缀无法识别：{rest}"));
+        return Err(if is_en() { format!("Unrecognized question heading suffix: {rest}") } else { format!("题目标题后缀无法识别：{rest}") });
     }
     let inner = rest[5..rest.len() - 6].trim();
     if inner.is_empty() {
@@ -250,7 +264,7 @@ fn parse_heading_suffix(suffix: &str) -> Result<(Option<String>, String), String
         let qid = capture.get(1).map(|value| value.as_str()).unwrap_or("").to_string();
         let tail = capture.get(2).map(|value| value.as_str().trim()).unwrap_or("");
         if !tail.is_empty() && !tail.starts_with('·') {
-            return Err(format!("qid 后有多余内容：{tail}"));
+            return Err(if is_en() { format!("Unexpected content after qid: {tail}") } else { format!("qid 后有多余内容：{tail}") });
         }
         let kind = tail.strip_prefix('·').unwrap_or("").trim().to_string();
         return Ok((Some(qid), kind));
@@ -304,13 +318,13 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             message,
         });
     };
-    if meta.get("类型").map(|value| value.as_str()) == Some("模块索引") {
+    if matches!(meta_string(&meta, &["类型", "Type"]).as_str(), "模块索引" | "Module Index") {
         return ParsedFile {
             file: file.to_string(),
             skipped: true,
-            paper: meta.get("试卷").cloned().unwrap_or_default(),
+            paper: meta_string(&meta, &["试卷", "Paper"]),
             paper_key: String::new(),
-            module: meta.get("模块").cloned().unwrap_or_else(|| module_from_dir.to_string()),
+            module: meta_value(&meta, &["模块", "Module"]).cloned().unwrap_or_else(|| module_from_dir.to_string()),
             year: String::new(),
             region: String::new(),
             exam_type: String::new(),
@@ -320,19 +334,18 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             has_file_error: false,
         };
     }
-    let paper = meta.get("试卷").cloned().unwrap_or_default();
-    let module = meta
-        .get("模块")
+    let paper = meta_string(&meta, &["试卷", "Paper"]);
+    let module = meta_value(&meta, &["模块", "Module"])
         .cloned()
         .unwrap_or_else(|| module_from_dir.to_string());
-    let mut year = meta.get("年份").cloned().unwrap_or_default();
-    let region = meta.get("地区").cloned().unwrap_or_default();
-    let exam_type = derive_exam_type(&paper, meta.get("考试类型").map(|value| value.as_str()).unwrap_or(""));
+    let mut year = meta_string(&meta, &["年份", "Year"]);
+    let region = meta_string(&meta, &["地区", "Region"]);
+    let exam_type = derive_exam_type(&paper, meta_value(&meta, &["考试类型", "Exam Type"]).map(|value| value.as_str()).unwrap_or(""));
     if paper.is_empty() {
-        file_issue(&mut issues, "paper-missing", 1, "缺少 试卷 字段".to_string());
+        file_issue(&mut issues, "paper-missing", 1, tr("缺少 试卷 字段", "Missing Paper field").to_string());
     }
     if module.is_empty() {
-        file_issue(&mut issues, "module-missing", 1, "缺少 模块 字段，且无法从目录推导".to_string());
+        file_issue(&mut issues, "module-missing", 1, tr("缺少 模块 字段，且无法从目录推导", "Missing Module field and could not infer it from the folder").to_string());
     }
     if !year.is_empty() && (year.len() != 4 || !year.chars().all(|ch| ch.is_ascii_digit())) {
         issues.push(Issue {
@@ -340,7 +353,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             code: "year-invalid".to_string(),
             file: file.to_string(),
             line: 1,
-            message: format!("年份 不是 4 位数字：{year}"),
+            message: if is_en() { format!("Year is not a 4-digit number: {year}") } else { format!("年份 不是 4 位数字：{year}") },
         });
         year.clear();
     }
@@ -363,11 +376,12 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
     let mut in_fence = false;
 
     let question_re = re(r"^(##|###)[ \t]+第[ \t]*(\d+)[ \t]*题(.*)$");
-    let material_re = re(r"^##[ \t]+材料[ \t]*(\d+)[ \t]*$");
+    let question_re_en = re(r"(?i)^(##|###)[ \t]+Question[ \t]+(\d+)(.*)$");
+    let material_re = re(r"(?i)^##[ \t]+(?:材料|Material)[ \t]*(\d+)[ \t]*$");
     let option_re = re(r"^\s*-\s+\*\*([A-H])\*\*\s*[.．、]\s*(.*?)\s*$");
-    let placeholder_re = re(r"^\s*-\s*（选项）\[\]\s*$");
-    let answer_re = re(r"^\*\*答案\*\*\s*[：:]\s*(.*?)\s*$");
-    let explain_re = re(r"^\*\*(官方解析|解析)\*\*\s*$");
+    let placeholder_re = re(r"(?i)^\s*-\s*(?:（选项）|\(option\))\s*\[\]\s*$");
+    let answer_re = re(r"(?i)^\*\*(?:答案|Answer)\*\*\s*[：:]\s*(.*?)\s*$");
+    let explain_re = re(r"(?i)^\*\*(?:官方解析|解析|Official Explanation|Explanation)\*\*\s*$");
     let checked_re = re(r"(?:[\s\u{3000}]*✅)+\s*$");
     let qid_re = re(r"^[A-Za-z0-9_-]{1,64}$");
 
@@ -379,7 +393,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                     code: "empty-material".to_string(),
                     file: file.to_string(),
                     line: state.line,
-                    message: format!("材料 {} 没有小题", state.number),
+                    message: if is_en() { format!("Material {} has no subquestions", state.number) } else { format!("材料 {} 没有小题", state.number) },
                 });
             } else {
                 materials.push(ParsedMaterial {
@@ -434,11 +448,11 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         let mut options = state.options.clone();
         while options.last().map(|option| option.text.trim().is_empty()).unwrap_or(false) {
             let dropped = options.pop().unwrap();
-            warn("empty-option-dropped", format!("末尾空选项 {} 已丢弃", dropped.label), &mut question_issues);
+            warn("empty-option-dropped", if is_en() { format!("Dropped trailing empty option {}", dropped.label) } else { format!("末尾空选项 {} 已丢弃", dropped.label) }, &mut question_issues);
         }
         for option in &options {
             if option.text.trim().is_empty() {
-                bad("empty-option", format!("选项 {} 文本为空", option.label), &mut question_issues, &mut invalid);
+                bad("empty-option", if is_en() { format!("Option {} text is empty", option.label) } else { format!("选项 {} 文本为空", option.label) }, &mut question_issues, &mut invalid);
             }
         }
         let answer_text = state.answer_raw.clone().unwrap_or_default();
@@ -447,27 +461,27 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         let answer_letters = if answer_valid { answer_chars(&answer_text) } else { Vec::new() };
         let mut is_judgment = false;
         if state.placeholder && !options.is_empty() {
-            bad("placeholder-with-options", "同时存在真实选项和 - （选项）[] 占位行".to_string(), &mut question_issues, &mut invalid);
+            bad("placeholder-with-options", tr("同时存在真实选项和 - （选项）[] 占位行", "Real options and the - (option) [] placeholder coexist").to_string(), &mut question_issues, &mut invalid);
         }
         if options.is_empty() {
             if state.placeholder {
                 is_judgment = true;
-                options.push(ParsedOption { label: "A".to_string(), text: "正确".to_string(), checked: false });
-                options.push(ParsedOption { label: "B".to_string(), text: "错误".to_string(), checked: false });
+                options.push(ParsedOption { label: "A".to_string(), text: tr("正确", "True").to_string(), checked: false });
+                options.push(ParsedOption { label: "B".to_string(), text: tr("错误", "False").to_string(), checked: false });
             } else {
-                bad("no-options", "没有选项，且不满足判断题条件".to_string(), &mut question_issues, &mut invalid);
+                bad("no-options", tr("没有选项，且不满足判断题条件", "No options and not a valid true/false question").to_string(), &mut question_issues, &mut invalid);
             }
         }
         if !options.is_empty() {
             if options.len() < 2 || options.len() > 8 {
-                bad("option-count", format!("选项数量必须是 2–8，实际 {}", options.len()), &mut question_issues, &mut invalid);
+                bad("option-count", if is_en() { format!("Option count must be 2–8; got {}", options.len()) } else { format!("选项数量必须是 2–8，实际 {}", options.len()) }, &mut question_issues, &mut invalid);
             }
             for (index, option) in options.iter().enumerate() {
                 let expected = ((b'A' + index as u8) as char).to_string();
                 if option.label != expected {
                     bad(
                         "option-labels",
-                        format!("选项必须从 A 连续排列，第 {} 个应为 {}，实际 {}", index + 1, expected, option.label),
+                        if is_en() { format!("Options must be consecutive from A; item {} should be {}, got {}", index + 1, expected, option.label) } else { format!("选项必须从 A 连续排列，第 {} 个应为 {}，实际 {}", index + 1, expected, option.label) },
                         &mut question_issues,
                         &mut invalid,
                     );
@@ -475,22 +489,22 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             }
         }
         if state.answer_raw.is_none() {
-            flag("answer-missing", "缺少 **答案** 行，已导入但无法判分".to_string(), &mut question_issues, &mut review);
+            flag("answer-missing", tr("缺少 **答案** 行，已导入但无法判分", "Missing **Answer** line; imported but cannot be graded").to_string(), &mut question_issues, &mut review);
         } else if !answer_valid {
-            flag("answer-invalid", format!("答案不是 A–H 字母：{answer_text}，已导入但无法判分"), &mut question_issues, &mut review);
+            flag("answer-invalid", if is_en() { format!("Answer is not A–H: {answer_text}; imported but cannot be graded") } else { format!("答案不是 A–H 字母：{answer_text}，已导入但无法判分") }, &mut question_issues, &mut review);
         } else if answer_letters.len() != normalized.len() {
-            bad("answer-duplicate", format!("答案包含重复字母：{answer_text}"), &mut question_issues, &mut invalid);
+            bad("answer-duplicate", if is_en() { format!("Answer contains duplicate letters: {answer_text}") } else { format!("答案包含重复字母：{answer_text}") }, &mut question_issues, &mut invalid);
         } else if !options.is_empty() {
             let labels: HashSet<&str> = options.iter().map(|option| option.label.as_str()).collect();
             for letter in &answer_letters {
                 if !labels.contains(letter.as_str()) {
-                    bad("answer-not-in-options", format!("答案 {letter} 不在选项中"), &mut question_issues, &mut invalid);
+                    bad("answer-not-in-options", if is_en() { format!("Answer {letter} is not among the options") } else { format!("答案 {letter} 不在选项中") }, &mut question_issues, &mut invalid);
                 }
             }
         }
         if let (Some(first), Some(answer_line)) = (state.first_option_line, state.answer_line) {
             if answer_line < first && !is_judgment {
-                bad("answer-before-options", "答案出现在选项之前".to_string(), &mut question_issues, &mut invalid);
+                bad("answer-before-options", tr("答案出现在选项之前", "Answer appears before the options").to_string(), &mut question_issues, &mut invalid);
             }
         }
         let mut answer_conflict = false;
@@ -505,13 +519,13 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             answer_conflict = true;
             flag(
                 "check-mismatch",
-                format!("✅ 标记 {} 与答案 {} 不一致", checked.join(""), answer_letters.join("")),
+                if is_en() { format!("✅ marks {} do not match answer {}", checked.join(""), answer_letters.join("")) } else { format!("✅ 标记 {} 与答案 {} 不一致", checked.join(""), answer_letters.join("")) },
                 &mut question_issues,
                 &mut review,
             );
         }
         if state.content_after_options {
-            bad("content-after-options", "选项与答案之间存在无法识别的内容".to_string(), &mut question_issues, &mut invalid);
+            bad("content-after-options", tr("选项与答案之间存在无法识别的内容", "Unrecognized content between options and answer").to_string(), &mut question_issues, &mut invalid);
         }
         let explanation = state.explanation.join("\n").trim().to_string();
         if !answer_letters.is_empty() {
@@ -521,7 +535,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                     explanation_final = Some(final_answer.clone());
                     flag(
                         "explanation-conflict",
-                        format!("解析最终答案 {final_answer} 与答案 {} 不一致", answer_letters.join("")),
+                        if is_en() { format!("Explanation answer {final_answer} does not match answer {}", answer_letters.join("")) } else { format!("解析最终答案 {final_answer} 与答案 {} 不一致", answer_letters.join("")) },
                         &mut question_issues,
                         &mut review,
                     );
@@ -534,7 +548,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                         explanation_final = Some(judgment.clone());
                         flag(
                             "explanation-conflict",
-                            format!("解析判定 {judgment} 与答案 {} 不一致", answer_letters.join("")),
+                            if is_en() { format!("Explanation judgment {judgment} does not match answer {}", answer_letters.join("")) } else { format!("解析判定 {judgment} 与答案 {} 不一致", answer_letters.join("")) },
                             &mut question_issues,
                             &mut review,
                         );
@@ -544,14 +558,14 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         }
         let stem = state.stem.join("\n").trim().to_string();
         if stem.is_empty() {
-            bad("empty-stem", "题干为空".to_string(), &mut question_issues, &mut invalid);
+            bad("empty-stem", tr("题干为空", "Stem is empty").to_string(), &mut question_issues, &mut invalid);
         }
         if explanation.is_empty() {
-            warn("missing-explanation", "缺少解析".to_string(), &mut question_issues);
+            warn("missing-explanation", tr("缺少解析", "Missing explanation").to_string(), &mut question_issues);
         }
         let mut qid = state.qid.clone().unwrap_or_default();
         if !qid.is_empty() && !qid_re.is_match(&qid) {
-            bad("qid-invalid", format!("qid 不合法：{qid}"), &mut question_issues, &mut invalid);
+            bad("qid-invalid", if is_en() { format!("Invalid qid: {qid}") } else { format!("qid 不合法：{qid}") }, &mut question_issues, &mut invalid);
             qid.clear();
         }
         let qid_source = if qid.is_empty() {
@@ -577,7 +591,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             paper: paper.clone(),
             module: module.clone(),
             number: state.number,
-            kind: if state.kind.is_empty() { "未分类".to_string() } else { state.kind },
+            kind: if state.kind.is_empty() { tr("未分类", "Uncategorized").to_string() } else { state.kind },
             is_judgment,
             stem,
             options,
@@ -655,15 +669,15 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             let number: usize = capture.get(1).map(|value| value.as_str()).unwrap_or("0").parse().unwrap_or(0);
             content_started = true;
             if number < 1 {
-                file_issue(&mut issues, "material-number", line_no, format!("材料编号必须为正整数：{number}"));
+                file_issue(&mut issues, "material-number", line_no, if is_en() { format!("Material number must be a positive integer: {number}") } else { format!("材料编号必须为正整数：{number}") });
             }
             if !material_numbers.insert(number) {
-                file_issue(&mut issues, "duplicate-material", line_no, format!("材料编号重复：{number}"));
+                file_issue(&mut issues, "duplicate-material", line_no, if is_en() { format!("Duplicate material number: {number}") } else { format!("材料编号重复：{number}") });
             }
             current_material = Some(MaterialState { number, line: line_no, content: Vec::new(), q_count: 0 });
             continue;
         }
-        if let Some(capture) = question_re.captures(line) {
+        if let Some(capture) = question_re.captures(line).or_else(|| question_re_en.captures(line)) {
             if let Some(state) = current_question.take() {
                 finalize(state, &mut questions);
             }
@@ -680,13 +694,13 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             if level == "##" {
                 close_material(&mut issues, &mut current_material, &mut materials);
             } else if material_number.is_none() {
-                file_issue(&mut issues, "h3-outside-material", line_no, "### 小题只能出现在 ## 材料 N 内".to_string());
+                file_issue(&mut issues, "h3-outside-material", line_no, tr("### 小题只能出现在 ## 材料 N 内", "### subquestions may only appear inside ## Material N").to_string());
             }
             if number < 1 {
-                file_issue(&mut issues, "question-number", line_no, format!("题号必须为正整数：{number}"));
+                file_issue(&mut issues, "question-number", line_no, if is_en() { format!("Question number must be a positive integer: {number}") } else { format!("题号必须为正整数：{number}") });
             }
             if !question_numbers.insert(number) {
-                file_issue(&mut issues, "duplicate-number", line_no, format!("题号重复：{number}"));
+                file_issue(&mut issues, "duplicate-number", line_no, if is_en() { format!("Duplicate question number: {number}") } else { format!("题号重复：{number}") });
             }
             let mut state = QuestionState {
                 number,
@@ -724,18 +738,18 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         }
         if line.starts_with("# ") {
             if first_question_seen || content_started || h1_seen {
-                file_issue(&mut issues, "h1-after-content", line_no, "一级标题只能出现一次且在所有题目之前".to_string());
+                file_issue(&mut issues, "h1-after-content", line_no, tr("一级标题只能出现一次且在所有题目之前", "The H1 may appear only once, before all questions").to_string());
             } else {
                 h1_seen = true;
             }
             continue;
         }
         if line.starts_with("## ") {
-            file_issue(&mut issues, "unknown-heading", line_no, format!("无法识别的二级标题：{}", trimmed.chars().take(60).collect::<String>()));
+            file_issue(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H2 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的二级标题：{}", trimmed.chars().take(60).collect::<String>()) });
             continue;
         }
         if line.starts_with("### ") {
-            file_issue(&mut issues, "unknown-heading", line_no, format!("无法识别的三级标题：{}", trimmed.chars().take(60).collect::<String>()));
+            file_issue(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H3 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的三级标题：{}", trimmed.chars().take(60).collect::<String>()) });
             continue;
         }
         if let Some(question) = &mut current_question {
@@ -761,7 +775,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                             code: "placeholder-with-options".to_string(),
                             file: file.to_string(),
                             line: line_no,
-                            message: "占位行出现在真实选项之后".to_string(),
+                            message: tr("占位行出现在真实选项之后", "Placeholder appears after real options").to_string(),
                         });
                     }
                     question.placeholder = true;
@@ -779,7 +793,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                         code: "explanation-before-answer".to_string(),
                         file: file.to_string(),
                         line: line_no,
-                        message: "解析出现在答案之前".to_string(),
+                        message: tr("解析出现在答案之前", "Explanation appears before the answer").to_string(),
                     });
                     continue;
                 }
@@ -790,7 +804,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                         code: "duplicate-answer".to_string(),
                         file: file.to_string(),
                         line: line_no,
-                        message: "出现第二条 **答案** 行".to_string(),
+                        message: tr("出现第二条 **答案** 行", "A second **Answer** line appeared").to_string(),
                     });
                     question.explanation.push(line.to_string());
                     continue;
@@ -801,7 +815,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                         code: "option-after-answer".to_string(),
                         file: file.to_string(),
                         line: line_no,
-                        message: "答案之后出现选项样式的行".to_string(),
+                        message: tr("答案之后出现选项样式的行", "An option-like line appears after the answer").to_string(),
                     });
                     question.explanation.push(line.to_string());
                     continue;
@@ -837,7 +851,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                 code: "qid-duplicate".to_string(),
                 file: file.to_string(),
                 line: question.line,
-                message: format!("同一文件内 qid 重复：{qid}"),
+                message: if is_en() { format!("Duplicate qid in the same file: {qid}") } else { format!("同一文件内 qid 重复：{qid}") },
             });
         }
     }
@@ -848,25 +862,25 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
                 code: "number-gap".to_string(),
                 file: file.to_string(),
                 line: pair[1].line,
-                message: format!("题号不连续：{} → {}", pair[0].number, pair[1].number),
+                message: if is_en() { format!("Question numbers are not consecutive: {} → {}", pair[0].number, pair[1].number) } else { format!("题号不连续：{} → {}", pair[0].number, pair[1].number) },
             });
         }
     }
-    if let Some(declared) = meta.get("题数").filter(|value| !value.is_empty()) {
+    if let Some(declared) = meta_value(&meta, &["题数", "Question Count"]).filter(|value| !value.is_empty()) {
         match declared.parse::<usize>() {
             Ok(count) if count == questions.len() => {}
-            Ok(count) => file_issue(&mut issues, "count-mismatch", 1, format!("题数 声明 {count}，实际解析 {} 道标题", questions.len())),
+            Ok(count) => file_issue(&mut issues, "count-mismatch", 1, if is_en() { format!("Question Count declares {count}, parsed {} headings", questions.len()) } else { format!("题数 声明 {count}，实际解析 {} 道标题", questions.len()) }),
             Err(_) => issues.push(Issue {
                 level: "warning",
                 code: "count-invalid".to_string(),
                 file: file.to_string(),
                 line: 1,
-                message: format!("题数 不是非负整数：{declared}"),
+                message: if is_en() { format!("Question Count is not a non-negative integer: {declared}") } else { format!("题数 不是非负整数：{declared}") },
             }),
         }
     }
     if questions.is_empty() {
-        file_issue(&mut issues, "empty-file", 1, "非索引文件没有题目".to_string());
+        file_issue(&mut issues, "empty-file", 1, tr("非索引文件没有题目", "Non-index file contains no questions").to_string());
     }
     if outside_content > 0 {
         issues.push(Issue {
@@ -874,7 +888,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             code: "outside-content".to_string(),
             file: file.to_string(),
             line: 1,
-            message: format!("题目之外有 {outside_content} 行内容被忽略"),
+            message: if is_en() { format!("{outside_content} lines outside questions were ignored") } else { format!("题目之外有 {outside_content} 行内容被忽略") },
         });
     }
     let has_file_error = issues.iter().any(|issue| issue.level == "file");
@@ -1164,7 +1178,7 @@ fn import_bank_ex(
 ) -> Result<ImportSummary, String> {
     let source = PathBuf::from(input);
     if !source.exists() {
-        return Err("题库路径不存在".to_string());
+        return Err(tr("题库路径不存在", "Bank path does not exist").to_string());
     }
     let base = base_dir(app)?;
     let banks_dir = base.join("banks");
@@ -1178,7 +1192,7 @@ fn import_bank_ex(
         temp_zip = Some(dir.clone());
         dir.canonicalize().map_err(|error| error.to_string())?
     } else {
-        return Err("请选择 Markdown 文件夹或 zip".to_string());
+        return Err(tr("请选择 Markdown 文件夹或 zip", "Choose a Markdown folder or zip").to_string());
     };
 
     let existing_bank = match target_bank_id.as_deref() {
@@ -1284,7 +1298,7 @@ fn import_bank_ex(
                 Ok(value) => value,
                 Err(error) => {
                     file_errors += 1;
-                    issues_out.push(format!("{relative}:0 读取失败：{error}"));
+                    issues_out.push(if is_en() { format!("{relative}:0 read failed: {error}") } else { format!("{relative}:0 读取失败：{error}") });
                     continue;
                 }
             };
@@ -1303,7 +1317,7 @@ fn import_bank_ex(
             if skip_papers.contains(&parsed.paper_key) {
                 skipped += 1;
                 if issues_out.len() < 500 {
-                    issues_out.push(format!("{}:0 试卷已存在，已跳过：{}", relative, parsed.paper));
+                    issues_out.push(if is_en() { format!("{}:0 paper already exists; skipped: {}", relative, parsed.paper) } else { format!("{}:0 试卷已存在，已跳过：{}", relative, parsed.paper) });
                 }
                 continue;
             }
@@ -1333,7 +1347,7 @@ fn import_bank_ex(
                     .execute(params![
                         material.key,
                         parsed.paper_key,
-                        format!("材料 {}", material.number),
+                        if is_en() { format!("Material {}", material.number) } else { format!("材料 {}", material.number) },
                         image.text,
                         relative,
                         material.line as i64
@@ -1402,7 +1416,7 @@ fn import_bank_ex(
                         question.answer_raw,
                         question.explanation,
                         question.material_key,
-                        question.material_number.map(|number| format!("材料 {number}")),
+                        question.material_number.map(|number| if is_en() { format!("Material {number}") } else { format!("材料 {number}") }),
                         question.material_number.and_then(|number| parsed.materials.iter().find(|item| item.number == number).map(|item| image_store.process(&item.content, full).text)),
                         question.status,
                         if question.can_grade { 1 } else { 0 },
@@ -1429,7 +1443,7 @@ fn import_bank_ex(
                         phase: "parse".to_string(),
                         current: file_index as i64,
                         total: total_files,
-                        message: format!("读取 Markdown {}/{}", file_index + 1, total_files),
+                        message: if is_en() { format!("Reading Markdown {}/{}", file_index + 1, total_files) } else { format!("读取 Markdown {}/{}", file_index + 1, total_files) },
                     },
                 );
             }
@@ -1441,7 +1455,7 @@ fn import_bank_ex(
                 phase: "finalize".to_string(),
                 current: total_files,
                 total: total_files,
-                message: "写入题库并建立索引…".to_string(),
+                message: tr("写入题库并建立索引…", "Writing to bank and indexing…").to_string(),
             },
         );
 
@@ -1467,7 +1481,7 @@ fn import_bank_ex(
             .or_else(|| title_hint.clone().filter(|value| !value.trim().is_empty()))
             .unwrap_or_else(|| {
                 if year_min.is_empty() {
-                    source.file_name().map(|value| value.to_string_lossy().to_string()).unwrap_or_else(|| "本地题库".to_string())
+                    source.file_name().map(|value| value.to_string_lossy().to_string()).unwrap_or_else(|| tr("本地题库", "Local bank").to_string())
                 } else {
                     format!("行测真题 {year_min}–{year_max}")
                 }
@@ -1591,5 +1605,16 @@ mod tests {
         assert_eq!(a.paper_key, b.paper_key);
         assert_eq!(a.questions.len(), 1);
         assert_eq!(b.questions.len(), 1);
+    }
+
+    #[test]
+    fn parses_english_format() {
+        let text = "---\nPaper: \"National\"\nModule: \"Verbal\"\nYear: \"2023\"\nRegion: \"National\"\nExam Type: \"National\"\n---\n\n## Question 1 · Logic\n\nStem text.\n- **A**. One\n- **B**. Two\n\n**Answer**: B\n\n**Explanation**\nThe correct answer is B.\n";
+        let parsed = parse_file(text, "english.md", "");
+        assert!(parsed.issues.iter().all(|issue| issue.code != "paper-missing"));
+        assert!(parsed.issues.iter().all(|issue| issue.code != "module-missing"));
+        assert_eq!(parsed.questions.len(), 1);
+        assert_eq!(parsed.questions[0].answer, vec!["B".to_string()]);
+        assert_eq!(explanation_answer("The correct answer is B."), Some("B".to_string()));
     }
 }

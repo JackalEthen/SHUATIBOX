@@ -1,3 +1,4 @@
+import { t, fmtNumber } from './i18n';
 import type { Bootstrap, HomeSummary, SessionSpec } from './api';
 import { Icon, type IconName } from './icons';
 
@@ -14,14 +15,14 @@ interface Props {
 }
 
 const actions: Array<{ icon: IconName; title: string; sub: string; to: 'library' | 'wrong' | 'search' }> = [
-  { icon: 'library', title: '模块刷题', sub: '按模块 / 题型 / 年份', to: 'library' },
-  { icon: 'clock', title: '整卷练习', sub: '按套卷计时练习', to: 'library' },
-  { icon: 'wrong', title: '错题重做', sub: '按错题攻克', to: 'wrong' },
-  { icon: 'search', title: '搜索题目', sub: '题干 / 选项 / 解析', to: 'search' },
+  { icon: 'library', title: "模块刷题", sub: "按模块 / 题型 / 年份", to: 'library' },
+  { icon: 'clock', title: "整卷练习", sub: "按套卷计时练习", to: 'library' },
+  { icon: 'wrong', title: "错题重做", sub: "按错题攻克", to: 'wrong' },
+  { icon: 'search', title: "搜索题目", sub: "题干 / 选项 / 解析", to: 'search' },
 ];
 
 function fmt(value: number) {
-  return value.toLocaleString('zh-CN');
+  return fmtNumber(value);
 }
 
 export function MobileHome({ data, summary, profileName, onStart, onResume, onLibrary, onWrong, onSearch, onStats }: Props) {
@@ -46,28 +47,28 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
     <div className="px-4 pt-4">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">你好，{profileName}</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight">{t("你好，")}{profileName}</h2>
           <p className="text-[12px] text-[var(--muted)] mt-1">
-            {data.bank.title} · {fmt(data.bank.questionCount)} 题
+            {data.bank.title} · {fmt(data.bank.questionCount)}  {t("题")}
           </p>
         </div>
-        <button className="chip" onClick={onStats}>今日 {today.answered} / {today.goal}</button>
+        <button className="chip" onClick={onStats}>{t("今日")} {today.answered} / {today.goal}</button>
       </div>
 
       <div className="card mt-4 p-4 relative overflow-hidden" onClick={() => (continueSession ? onResume() : onStart({ mode: 'module', count: 20 }))}>
         <div className="absolute -right-10 -top-14 w-40 h-40 rounded-full" style={{ background: 'var(--accent-soft)', filter: 'blur(4px)', opacity: 0.8 }} />
         <div className="relative">
           <div className="flex items-center gap-2">
-            <span className="chip-accent">{continueSession ? '继续上次' : '开始练习'}</span>
-            <span className="text-[11px] text-[var(--muted)]">{continueSession ? continueSession.updatedAt : '今天'}</span>
+            <span className="chip-accent">{continueSession ? t("继续上次") : t("开始练习")}</span>
+            <span className="text-[11px] text-[var(--muted)]">{continueSession ? continueSession.updatedAt : t("今天")}</span>
           </div>
           <div className="serif text-[16px] mt-2 leading-snug">
-            {continueSession ? continueSession.title : '从任意模块开始一组练习'}
+            {continueSession ? continueSession.title : t("从任意模块开始一组练习")}
           </div>
           <div className="text-[12px] text-[var(--ink-2)] mt-1">
             {continueSession
-              ? `已答 ${continueSession.answered} / ${continueSession.total} 题`
-              : '答题记录自动保存，可随时继续'}
+              ? t("已答 {p0} / {p1} 题", { p0: continueSession.answered, p1: continueSession.total })
+              : t("答题记录自动保存，可随时继续")}
           </div>
           <div className="flex items-center gap-3 mt-3">
             <div className="progress flex-1" style={{ height: 5 }}>
@@ -78,47 +79,47 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
             </span>
           </div>
           <div className="flex items-center justify-between mt-3">
-            <span className="text-[11.5px] text-[var(--muted)]">目标 {today.goal} 题</span>
-            <span className="btn btn-primary btn-sm">{continueSession ? '继续练题' : '开始练习'} ›</span>
+            <span className="text-[11.5px] text-[var(--muted)]">{t("目标")} {today.goal}  {t("题")}</span>
+            <span className="btn btn-primary btn-sm">{continueSession ? t("继续练题") : t("开始练习")} ›</span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mt-3">
         <div className="card p-4">
-          <div className="text-[11.5px] text-[var(--muted)]">今日已刷</div>
+          <div className="text-[11.5px] text-[var(--muted)]">{t("今日已刷")}</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{fmt(today.answered)}</span>
-            <span className="text-[11px] text-[var(--muted)] mb-1">题</span>
-            <span className="ml-auto text-[10.5px] text-[var(--good)] mb-1">{goalRatio}% 目标</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">{t("题")}</span>
+            <span className="ml-auto text-[10.5px] text-[var(--good)] mb-1">{goalRatio}{t("% 目标")}</span>
           </div>
           <div className="progress mt-2" style={{ height: 5 }}>
             <i style={{ width: `${goalRatio}%` }} />
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-[11.5px] text-[var(--muted)]">正确率</div>
+          <div className="text-[11.5px] text-[var(--muted)]">{t("正确率")}</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{today.accuracy}</span>
             <span className="text-[11px] text-[var(--muted)] mb-1">%</span>
           </div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-2">答对 {fmt(today.correct)} / {fmt(today.answered)} 题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">{t("答对")} {fmt(today.correct)} / {fmt(today.answered)}  {t("题")}</div>
         </div>
         <div className="card p-4">
-          <div className="text-[11.5px] text-[var(--muted)]">连续学习</div>
+          <div className="text-[11.5px] text-[var(--muted)]">{t("连续学习")}</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{streak.current}</span>
-            <span className="text-[11px] text-[var(--muted)] mb-1">天</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">{t("天")}</span>
           </div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-2">累计 {streak.totalDays} 天</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">{t("累计")} {streak.totalDays}  {t("天")}</div>
         </div>
         <div className="card p-4">
-          <div className="text-[11.5px] text-[var(--muted)]">待攻克错题</div>
+          <div className="text-[11.5px] text-[var(--muted)]">{t("待攻克错题")}</div>
           <div className="flex items-end gap-1 mt-1.5">
             <span className="stat-num">{fmt(wrongCount)}</span>
-            <span className="text-[11px] text-[var(--muted)] mb-1">题</span>
+            <span className="text-[11px] text-[var(--muted)] mb-1">{t("题")}</span>
           </div>
-          <div className="text-[10.5px] text-[var(--muted)] mt-2">收藏 {fmt(data.favoriteCount)} 题</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-2">{t("收藏")} {fmt(data.favoriteCount)}  {t("题")}</div>
         </div>
       </div>
 
@@ -132,17 +133,17 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
             <Icon name="calendar" className="w-5 h-5" strokeWidth={1.8} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-medium">艾宾浩斯复习 · 今日 {reviewDueCount} 题</div>
+            <div className="text-[13.5px] font-medium">{t("艾宾浩斯复习 · 今日")} {reviewDueCount}  {t("题")}</div>
             <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
               {reviewDueCount > 0
-                ? '按到期顺序复习'
+                ? t("按到期顺序复习")
                 : reviewNextDue
-                  ? `下次复习 ${reviewNextDue.slice(0, 10)}`
-                  : '暂无复习计划'}
+                  ? t("下次复习 {p0}", { p0: reviewNextDue.slice(0, 10) })
+                  : t("暂无复习计划")}
             </div>
           </div>
           <span className="btn btn-soft btn-sm">
-            {reviewDueCount > 0 ? '复习' : reviewNextDue ? '未到期' : '暂无'}
+            {reviewDueCount > 0 ? t("复习") : reviewNextDue ? t("未到期") : t("暂无")}
           </span>
         </button>
       ) : null}
@@ -153,16 +154,16 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
             <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center mb-2">
               <Icon name={item.icon} className="w-5 h-5" strokeWidth={1.8} />
             </div>
-            <div className="text-[13px] font-medium">{item.title}</div>
-            <div className="text-[11px] text-[var(--muted)] mt-0.5">{item.sub}</div>
+            <div className="text-[13px] font-medium">{t(item.title)}</div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">{t(item.sub)}</div>
           </button>
         ))}
       </div>
 
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold">模块进度</h3>
-          <button className="text-[11px] text-[var(--muted)]" onClick={onStats}>全部</button>
+          <h3 className="text-[15px] font-semibold">{t("模块进度")}</h3>
+          <button className="text-[11px] text-[var(--muted)]" onClick={onStats}>{t("全部")}</button>
         </div>
         <div className="mt-2 divide-y divide-[var(--line)]">
           {modules.map((module) => (
@@ -189,7 +190,7 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
       {recent.length > 0 ? (
         <div className="card mt-3 p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold">最近记录</h3>
+            <h3 className="text-[15px] font-semibold">{t("最近记录")}</h3>
           </div>
           <div className="mt-2 divide-y divide-[var(--line)]">
             {recent.slice(0, 4).map((item) => (
@@ -201,7 +202,7 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
                   <div className="text-[13.5px] truncate">{item.title}</div>
                   <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{item.completedAt ?? item.updatedAt}</div>
                 </div>
-                <span className="text-[11px] text-[var(--muted)]">{item.total} 题</span>
+                <span className="text-[11px] text-[var(--muted)]">{item.total}  {t("题")}</span>
               </div>
             ))}
           </div>

@@ -49,6 +49,7 @@
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
 - Appearance: light/dark, 5 accent colors and 4 reading text sizes
+- Bilingual UI: switch between Chinese and English in Settings; defaults to the system language. AI explanations and import messages follow the UI language
 - Bank management: import and switch between multiple question banks; imports can append to the current bank, an existing bank, or a new bank, existing papers are skipped (never overwritten), and the import report lists invalid questions and missing images
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
 - AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
@@ -91,14 +92,14 @@ Import a folder of Markdown files or a zip. Each `.md` file is one module of one
 
 ```markdown
 ---
-试卷: "2023年国考《行测》题"
-年份: "2023"
-地区: "国考"
-模块: "言语理解与表达"
-考试类型: "国考"
+Paper: "2023 National Exam (Verbal)"
+Year: "2023"
+Region: "National"
+Module: "Verbal"
+Exam Type: "National"
 ---
 
-## 第 1 题 · 逻辑填空
+## Question 1 · Logic Fill
 
 Stem text. Markdown, HTML and images are supported.
 
@@ -106,9 +107,9 @@ Stem text. Markdown, HTML and images are supported.
 - **B**. Option two
 - **C**. Option three
 
-**答案**：B
+**Answer**: B
 
-**官方解析**
+**Explanation**
 
 Explanation text.
 ```
@@ -117,8 +118,9 @@ Key rules:
 
 - Option labels are `A`–`H`, must start at A and stay contiguous, 2–8 options
 - Multiple answers: `A,C` (also accepts `A、C`, `A C`, `AC`)
-- True/false questions may use a single `- （选项）[]` line; answer A = true, B = false
-- Material questions use `## 材料 1` followed by `### 第 1 题`
+- True/false questions may use a single `- (option) []` line; answer A = true, B = false
+- Material questions use `## Material 1` followed by `### Question 1`
+- Chinese aliases are also supported for frontmatter, headings, `**Answer**` and `**Explanation**`
 - Images use relative paths, e.g. `![alt](images/1.png)`; supported: `png jpg jpeg jfif gif webp`
 - Questions with a missing answer are still imported but are not graded
 - `README.md` is skipped automatically
@@ -127,12 +129,12 @@ Folder example:
 
 ```text
 bank/
-  01-言语理解与表达/
-    2023年国考行测.md
-    90-图片/
+  01-Verbal/
+    2023-national.md
+    90-images/
       q1.png
-  02-数量关系/
-    2023年国考行测.md
+  02-Quantitative/
+    2023-national.md
   README.md
 ```
 

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { aiCancel, aiChat, errorText, type AiChatMessage, type QuestionDto } from './api';
 import { Icon } from './icons';
@@ -15,7 +16,7 @@ const IMAGE_MD = /!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g;
 const IMAGE_HTML = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/gi;
 
 function stripImages(text: string): string {
-  return text.replace(IMAGE_MD, '[图片]').replace(IMAGE_HTML, '[图片]');
+  return text.replace(IMAGE_MD, t("[图片]")).replace(IMAGE_HTML, t("[图片]"));
 }
 
 function collectImages(text: string, out: string[]) {
@@ -35,13 +36,13 @@ function buildPrompt(question: QuestionDto): { text: string; images: string[] } 
   });
 
   const lines = [
-    '请解答下面这道题，并详细讲解解题思路。先给出正确答案，再逐步分析，说明关键概念和易错点。',
+    t("请解答下面这道题，并详细讲解解题思路。先给出正确答案，再逐步分析，说明关键概念和易错点。"),
     '',
   ];
-  if (material.trim()) lines.push('【材料】', material.trim(), '');
-  lines.push('【题目】', stem.trim(), '');
-  if (options.length) lines.push('【选项】', ...options, '');
-  if (question.answer.length) lines.push(`【参考答案】${question.answer.join(',')}`);
+  if (material.trim()) lines.push(t("【材料】"), material.trim(), '');
+  lines.push(t("【题目】"), stem.trim(), '');
+  if (options.length) lines.push(t("【选项】"), ...options, '');
+  if (question.answer.length) lines.push(t("【参考答案】{p0}", { p0: question.answer.join(',') }));
 
   return { text: lines.join('\n').trim(), images: [...new Set(images)] };
 }
@@ -141,12 +142,12 @@ export function AiTutor({ question, onClose, mobile }: Props) {
             )}
           </div>
         ))}
-        {busy ? <div className="self-start text-[13.5px] text-[var(--muted)]">AI 正在思考…</div> : null}
+        {busy ? <div className="self-start text-[13.5px] text-[var(--muted)]">{t("AI 正在思考…")}</div> : null}
         {error ? (
           <div className="self-start max-w-[92%] rounded-xl border border-[var(--bad)] px-3 py-2 text-[13.5px] leading-5 text-[var(--bad)]">
             {error}
             <button className="ml-2 underline" onClick={() => void retry()}>
-              重试
+              {t("重试")}
             </button>
           </div>
         ) : null}
@@ -155,7 +156,7 @@ export function AiTutor({ question, onClose, mobile }: Props) {
         <textarea
           className="flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none"
           rows={2}
-          placeholder="继续追问…（Enter 发送，Shift+Enter 换行）"
+          placeholder={t("继续追问…（Enter 发送，Shift+Enter 换行）")}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -166,7 +167,7 @@ export function AiTutor({ question, onClose, mobile }: Props) {
           }}
         />
         <button className="btn btn-primary" disabled={busy || !input.trim()} onClick={submit}>
-          发送
+          {t("发送")}
         </button>
       </div>
     </div>
@@ -177,8 +178,8 @@ export function AiTutor({ question, onClose, mobile }: Props) {
       <MobileSheet open onClose={onClose}>
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--line)]">
           <Icon name="sparkle" className="w-4 h-4" />
-          <span className="text-[13px] font-semibold">AI 讲解</span>
-          <button className="icon-btn ml-auto" onClick={onClose} aria-label="关闭">
+          <span className="text-[13px] font-semibold">{t("AI 讲解")}</span>
+          <button className="icon-btn ml-auto" onClick={onClose} aria-label={t("关闭")}>
             <Icon name="x" />
           </button>
         </div>
@@ -188,7 +189,7 @@ export function AiTutor({ question, onClose, mobile }: Props) {
   }
 
   return (
-    <Modal open title="AI 讲解" onClose={onClose} wide>
+    <Modal open title={t("AI 讲解")} onClose={onClose} wide>
       {body}
     </Modal>
   );

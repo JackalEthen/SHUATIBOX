@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, type ReactNode } from 'react';
 import { Icon } from './icons';
 
@@ -30,7 +31,7 @@ export function Modal({ open, title, onClose, children, footer, wide, closable =
       <div className="modal-card" style={wide ? { width: 'min(760px,100%)' } : undefined}>
         <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--line)]">
           <h2 className="text-[14px] font-semibold">{title}</h2>
-          <button className="icon-btn ml-auto" onClick={close} aria-label="关闭" disabled={!closable}>
+          <button className="icon-btn ml-auto" onClick={close} aria-label={t("关闭")} disabled={!closable}>
             <Icon name="x" />
           </button>
         </div>

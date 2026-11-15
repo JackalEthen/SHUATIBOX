@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useState } from 'react';
 import {
   clearWrong,
@@ -40,7 +41,7 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
     setLoading(true);
     listWrong({ status, days: days || undefined, module: module || undefined })
       .then(setPage)
-      .catch((error) => onNotice(`错题加载失败：${errorText(error)}`))
+      .catch((error) => onNotice(t("错题加载失败：{p0}", { p0: errorText(error) })))
       .finally(() => setLoading(false));
   };
 
@@ -50,7 +51,7 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
     onStart({
       mode: 'custom',
       questionIds: [item.question.id],
-      title: '错题练习',
+      title: t("错题练习"),
     });
   };
 
@@ -59,9 +60,10 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
       <div className="max-w-[1180px] mx-auto px-8 py-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-semibold tracking-tight">错题集</h1>
+            <h1 className="text-[24px] font-semibold tracking-tight">{t("错题集")}</h1>
             <p className="text-[12.5px] text-[var(--muted)] mt-1.5">
-              答错自动收录 · 连续答对 {data.settings.archive_streak ?? '2'} 次移入「已掌握」
+
+              {t("答错自动收录 · 连续答对")} {data.settings.archive_streak ?? '2'}  {t("次移入「已掌握」")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -71,10 +73,11 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
               disabled={page.pending === 0}
             >
               <Icon name="wrong" />
-              重做 {page.pending} 题
+
+              {t("重做")} {page.pending}  {t("题")}
             </button>
             <button className="btn btn-ghost" onClick={() => setConfirmClear(true)}>
-              清空错题
+              {t("清空错题")}
             </button>
           </div>
         </div>
@@ -82,9 +85,9 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
         <div className="flex items-center gap-2 mt-5 flex-wrap">
           <div className="seg">
             {[
-              ['pending', `待攻克 ${page.pending}`],
-              ['mastered', `已掌握 ${page.mastered}`],
-              ['all', '全部'],
+              ['pending', t("待攻克 {p0}", { p0: page.pending })],
+              ['mastered', t("已掌握 {p0}", { p0: page.mastered })],
+              ['all', t("全部")],
             ].map(([key, label]) => (
               <button key={key} className={status === key ? 'active' : ''} onClick={() => setStatus(key)}>
                 {label}
@@ -93,17 +96,17 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
           </div>
           <span className="w-px h-4 bg-[var(--line)] mx-1" />
           {[
-            [0, '全部时间'],
-            [1, '今天'],
-            [7, '近 7 天'],
-            [30, '近 30 天'],
+            [0, t("全部时间")],
+            [1, t("今天")],
+            [7, t("近 7 天")],
+            [30, t("近 30 天")],
           ].map(([value, label]) => (
             <button key={label} className={`chip ${days === value ? 'active' : ''}`} onClick={() => setDays(Number(value))}>
               {label}
             </button>
           ))}
           <select className="chip bg-transparent ml-auto" value={module} onChange={(event) => setModule(event.target.value)}>
-            <option value="">全部模块</option>
+            <option value="">{t("全部模块")}</option>
             {data.modules.map((item) => (
               <option key={item.name} value={item.name}>
                 {item.name}
@@ -114,18 +117,18 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
 
         <div className="card mt-4 overflow-hidden">
           <div className="tr text-[10.5px] text-[var(--muted)]" style={{ gridTemplateColumns: '1fr 150px 120px 90px' }}>
-            <div>题目</div>
-            <div>来源</div>
-            <div>错题信息</div>
-            <div className="text-right">操作</div>
+            <div>{t("题目")}</div>
+            <div>{t("来源")}</div>
+            <div>{t("错题信息")}</div>
+            <div className="text-right">{t("操作")}</div>
           </div>
           {loading ? (
-            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">读取错题…</div>
+            <div className="py-10 text-center text-[11.5px] text-[var(--muted)]">{t("读取错题…")}</div>
           ) : page.items.length === 0 ? (
             <div className="py-12 text-center">
-              <div className="text-[13px] font-medium">没有错题</div>
+              <div className="text-[13px] font-medium">{t("没有错题")}</div>
               <div className="text-[11px] text-[var(--muted)] mt-1">
-                {status === 'mastered' ? '连续答对后会自动归档到这里' : '答错题目会自动出现在这里'}
+                {status === 'mastered' ? t("连续答对后会自动归档到这里") : t("答错题目会自动出现在这里")}
               </div>
             </div>
           ) : (
@@ -139,11 +142,12 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
                 </div>
                 <div className="text-[10.5px] text-[var(--muted)] truncate">{item.question.paperTitle}</div>
                 <div className="text-[10.5px] text-[var(--muted)]">
-                  错 {item.wrongCount} 次 · 连对 {item.correctStreak}
+
+                  {t("错")} {item.wrongCount}  {t("次 · 连对")} {item.correctStreak}
                   <div>{item.lastWrongAt}</div>
                 </div>
                 <div className="text-right">
-                  <button className="btn btn-ghost btn-sm" onClick={() => redo(item)}>重做</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => redo(item)}>{t("重做")}</button>
                 </div>
               </div>
             ))
@@ -154,41 +158,41 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
 
       <CountDialog
         open={redoOpen}
-        title="错题重做"
+        title={t("错题重做")}
         max={page.pending}
         initial={20}
         onClose={() => setRedoOpen(false)}
         onStart={(count) => {
           setRedoOpen(false);
-          onStart({ mode: 'wrong', count, title: '错题重做' });
+          onStart({ mode: 'wrong', count, title: t("错题重做") });
         }}
       />
 
       <Modal
         open={confirmClear}
-        title="清空错题？"
+        title={t("清空错题？")}
         onClose={() => setConfirmClear(false)}
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setConfirmClear(false)}>取消</button>
+            <button className="btn btn-ghost" onClick={() => setConfirmClear(false)}>{t("取消")}</button>
             <button
               className="btn btn-danger"
               onClick={() => {
                 clearWrong(false)
                   .then(() => {
                     setConfirmClear(false);
-                    onNotice('错题已清空');
+                    onNotice(t("错题已清空"));
                     load();
                   })
-                  .catch((error) => onNotice(`清空失败：${errorText(error)}`));
+                  .catch((error) => onNotice(t("清空失败：{p0}", { p0: errorText(error) })));
               }}
             >
-              确认清空
+              {t("确认清空")}
             </button>
           </>
         }
       >
-        <p className="text-[13px] text-[var(--ink-2)] leading-7">只会删除错题记录，不会删除答题历史和题目。</p>
+        <p className="text-[13px] text-[var(--ink-2)] leading-7">{t("只会删除错题记录，不会删除答题历史和题目。")}</p>
       </Modal>
     </section>
   );

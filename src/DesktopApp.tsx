@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { fmtNumber, t } from './i18n';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { bootstrap, checkUpdate, errorText, getProfile, getSession, homeSummary, startSession, type Bootstrap, type HomeSummary, type Profile, type SessionSpec, type SessionView, type UpdateInfo } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
 import { BankDialog } from './BankDialog';
@@ -27,11 +28,11 @@ interface Props {
 }
 
 const accents: Array<{ key: Accent; color: string; label: string }> = [
-  { key: 'blue', color: '#7FA6CF', label: '淡蓝' },
-  { key: 'orange', color: '#D08A5A', label: '橙' },
-  { key: 'teal', color: '#63A695', label: '青绿' },
-  { key: 'pink', color: '#D092A0', label: '淡粉' },
-  { key: 'purple', color: '#9C8FC4', label: '浅紫' },
+  { key: 'blue', color: '#7FA6CF', label: "淡蓝" },
+  { key: 'orange', color: '#D08A5A', label: "橙" },
+  { key: 'teal', color: '#63A695', label: "青绿" },
+  { key: 'pink', color: '#D092A0', label: "淡粉" },
+  { key: 'purple', color: '#9C8FC4', label: "浅紫" },
 ];
 
 export function DesktopApp({ appearance, onNotice }: Props) {
@@ -106,7 +107,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
       setView(next);
       setScreen('practice');
     } catch (error) {
-      onNotice(`开始练习失败：${errorText(error)}`);
+      onNotice(t("开始练习失败：{p0}", { p0: errorText(error) }));
     } finally {
       setStarting(false);
     }
@@ -126,7 +127,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
       setView(next);
       setScreen('practice');
     } catch (error) {
-      onNotice(`读取练习失败：${errorText(error)}`);
+      onNotice(t("读取练习失败：{p0}", { p0: errorText(error) }));
     }
   };
 
@@ -146,16 +147,16 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     return (
       <div className="min-h-screen grid place-items-center p-8">
         <div className="card max-w-[520px] w-full p-8 text-center">
-          <div className="seal mx-auto">题</div>
-          <h1 className="text-[20px] font-semibold mt-4">刷题盒子 SHUATIBOX</h1>
+          <img src="/app-icon.png" alt="" className="mx-auto w-[38px] h-[38px] rounded-[10px]" />
+          <h1 className="text-[20px] font-semibold mt-4">{t("刷题盒子 SHUATIBOX")}</h1>
           <p className="text-[12px] text-[var(--muted)] mt-2 leading-6">
-            {loadError || '正在读取本地题库…'}
+            {loadError || t("正在读取本地题库…")}
           </p>
           {loadError ? (
             <div className="mt-5 flex justify-center gap-2">
-              <button className="btn btn-primary" onClick={() => setImportOpen(true)}>导入题库</button>
-              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>AI 设置</button>
-              <button className="btn btn-ghost" onClick={refresh}>重试</button>
+              <button className="btn btn-primary" onClick={() => setImportOpen(true)}>{t("导入题库")}</button>
+              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>{t("AI 设置")}</button>
+              <button className="btn btn-ghost" onClick={refresh}>{t("重试")}</button>
             </div>
           ) : null}
         </div>
@@ -176,20 +177,20 @@ export function DesktopApp({ appearance, onNotice }: Props) {
 
   const title =
     screen === 'home'
-      ? '首页'
+      ? t("首页")
       : screen === 'library'
-        ? '题库'
+        ? t("题库")
         : screen === 'practice'
-          ? '练习'
+          ? t("练习")
           : screen === 'wrong'
-            ? '错题'
+            ? t("错题")
             : screen === 'favorites'
-              ? '收藏'
+              ? t("收藏")
               : screen === 'search'
-                ? '搜索'
+                ? t("搜索")
               : screen === 'stats'
-                ? '统计'
-                : '设置';
+                ? t("统计")
+                : t("设置");
 
   const homeData: HomeSummary = home ?? {
     today: data.today,
@@ -206,13 +207,13 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   };
 
   const navItems: Array<{ icon: IconName; label: string; badge?: string; target: Screen }> = [
-    { icon: 'home', label: '首页', target: 'home' },
-    { icon: 'library', label: '题库', badge: `${data.bank.paperCount} 卷`, target: 'library' },
-    { icon: 'wrong', label: '错题', badge: String(data.wrongCount), target: 'wrong' },
-    { icon: 'star', label: '收藏', badge: String(data.favoriteCount), target: 'favorites' },
-    { icon: 'search', label: '搜索', target: 'search' },
-    { icon: 'stats', label: '统计', target: 'stats' },
-    { icon: 'settings', label: '设置', target: 'settings' },
+    { icon: 'home', label: t("首页"), target: 'home' },
+    { icon: 'library', label: t("题库"), badge: t("{p0} 卷", { p0: data.bank.paperCount }), target: 'library' },
+    { icon: 'wrong', label: t("错题"), badge: String(data.wrongCount), target: 'wrong' },
+    { icon: 'star', label: t("收藏"), badge: String(data.favoriteCount), target: 'favorites' },
+    { icon: 'search', label: t("搜索"), target: 'search' },
+    { icon: 'stats', label: t("统计"), target: 'stats' },
+    { icon: 'settings', label: t("设置"), target: 'settings' },
   ];
 
   const currentAccent = accents.find((item) => item.key === accent) ?? accents[0];
@@ -227,11 +228,11 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             <>
               <img
                 src="/app-icon.png"
-                alt="刷题盒子"
+                alt={t("刷题盒子")}
                 className="w-12 h-12 rounded-[12px] object-cover shrink-0"
               />
               <div>
-                <div className="font-semibold tracking-wide text-[15px]">刷题盒子</div>
+                <div className="font-semibold tracking-wide text-[15px]">{t("刷题盒子")}</div>
                 <div className="text-[9px] tracking-[.22em] text-[var(--muted)] mt-0.5">SHUATIBOX</div>
               </div>
             </>
@@ -239,9 +240,9 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           <button
             className={`icon-btn opacity-40 hover:opacity-100 focus-visible:opacity-100 transition-opacity ${sidebarCollapsed ? '' : 'ml-auto'}`}
             onClick={() => setSidebarCollapsed((value) => !value)}
-            aria-label={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+            aria-label={sidebarCollapsed ? t("展开侧边栏") : t("折叠侧边栏")}
             aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+            title={sidebarCollapsed ? t("展开侧边栏") : t("折叠侧边栏")}
           >
             <Icon name={sidebarCollapsed ? 'panelLeftOpen' : 'panelLeftClose'} />
           </button>
@@ -253,14 +254,14 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           title={sidebarCollapsed ? data.bank.title : undefined}
         >
           <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
-            {data.bank.title.slice(0, 1) || '题'}
+            {data.bank.title.slice(0, 1) || t("题")}
           </div>
           {!sidebarCollapsed ? (
             <>
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-medium truncate">{data.bank.title}</div>
                 <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
-                  {data.bank.questionCount.toLocaleString('zh-CN')} 题 · {data.bank.reviewCount} 题待校对
+                  {t("{questions} 题 · {review} 题待校对", { questions: fmtNumber(data.bank.questionCount), review: fmtNumber(data.bank.reviewCount) })}
                 </div>
               </div>
               <Icon name="chevronDown" className="w-3.5 h-3.5 text-[var(--muted)]" strokeWidth={2} />
@@ -296,44 +297,44 @@ export function DesktopApp({ appearance, onNotice }: Props) {
               <span
                 className="dot active"
                 style={{ background: currentAccent.color }}
-                title={`主题：${currentAccent.label}`}
+                title={t("主题：{name}", { name: t(currentAccent.label) })}
               />
               <button
                 className="icon-btn"
                 onClick={() => setDark(!dark)}
-                aria-label={dark ? '浅色模式' : '深色模式'}
-                title={dark ? '浅色模式' : '深色模式'}
+                aria-label={dark ? t("浅色模式") : t("深色模式")}
+                title={dark ? t("浅色模式") : t("深色模式")}
               >
                 <Icon name="moon" />
               </button>
               <span
                 className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block"
-                title="数据已保存"
+                title={t("数据已保存")}
               />
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10.5px] text-[var(--muted)] mr-1">主题</span>
+                <span className="text-[10.5px] text-[var(--muted)] mr-1">{t("主题")}</span>
                 {accents.map((item) => (
                   <button
                     key={item.key}
                     className={`dot ${accent === item.key ? 'active' : ''}`}
                     style={{ background: item.color }}
                     onClick={() => setAccent(item.key)}
-                    aria-label={item.label}
+                    aria-label={t(item.label)}
                   />
                 ))}
               </div>
               <button className="flex items-center gap-2 text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)]" onClick={() => setDark(!dark)}>
                 <Icon name="moon" className="w-4 h-4" />
-                <span>{dark ? '浅色模式' : '深色模式'}</span>
+                <span>{dark ? t("浅色模式") : t("深色模式")}</span>
               </button>
               <div className="mt-4 text-[10px] text-[var(--muted)] flex items-center justify-between">
-                <span>v{APP_VERSION} · 本地离线</span>
+                <span>{t("v{version} · 本地离线", { version: APP_VERSION })}</span>
                 <span className="flex items-center gap-1">
                   <i className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block" />
-                  数据已保存
+                  {t("数据已保存")}
                 </span>
               </div>
             </>
@@ -348,13 +349,14 @@ export function DesktopApp({ appearance, onNotice }: Props) {
         >
           <div className="text-[13.5px] font-medium">{title}</div>
           <div className="ml-auto flex items-center gap-2">
-            <button className="icon-btn" onClick={() => go('search')} aria-label="搜索">
+            <button className="icon-btn" onClick={() => go('search')} aria-label={t("搜索")}>
               <Icon name="search" strokeWidth={1.8} />
             </button>
-            <span className="chip">今日 {data.today.answered} 题</span>
+            <span className="chip">{t("今日")} {data.today.answered}  {t("题")}</span>
             <span className="chip">
               <i className="w-1.5 h-1.5 rounded-full bg-[var(--good)] inline-block" />
-              连续 {data.streak.current} 天
+
+              {t("连续")} {data.streak.current}  {t("天")}
             </span>
           </div>
         </header>

@@ -1,6 +1,7 @@
 ﻿mod ai;
 mod commands;
 mod db;
+mod i18n;
 mod importer;
 mod models;
 mod saf;
@@ -40,6 +41,7 @@ pub fn run() {
             commands::update_question,
             commands::get_settings,
             commands::set_settings,
+            i18n::set_language,
             commands::check_update,
             commands::resolve_update_download,
             update::download_update,

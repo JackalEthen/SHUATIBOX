@@ -1,3 +1,4 @@
+import { t, fmtNumber } from './i18n';
 import { useState } from 'react';
 import {
   deleteBank,
@@ -25,20 +26,20 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
     <>
       <Modal
         open={open}
-        title="切换题库"
+        title={t("切换题库")}
         onClose={onClose}
         wide
         footer={
           <>
-            <button className="btn btn-ghost" onClick={onClose}>关闭</button>
+            <button className="btn btn-ghost" onClick={onClose}>{t("关闭")}</button>
             <button className="btn btn-primary" onClick={() => { onClose(); onImport(); }}>
-              导入题库
+              {t("导入题库")}
             </button>
           </>
         }
       >
         <div className="text-[10.5px] text-[var(--muted)] leading-5">
-          多个题库互斥，同一时间仅一个启用。切换后进度、错题、统计随题库切换。
+          {t("多个题库互斥，同一时间仅一个启用。切换后进度、错题、统计随题库切换。")}
         </div>
         <div className="mt-3 divide-y divide-[var(--line)]">
           {data.banks.map((bank) => (
@@ -46,10 +47,10 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-medium">
                   {bank.title}
-                  {bank.active ? <span className="chip-accent ml-2">启用中</span> : null}
+                  {bank.active ? <span className="chip-accent ml-2">{t("启用中")}</span> : null}
                 </div>
                 <div className="text-[10.5px] text-[var(--muted)] mt-0.5 truncate">
-                  {bank.questionCount.toLocaleString('zh-CN')} 题 · {bank.paperCount} 套卷 · {bank.importedAt}
+                  {fmtNumber(bank.questionCount)}  {t("题 ·")} {bank.paperCount}  {t("套卷 ·")} {bank.importedAt}
                 </div>
               </div>
               {!bank.active ? (
@@ -58,14 +59,14 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
                   onClick={() =>
                     switchBank(bank.id)
                       .then(() => {
-                        onNotice('题库已切换');
+                        onNotice(t("题库已切换"));
                         onClose();
                         onRefresh();
                       })
-                      .catch((error) => onNotice(`切换失败：${errorText(error)}`))
+                      .catch((error) => onNotice(t("切换失败：{p0}", { p0: errorText(error) })))
                   }
                 >
-                  启用
+                  {t("启用")}
                 </button>
               ) : null}
               <button
@@ -73,15 +74,15 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
                 onClick={() =>
                   revalidateBank(bank.id)
                     .then(() => {
-                      onNotice('校验完成');
+                      onNotice(t("校验完成"));
                       onRefresh();
                     })
-                    .catch((error) => onNotice(`校验失败：${errorText(error)}`))
+                    .catch((error) => onNotice(t("校验失败：{p0}", { p0: errorText(error) })))
                 }
               >
-                校验
+                {t("校验")}
               </button>
-              <button className="btn btn-danger btn-sm" onClick={() => setConfirm(bank)}>删除</button>
+              <button className="btn btn-danger btn-sm" onClick={() => setConfirm(bank)}>{t("删除")}</button>
             </div>
           ))}
         </div>
@@ -89,11 +90,11 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
 
       <Modal
         open={!!confirm}
-        title="删除题库？"
+        title={t("删除题库？")}
         onClose={() => setConfirm(null)}
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setConfirm(null)}>取消</button>
+            <button className="btn btn-ghost" onClick={() => setConfirm(null)}>{t("取消")}</button>
             <button
               className="btn btn-danger"
               onClick={() => {
@@ -101,19 +102,19 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
                 deleteBank(confirm.id)
                   .then(() => {
                     setConfirm(null);
-                    onNotice('题库已删除');
+                    onNotice(t("题库已删除"));
                     onRefresh();
                   })
-                  .catch((error) => onNotice(`删除失败：${errorText(error)}`));
+                  .catch((error) => onNotice(t("删除失败：{p0}", { p0: errorText(error) })));
               }}
             >
-              确认删除
+              {t("确认删除")}
             </button>
           </>
         }
       >
         <p className="text-[13px] leading-7 text-[var(--ink-2)]">
-          将删除题库文件、该题库的进度、错题、笔记与收藏。此操作不可撤销。
+          {t("将删除题库文件、该题库的进度、错题、笔记与收藏。此操作不可撤销。")}
         </p>
       </Modal>
     </>

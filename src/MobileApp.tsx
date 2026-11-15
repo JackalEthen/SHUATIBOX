@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { t } from './i18n';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   bootstrap as bootstrapApi,
   checkUpdate,
@@ -49,22 +50,22 @@ interface Props {
 }
 
 const tabs: Array<{ icon: IconName; label: string; screen: MobileScreen }> = [
-  { icon: 'home', label: '首页', screen: 'home' },
-  { icon: 'library', label: '题库', screen: 'library' },
-  { icon: 'wrong', label: '错题', screen: 'wrong' },
-  { icon: 'user', label: '我的', screen: 'mine' },
+  { icon: 'home', label: "首页", screen: 'home' },
+  { icon: 'library', label: "题库", screen: 'library' },
+  { icon: 'wrong', label: "错题", screen: 'wrong' },
+  { icon: 'user', label: "我的", screen: 'mine' },
 ];
 
 const titles: Record<MobileScreen, string> = {
-  home: '首页',
-  library: '题库',
-  practice: '练习',
-  wrong: '错题集',
-  search: '搜索',
-  mine: '我的',
-  favorites: '我的收藏',
-  stats: '学习统计',
-  settings: '设置',
+  home: "首页",
+  library: "题库",
+  practice: "练习",
+  wrong: "错题集",
+  search: "搜索",
+  mine: "我的",
+  favorites: "我的收藏",
+  stats: "学习统计",
+  settings: "设置",
 };
 
 export function MobileApp({ appearance, onNotice }: Props) {
@@ -94,7 +95,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         setSummary(home);
         setProfile(prof);
       })
-      .catch((error) => onNotice(`加载失败：${errorText(error)}`))
+      .catch((error) => onNotice(t("加载失败：{p0}", { p0: errorText(error) })))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -125,7 +126,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         setView(next);
         setScreen('practice');
       } catch (error) {
-        onNotice(`开始失败：${errorText(error)}`);
+        onNotice(t("开始失败：{p0}", { p0: errorText(error) }));
       }
     },
     [onNotice],
@@ -145,7 +146,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
       setView(next);
       setScreen('practice');
     } catch (error) {
-      onNotice(`没有可继续的练习`);
+      onNotice(t("没有可继续的练习"));
     }
   }, [onNotice]);
 
@@ -206,7 +207,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
         return 'exit';
       }
       lastHomeBack.current = now;
-      onNotice('再按一次返回键退出应用');
+      onNotice(t("再按一次返回键退出应用"));
       return 'handled';
     };
     (window as unknown as { __shuatiboxBack?: BackBridge }).__shuatiboxBack = handler;
@@ -218,7 +219,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   if (loading && !data) {
     return (
       <div className="shell">
-        <div className="grid place-items-center h-[70vh] text-[13px] text-[var(--muted)]">读取题库…</div>
+        <div className="grid place-items-center h-[70vh] text-[13px] text-[var(--muted)]">{t("读取题库…")}</div>
       </div>
     );
   }
@@ -228,11 +229,11 @@ export function MobileApp({ appearance, onNotice }: Props) {
       <div className="shell">
         <div className="grid place-items-center h-[70vh] px-8 text-center">
           <div>
-            <div className="text-[13px]">还没有可用题库</div>
-            <div className="text-[12px] text-[var(--muted)] mt-2 leading-6">用「导入题库」选择题库文件夹或 zip 开始。</div>
+            <div className="text-[13px]">{t("还没有可用题库")}</div>
+            <div className="text-[12px] text-[var(--muted)] mt-2 leading-6">{t("用「导入题库」选择题库文件夹或 zip 开始。")}</div>
             <div className="flex justify-center gap-2 mt-4">
-              <button className="btn btn-primary" onClick={() => setImportOpen(true)}>导入题库</button>
-              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>AI 设置</button>
+              <button className="btn btn-primary" onClick={() => setImportOpen(true)}>{t("导入题库")}</button>
+              <button className="btn btn-ghost" onClick={() => setAiConfigOpen(true)}>{t("AI 设置")}</button>
             </div>
           </div>
         </div>
@@ -271,13 +272,13 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const header = (
     <div className="appbar">
       <div className="flex-1 min-w-0">
-        <h1>{titles[screen]}</h1>
+        <h1>{t(titles[screen])}</h1>
         <p className="text-[10.5px] text-[var(--muted)] -mt-0.5 truncate">{data.bank.title}</p>
       </div>
-      <button className="icon-btn" onClick={() => setScreen('search')} aria-label="搜索">
+      <button className="icon-btn" onClick={() => setScreen('search')} aria-label={t("搜索")}>
         <Icon name="search" strokeWidth={1.8} />
       </button>
-      <button className="icon-btn" onClick={() => setDark(!dark)} aria-label="深色模式">
+      <button className="icon-btn" onClick={() => setDark(!dark)} aria-label={t("深色模式")}>
         <Icon name="moon" />
       </button>
     </div>
@@ -358,7 +359,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
               onClick={() => setScreen(tab.screen)}
             >
               <Icon name={tab.icon} />
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>

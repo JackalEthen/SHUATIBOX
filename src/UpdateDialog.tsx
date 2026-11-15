@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { downloadUpdate, errorText, resolveUpdateDownload, type UpdateInfo } from './api';
@@ -30,7 +31,7 @@ export function UpdateDialog({ info, mobile, onClose, onNotice }: Props) {
       const resolved = await resolveUpdateDownload(info.downloadUrl);
       if (isAndroid) {
         await downloadUpdate(resolved.url, info.assetName ?? `shuatibox-${info.latestVersion}.apk`);
-        onNotice?.('已开始下载，请查看通知栏');
+        onNotice?.(t("已开始下载，请查看通知栏"));
       } else {
         await openUrl(resolved.url);
       }
@@ -45,20 +46,21 @@ export function UpdateDialog({ info, mobile, onClose, onNotice }: Props) {
   return (
     <Modal
       open
-      title={`发现新版本 v${info.latestVersion}`}
+      title={t("发现新版本 v{p0}", { p0: info.latestVersion })}
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>取消</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>{t("取消")}</button>
           <button className="btn btn-primary" onClick={() => void download()} disabled={busy}>
-            {busy ? '准备下载…' : info.downloadUrl ? '下载更新' : '打开下载页'}
+            {busy ? t("准备下载…") : info.downloadUrl ? t("下载更新") : t("打开下载页")}
           </button>
         </>
       }
     >
       <div className="space-y-2">
         <div className={`${hintClass} text-[var(--muted)]`}>
-          当前 v{info.currentVersion} · 最新 v{info.latestVersion}
+
+          {t("当前 v")}{info.currentVersion}  {t("· 最新 v")}{info.latestVersion}
         </div>
         {info.title ? <div className="text-[13px] font-medium">{info.title}</div> : null}
         {info.notes ? (
@@ -68,7 +70,7 @@ export function UpdateDialog({ info, mobile, onClose, onNotice }: Props) {
         ) : null}
         {isAndroid && !info.downloadUrl ? (
           <div className={`${hintClass} text-[var(--warn)]`}>
-            当前版本没有适配此设备架构的安装包，请打开下载页手动选择。
+            {t("当前版本没有适配此设备架构的安装包，请打开下载页手动选择。")}
           </div>
         ) : null}
         {info.assetName ? (

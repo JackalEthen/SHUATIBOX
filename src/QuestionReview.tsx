@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useMemo } from 'react';
 import { toQuestion, type QuestionDto } from './api';
 
@@ -42,21 +43,21 @@ export function QuestionReview({ question, assetDir, mobile, onUnfavorite }: Pro
       </div>
 
       <div className="mt-4 rounded-xl border border-[var(--good)] bg-[var(--good-soft)] px-4 py-3">
-        <span className="text-[11.5px] text-[var(--muted)]">正确答案</span>
+        <span className="text-[11.5px] text-[var(--muted)]">{t("正确答案")}</span>
         <b className="ml-2 text-[13px] text-[var(--good)]">
-          {item.answer.length > 0 ? item.answer.join('、') : '答案缺失'}
+          {item.answer.length > 0 ? item.answer.join('、') : t("答案缺失")}
         </b>
       </div>
 
-      <div className="mt-4 text-[12px] font-semibold text-[var(--ink-2)]">解析</div>
+      <div className="mt-4 text-[12px] font-semibold text-[var(--ink-2)]">{t("解析")}</div>
       <div className="read-explain text-[var(--ink-2)] mt-1.5" dangerouslySetInnerHTML={{ __html: item.explanationHtml }} />
       {item.review && !item.review.missing ? (
-        <div className="mt-2 text-[11px] text-[var(--warn)]">解析最终答案：{item.review.explanationAnswer}</div>
+        <div className="mt-2 text-[11px] text-[var(--warn)]">{t("解析最终答案：")}{item.review.explanationAnswer}</div>
       ) : null}
 
       {onUnfavorite ? (
         <button className="btn btn-ghost btn-sm mt-5" onClick={onUnfavorite}>
-          取消收藏
+          {t("取消收藏")}
         </button>
       ) : null}
     </div>

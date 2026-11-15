@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import { aiTest, errorText, getSettings, setSettings, type AiTestResult } from './api';
 import { Icon } from './icons';
@@ -37,7 +38,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
 
   const save = async () => {
     if (!url.trim() || !model.trim() || !key.trim()) {
-      onNotice?.('请填写接口地址、模型和密钥');
+      onNotice?.(t("请填写接口地址、模型和密钥"));
       return;
     }
     setBusy(true);
@@ -51,7 +52,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
       try {
         const result = await aiTest();
         setTestResult(result);
-        onNotice?.(result.visionOk ? '模型连接正常，可读图' : '模型不可读图');
+        onNotice?.(result.visionOk ? t("模型连接正常，可读图") : t("模型不可读图"));
       } catch (cause) {
         setTestError(errorText(cause));
       } finally {
@@ -59,7 +60,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
         setTesting(false);
       }
     } catch (cause) {
-      onNotice?.(`保存失败：${errorText(cause)}`);
+      onNotice?.(t("保存失败：{p0}", { p0: errorText(cause) }));
     } finally {
       setBusy(false);
     }
@@ -76,7 +77,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   const fields: ReactNode = (
     <div className="grid gap-3">
       <label className="text-[12px] text-[var(--muted)]">
-        接口地址
+        {t("接口地址")}
         <input
           className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
           placeholder="https://api.deepseek.com/v1"
@@ -86,7 +87,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
         />
       </label>
       <label className="text-[12px] text-[var(--muted)]">
-        模型
+        {t("模型")}
         <input
           className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
           placeholder="gpt-4o-mini / qwen-vl-plus"
@@ -96,7 +97,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
         />
       </label>
       <label className="text-[12px] text-[var(--muted)]">
-        密钥
+        {t("密钥")}
         <input
           type="password"
           className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
@@ -112,9 +113,9 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   const status: ReactNode = (
     <div className="mt-3 text-[12px] leading-5">
       {testing ? (
-        <span className="text-[var(--muted)]">正在测试连通性和读图能力，请稍候…</span>
+        <span className="text-[var(--muted)]">{t("正在测试连通性和读图能力，请稍候…")}</span>
       ) : testError ? (
-        <span className="text-[var(--bad)]">测试失败：{testError}</span>
+        <span className="text-[var(--bad)]">{t("测试失败：")}{testError}</span>
       ) : testResult ? (
         <span style={{ color: testResult.visionOk ? 'var(--good)' : 'var(--warn)' }}>
           {testResult.message}
@@ -126,17 +127,17 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   const actions = (
     <div className="flex justify-end gap-2 mt-4">
       <button className="btn btn-ghost" onClick={onClose} disabled={locked}>
-        关闭
+        {t("关闭")}
       </button>
       <button className="btn btn-primary" onClick={() => void save()} disabled={locked}>
-        {busy ? '保存中…' : testing ? '测试中…' : '保存并测试'}
+        {busy ? t("保存中…") : testing ? t("测试中…") : t("保存并测试")}
       </button>
     </div>
   );
 
   const hint = (
     <div className="text-[11.5px] text-[var(--muted)] leading-5 mb-3">
-      用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。
+      {t("用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。")}
     </div>
   );
 
@@ -145,8 +146,8 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
       <MobileSheet open onClose={onClose} closable={!locked}>
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--line)]">
           <Icon name="sparkle" className="w-4 h-4" />
-          <span className="text-[13px] font-semibold">AI 设置</span>
-          <button className="icon-btn ml-auto" onClick={onClose} aria-label="关闭" disabled={locked}>
+          <span className="text-[13px] font-semibold">{t("AI 设置")}</span>
+          <button className="icon-btn ml-auto" onClick={onClose} aria-label={t("关闭")} disabled={locked}>
             <Icon name="x" />
           </button>
         </div>
@@ -161,7 +162,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   }
 
   return (
-    <Modal open title="AI 设置" onClose={onClose} footer={actions} closable={!locked}>
+    <Modal open title={t("AI 设置")} onClose={onClose} footer={actions} closable={!locked}>
       {hint}
       {fields}
       {status}

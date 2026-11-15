@@ -1,5 +1,6 @@
 ﻿import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { renderMarkdown, renderRich } from './markdown';
+import { t } from './i18n';
 import type { PracticeQuestion } from './questions';
 
 export interface OptionDto {
@@ -344,7 +345,11 @@ function localize(html: string, assetDir: string): string {
   });
 }
 
-const MATERIAL_TYPES = new Set(['片段阅读', '语句表达', '综合', '篇章阅读', '阅读理解', '材料分析', '资料分析']);
+const MATERIAL_TYPES = new Set([
+  '片段阅读', '语句表达', '综合', '篇章阅读', '阅读理解', '材料分析', '资料分析',
+  'Reading', 'Reading Comprehension', 'Passage Reading', 'Sentence Expression',
+  'Comprehensive', 'Material Analysis', 'Data Analysis', 'Data Interpretation',
+]);
 
 export function toQuestion(raw: QuestionDto, assetDir: string): PracticeQuestion {
   return {
@@ -361,14 +366,14 @@ export function toQuestion(raw: QuestionDto, assetDir: string): PracticeQuestion
       text: renderRich(localize(option.text, assetDir)),
     })),
     answer: raw.answer,
-    explanationHtml: renderMarkdown(localize(raw.explanation || '暂无解析', assetDir)),
+    explanationHtml: renderMarkdown(localize(raw.explanation || t('暂无解析'), assetDir)),
     multi: raw.multi,
     review: raw.review
       ? { explanationAnswer: raw.review.explanationAnswer ?? undefined, missing: raw.review.missing }
       : undefined,
     material: raw.materialContent && MATERIAL_TYPES.has(raw.type)
       ? {
-          title: raw.materialTitle ?? '材料',
+          title: raw.materialTitle ?? t('材料'),
           html: renderMarkdown(localize(raw.materialContent, assetDir)),
         }
       : undefined,
