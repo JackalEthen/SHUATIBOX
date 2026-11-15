@@ -1,6 +1,8 @@
 import { t, fmtNumber } from '../i18n';
 import { useState } from 'react';
 import { errorText, deleteBank, revalidateBank, switchBank, type BankDto, type Bootstrap } from '../api';
+import { BankRenameDialog } from '../BankRenameDialog';
+import { Icon } from '../icons';
 import { MobileSheet } from '../MobileSheet';
 
 interface Props {
@@ -14,6 +16,7 @@ interface Props {
 
 export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }: Props) {
   const [busy, setBusy] = useState('');
+  const [renameBank, setRenameBank] = useState<BankDto | null>(null);
 
   const run = async (id: string, action: () => Promise<unknown>, done: string) => {
     setBusy(id);
@@ -29,31 +32,38 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
   };
 
   const item = (bank: BankDto) => (
-    <button
+    <div
       key={bank.id}
-      className="w-full text-left rounded-xl border p-3.5 flex items-center gap-3"
+      className="w-full rounded-xl border p-2 flex items-center gap-1"
       style={bank.active ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : { borderColor: 'var(--line)' }}
-      disabled={!!busy}
-      onClick={() => {
-        if (bank.active) return;
-        void run(bank.id, () => switchBank(bank.id), t("已切换到 {p0}", { p0: bank.title }));
-      }}
     >
-      <div className="w-8 h-8 rounded-lg bg-[var(--card)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
-        {bank.title.slice(0, 1)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-medium truncate">{bank.title}</div>
-        <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
-          {bank.paperCount}  {t("套卷 ·")} {fmtNumber(bank.questionCount)}  {t("题")}
+      <button
+        className="flex-1 min-w-0 text-left p-1.5 flex items-center gap-3"
+        disabled={!!busy}
+        onClick={() => {
+          if (bank.active) return;
+          void run(bank.id, () => switchBank(bank.id), t("已切换到 {p0}", { p0: bank.title }));
+        }}
+      >
+        <div className="w-8 h-8 rounded-lg bg-[var(--card)] text-[var(--accent-ink)] grid place-items-center text-[12px] font-semibold">
+          {bank.title.slice(0, 1)}
         </div>
-      </div>
-      {bank.active ? (
-        <span className="chip active">{t("启用中")}</span>
-      ) : (
-        <span className="text-[11px] text-[var(--muted)]">{busy === bank.id ? '…' : t("切换")}</span>
-      )}
-    </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-medium truncate">{bank.title}</div>
+          <div className="text-[10.5px] text-[var(--muted)] mt-0.5">
+            {bank.paperCount}  {t("套卷 ·")} {fmtNumber(bank.questionCount)}  {t("题")}
+          </div>
+        </div>
+        {bank.active ? (
+          <span className="chip active">{t("启用中")}</span>
+        ) : (
+          <span className="text-[11px] text-[var(--muted)]">{busy === bank.id ? '…' : t("切换")}</span>
+        )}
+      </button>
+      <button className="icon-btn" disabled={!!busy} aria-label={t("重命名")} onClick={() => setRenameBank(bank)}>
+        <Icon name="edit" />
+      </button>
+    </div>
   );
 
   return (
@@ -92,6 +102,14 @@ export function BankSheet({ open, data, onClose, onNotice, onRefresh, onImport }
 
       <button className="btn btn-primary btn-block mt-4" onClick={onClose}>{t("关闭")}</button>
       <div className="h-4" />
+
+      <BankRenameDialog
+        open={!!renameBank}
+        bank={renameBank}
+        onClose={() => setRenameBank(null)}
+        onSaved={onRefresh}
+        onNotice={onNotice}
+      />
     </MobileSheet>
   );
 }

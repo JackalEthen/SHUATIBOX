@@ -18,6 +18,7 @@ import {
   type Profile,
 } from './api';
 import { AiConfigDialog } from './AiConfigDialog';
+import { BankRenameDialog } from './BankRenameDialog';
 import { Icon } from './icons';
 import { UpdateCard } from './UpdateCard';
 import { APP_VERSION } from './version';
@@ -38,6 +39,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
   const { accent, setAccent, dark, setDark, fontScale, setFontScale } = appearance;
   const lang = useLang();
   const [confirmBank, setConfirmBank] = useState<BankDto | null>(null);
+  const [renameBank, setRenameBank] = useState<BankDto | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [busy, setBusy] = useState(false);
   const [practiceMode, setPracticeMode] = useState(data.settings.practice_mode ?? 'instant');
@@ -392,6 +394,9 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
                 >
                   {t("校验")}
                 </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setRenameBank(bank)}>
+                  {t("重命名")}
+                </button>
                 <button className="btn btn-danger btn-sm" onClick={() => setConfirmBank(bank)}>
                   {t("删除")}
                 </button>
@@ -441,6 +446,14 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
           {t("图片仅存于应用私有目录，不写入系统图库。")}
         </div>
       </div>
+
+      <BankRenameDialog
+        open={!!renameBank}
+        bank={renameBank}
+        onClose={() => setRenameBank(null)}
+        onSaved={onRefresh}
+        onNotice={onNotice}
+      />
 
       <Modal
         open={!!confirmBank}

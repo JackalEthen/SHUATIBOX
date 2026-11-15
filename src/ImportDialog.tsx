@@ -4,8 +4,10 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import {
   aiImport,
+  aiImportFiles,
   errorText,
   importBank,
+  importBankFiles,
   type AiImportSummary,
   type BankDto,
   type ImportProgress,
@@ -48,6 +50,7 @@ function statusColor(status: string) {
 
 export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, banks }: Props) {
   const [path, setPath] = useState('');
+  const [paths, setPaths] = useState<string[]>([]);
   const [setActive, setSetActive] = useState(true);
   const [targetId, setTargetId] = useState('current');
   const [newTitle, setNewTitle] = useState('');
@@ -76,6 +79,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
     const value = await open({ directory: true, multiple: false });
     if (value && !Array.isArray(value)) {
       setPath(value);
+      setPaths([]);
       setSummary(null);
       setAiResult(null);
       setError('');
@@ -86,10 +90,26 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
     const value = await open({
       directory: false,
       multiple: false,
-      filters: [{ name: t("题库压缩包"), extensions: ['zip', 'md'] }],
+      filters: [{ name: t("题库压缩包"), extensions: ['zip'] }],
     });
     if (value && !Array.isArray(value)) {
       setPath(value);
+      setPaths([]);
+      setSummary(null);
+      setAiResult(null);
+      setError('');
+    }
+  };
+
+  const chooseMd = async () => {
+    const value = await open({
+      directory: false,
+      multiple: true,
+      filters: [{ name: t("Markdown 文件"), extensions: ['md', 'markdown'] }],
+    });
+    if (Array.isArray(value) && value.length > 0) {
+      setPaths(value);
+      setPath('');
       setSummary(null);
       setAiResult(null);
       setError('');
@@ -97,7 +117,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
   };
 
   const run = async () => {
-    if (!path) return;
+    if (!path && paths.length === 0) return;
     setBusy(true);
     setError('');
     setSummary(null);
@@ -109,12 +129,12 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
         : { bankId: targetId === 'current' ? bank.id : targetId, title: null };
     try {
       if (useAi) {
-        const result = await aiImport(path, setActive, target);
+        const result = paths.length > 0 ? await aiImportFiles(paths, setActive, target) : await aiImport(path, setActive, target);
         setAiResult(result);
         setSummary(result.summary);
         onNotice(result.failed > 0 ? t("导入完成，{p0} 个文件转换失败", { p0: result.failed }) : t("AI 转换导入完成"));
       } else {
-        const value = await importBank(path, setActive, target);
+        const value = paths.length > 0 ? await importBankFiles(paths, setActive, target) : await importBank(path, setActive, target);
         setSummary(value);
         onNotice(t("题库导入完成"));
       }
@@ -133,6 +153,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
     setAiResult(null);
     setError('');
     setPath('');
+    setPaths([]);
     setTargetId('current');
     setNewTitle('');
     setProgress(null);
@@ -156,7 +177,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
           <button className="btn btn-ghost" onClick={close} disabled={busy}>
             {t("关闭")}
           </button>
-          <button className="btn btn-primary" onClick={() => void run()} disabled={!path || busy}>
+          <button className="btn btn-primary" onClick={() => void run()} disabled={(!path && paths.length === 0) || busy}>
             {busy ? t("导入中…") : useAi ? t("AI 转换并导入") : t("开始解析导入")}
           </button>
         </>
@@ -167,17 +188,26 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
       </div>
 
       <div className="mt-3 rounded-xl border border-dashed border-[var(--line)] bg-[var(--paper-2)] p-5 text-center">
-        <div className="text-[12px] text-[var(--ink-2)]">{t("把题库文件夹或 zip 选进来")}</div>
+        <div className="text-[12px] text-[var(--ink-2)]">{t("把题库文件夹、zip 或 md 文件选进来")}</div>
         <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("结构：模块目录 / 试卷.md / 90-图片")}</div>
-        <div className="flex justify-center gap-2 mt-3">
+        <div className="flex flex-wrap justify-center gap-2 mt-3">
           <button className="btn btn-ghost" onClick={() => void chooseFolder()} disabled={busy}>
             {t("选择文件夹")}
           </button>
           <button className="btn btn-ghost" onClick={() => void chooseZip()} disabled={busy}>
-            {t("选择 zip / md")}
+            {t("选择 zip")}
+          </button>
+          <button className="btn btn-ghost" onClick={() => void chooseMd()} disabled={busy}>
+            {t("选择 md（可多选）")}
           </button>
         </div>
+        <div className="text-[10px] text-[var(--muted)] mt-2">{t("一个或多个 md 文件会导入到同一个题库")}</div>
         {path ? <div className="text-[10.5px] text-[var(--accent-ink)] mt-3 break-all">{path}</div> : null}
+        {paths.length > 0 ? (
+          <div className="text-[10.5px] text-[var(--accent-ink)] mt-3 break-all">
+            {paths.length === 1 ? paths[0] : t("已选择 {p0} 个 Markdown 文件", { p0: paths.length })}
+          </div>
+        ) : null}
       </div>
 
       {bank ? (

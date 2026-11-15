@@ -1,5 +1,5 @@
 ﻿use crate::db::{
-    bank_conn, bank_by_id, ensure_active_bank, init_user, list_banks, open_user,
+    bank_by_id, bank_conn, bank_conn_rw, ensure_active_bank, init_user, list_banks, open_user,
     question_from_row, read_bank_counts, set_active_bank, user_db_path, QUESTION_COLUMNS,
 };
 use crate::i18n::{is_en, tr};
@@ -337,6 +337,16 @@ fn settings_map(conn: &Connection) -> HashMap<String, String> {
     result
 }
 
+fn public_settings(conn: &Connection) -> HashMap<String, String> {
+    let mut values = settings_map(conn);
+    let key_set = values
+        .remove("ai_key")
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    values.insert("ai_key_set".to_string(), if key_set { "1" } else { "0" }.to_string());
+    values
+}
+
 fn today_stats(conn: &Connection, bank_id: &str) -> Result<TodayDto, String> {
     let (answered, correct): (i64, i64) = conn
         .query_row(
@@ -632,8 +642,14 @@ fn load_questions_by_ids(bank: &Connection, ids: &[String]) -> Result<Vec<Questi
     let rows = stmt
         .query_map(rusqlite::params_from_iter(ids.iter()), question_from_row)
         .map_err(|error| error.to_string())?;
-    let map: HashMap<String, QuestionDto> = rows
-        .flatten()
+    let questions: Vec<QuestionDto> = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    if questions.len() != ids.len() {
+        return Err(tr("题库缺少部分题目，无法恢复本组练习", "Some questions are missing from the bank; this session cannot be restored").to_string());
+    }
+    let map: HashMap<String, QuestionDto> = questions
+        .into_iter()
         .map(|question| (question.id.clone(), question))
         .collect();
     Ok(ids.iter().filter_map(|id| map.get(id).cloned()).collect())
@@ -779,7 +795,7 @@ pub fn bootstrap(app: tauri::AppHandle) -> Result<Bootstrap, String> {
         years,
         regions,
         exam_types,
-        settings: settings_map(&user),
+        settings: public_settings(&user),
         today,
         streak,
         wrong_count,
@@ -1159,15 +1175,19 @@ pub fn save_answer(
         .optional()
         .map_err(|error| error.to_string())?;
     let was_submitted = old.map(|item| item.0).unwrap_or(false);
+    let old_correct = old.map(|item| item.1).unwrap_or(false);
     let should_submit = submitted && !selected.is_empty();
     let answered_at = now();
     user.execute(
         "INSERT INTO attempts (session_id,bank_id,question_id,paper_key,module,type,selected,submitted,correct,flagged,elapsed_ms,answered_at)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,COALESCE(?10,0),?11,?12)
          ON CONFLICT(session_id,question_id) DO UPDATE SET
-           selected=excluded.selected, submitted=excluded.submitted, correct=excluded.correct,
-           type=excluded.type, flagged=COALESCE(?10,attempts.flagged),
-           elapsed_ms=excluded.elapsed_ms, answered_at=excluded.answered_at",
+           selected=CASE WHEN attempts.submitted=1 THEN attempts.selected ELSE excluded.selected END,
+           submitted=CASE WHEN attempts.submitted=1 THEN 1 ELSE excluded.submitted END,
+           correct=CASE WHEN attempts.submitted=1 THEN attempts.correct ELSE excluded.correct END,
+           type=COALESCE(excluded.type, attempts.type), flagged=COALESCE(?10,attempts.flagged),
+           elapsed_ms=excluded.elapsed_ms,
+           answered_at=CASE WHEN attempts.submitted=1 THEN attempts.answered_at ELSE excluded.answered_at END",
         params![
             session_id,
             bank.id,
@@ -1224,7 +1244,7 @@ pub fn save_answer(
         .map_err(|error| error.to_string())?
         .unwrap_or((0, false));
     Ok(AnswerResult {
-        correct,
+        correct: if was_submitted { old_correct } else { correct },
         can_grade,
         answer,
         wrong_count,
@@ -1767,13 +1787,40 @@ pub fn update_question(
 #[tauri::command]
 pub fn get_settings(app: tauri::AppHandle) -> Result<HashMap<String, String>, String> {
     let user = open_user(&app)?;
-    Ok(settings_map(&user))
+    Ok(public_settings(&user))
 }
 
 #[tauri::command]
 pub fn set_settings(app: tauri::AppHandle, values: HashMap<String, String>) -> Result<(), String> {
+    const ALLOWED: &[&str] = &[
+        "ai_url",
+        "ai_key",
+        "ai_model",
+        "practice_mode",
+        "archive_streak",
+        "daily_goal",
+        "shortcuts",
+        "show_explanation",
+        "review_enabled",
+        "review_limit",
+        "auto_update_check",
+        "userName",
+        "userAvatar",
+        "lang",
+    ];
     let user = open_user(&app)?;
     for (key, value) in values {
+        if !ALLOWED.contains(&key.as_str()) {
+            return Err(tr("不允许修改该设置项", "This setting cannot be changed").to_string());
+        }
+        let value = if key == "ai_url" {
+            crate::ai::validate_ai_url(&value)?;
+            value
+        } else if key == "ai_key" && !value.trim().is_empty() {
+            crate::secret::encrypt(&app, value.trim())?
+        } else {
+            value
+        };
         user.execute(
             "INSERT INTO settings (key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             params![key, value],
@@ -1825,8 +1872,8 @@ pub fn stats(app: tauri::AppHandle, days: Option<i64>) -> Result<StatsDto, Strin
     }
     let mut stmt = user
         .prepare(
-            "SELECT module,type,COUNT(*),COALESCE(SUM(correct),0) FROM attempts
-             WHERE bank_id=?1 AND submitted=1 GROUP BY module,type HAVING COUNT(*)>=2
+            "SELECT COALESCE(module,''),COALESCE(type,''),COUNT(*),COALESCE(SUM(correct),0) FROM attempts
+             WHERE bank_id=?1 AND submitted=1 GROUP BY COALESCE(module,''),COALESCE(type,'') HAVING COUNT(*)>=2
              ORDER BY 1.0*SUM(correct)/COUNT(*) ASC LIMIT 4",
         )
         .map_err(|error| error.to_string())?;
@@ -1884,6 +1931,30 @@ pub fn switch_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn rename_bank(app: tauri::AppHandle, id: String, title: String) -> Result<BankDto, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err(tr("题库名称不能为空", "Bank name cannot be empty").to_string());
+    }
+    if title.chars().count() > 40 {
+        return Err(tr("题库名称不能超过 40 个字符", "Bank name cannot exceed 40 characters").to_string());
+    }
+    let user = open_user(&app)?;
+    let bank = bank_by_id(&user, &id)?;
+    user.execute("UPDATE banks SET title=?2 WHERE id=?1", params![id, title])
+        .map_err(|error| error.to_string())?;
+    let bank_db = bank_conn_rw(Path::new(&bank.path))?;
+    bank_db
+        .execute(
+            "INSERT INTO meta (key,value) VALUES ('title',?1)
+             ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![title],
+        )
+        .map_err(|error| error.to_string())?;
+    bank_by_id(&user, &id)
+}
+
+#[tauri::command]
 pub fn revalidate_bank(app: tauri::AppHandle, id: String) -> Result<BankDto, String> {
     let user = open_user(&app)?;
     let bank = bank_by_id(&user, &id)?;
@@ -1924,6 +1995,8 @@ pub fn delete_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
     user.execute("DELETE FROM notes WHERE bank_id=?1", params![id])
         .map_err(|error| error.to_string())?;
     user.execute("DELETE FROM reports WHERE bank_id=?1", params![id])
+        .map_err(|error| error.to_string())?;
+    user.execute("DELETE FROM import_reports WHERE bank_id=?1", params![id])
         .map_err(|error| error.to_string())?;
     Ok(())
 }
@@ -1974,11 +2047,57 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
         return Err(tr("不是有效的刷题盒子备份", "Not a valid SHUATIBOX backup").to_string());
     }
     let target = user_db_path(&app)?;
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = std::fs::remove_file(format!("{}{}", target.to_string_lossy(), suffix));
+    let source_canon = source.canonicalize().map_err(|error| error.to_string())?;
+    let target_canon = target.canonicalize().unwrap_or_else(|_| target.clone());
+    if source_canon == target_canon {
+        return Err(tr("不能从当前数据库恢复到自身", "Cannot restore the current database onto itself").to_string());
     }
-    std::fs::copy(source, target).map_err(|error| error.to_string())?;
-    init_user(&app)?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or(0);
+    let temp = target.with_file_name(format!(".user-{stamp}.importing"));
+    let backup = target.with_file_name(format!(".user-{stamp}.backup"));
+    let _ = std::fs::remove_file(&temp);
+    let _ = std::fs::remove_file(&backup);
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    std::fs::copy(&source, &temp).map_err(|error| error.to_string())?;
+    let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for suffix in ["", "-wal", "-shm"] {
+        let from = PathBuf::from(format!("{}{}", target.to_string_lossy(), suffix));
+        if from.exists() {
+            let to = PathBuf::from(format!("{}{}", backup.to_string_lossy(), suffix));
+            if let Err(error) = std::fs::rename(&from, &to) {
+                for (from, to) in moved.iter().rev() {
+                    let _ = std::fs::rename(to, from);
+                }
+                let _ = std::fs::remove_file(&temp);
+                return Err(error.to_string());
+            }
+            moved.push((from, to));
+        }
+    }
+    if let Err(error) = std::fs::rename(&temp, &target) {
+        for (from, to) in moved.iter().rev() {
+            let _ = std::fs::rename(to, from);
+        }
+        let _ = std::fs::remove_file(&temp);
+        return Err(error.to_string());
+    }
+    if let Err(error) = init_user(&app) {
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{}", target.to_string_lossy(), suffix));
+        }
+        for (from, to) in moved.iter().rev() {
+            let _ = std::fs::rename(to, from);
+        }
+        return Err(error);
+    }
+    for (_, to) in moved {
+        let _ = std::fs::remove_file(to);
+    }
     // ponytail: 备份可能被篡改，剔除 banks 表中指向数据目录之外的条目，避免后续删库误伤
     let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
     let user = open_user(&app)?;
@@ -2038,6 +2157,17 @@ pub fn import_into_bank(
     set_active: Option<bool>,
 ) -> Result<ImportSummary, String> {
     crate::importer::import_into_bank(&app, &path, bank_id, title, set_active.unwrap_or(true))
+}
+
+#[tauri::command]
+pub fn import_bank_files(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    bank_id: Option<String>,
+    title: Option<String>,
+    set_active: Option<bool>,
+) -> Result<ImportSummary, String> {
+    crate::importer::import_bank_files(&app, &paths, bank_id, title, set_active.unwrap_or(true))
 }
 
 #[tauri::command]

@@ -181,6 +181,20 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     }
 
+    if let Ok(Some(stored)) = conn
+        .query_row("SELECT value FROM settings WHERE key='ai_key'", [], |row| row.get::<_, String>(0))
+        .optional()
+    {
+        if !stored.trim().is_empty() && !stored.starts_with("enc:v1:") {
+            if let Ok(encrypted) = crate::secret::encrypt(app, stored.trim()) {
+                let _ = conn.execute(
+                    "UPDATE settings SET value=?1 WHERE key='ai_key'",
+                    rusqlite::params![encrypted],
+                );
+            }
+        }
+    }
+
     seed_review_items(&conn)?;
 
     let count: i64 = conn

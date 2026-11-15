@@ -50,7 +50,7 @@
 - Statistics: daily volume, accuracy, weak question types, exam history
 - Appearance: light/dark, 5 accent colors and 4 reading text sizes
 - Bilingual UI: switch between Chinese and English in Settings; defaults to the system language. AI explanations and import messages follow the UI language
-- Bank management: import and switch between multiple question banks; imports can append to the current bank, an existing bank, or a new bank, existing papers are skipped (never overwritten), and the import report lists invalid questions and missing images
+- Bank management: import and switch between multiple question banks; import one or more `.md` files directly (images are copied automatically), or import a folder or zip; rename banks; imports can append to the current bank, an existing bank, or a new bank, duplicate questions are skipped (never overwritten), and the import report lists invalid questions and missing images
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
 - AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
@@ -88,7 +88,7 @@ npm run tauri -- android build --debug --target aarch64 --apk
 
 ## Question Bank Format
 
-Import a folder of Markdown files or a zip. Each `.md` file is one module of one paper, starting with frontmatter:
+Import a folder of Markdown files, one or more `.md` files, or a zip. Each `.md` file is one module of one paper, starting with frontmatter:
 
 ```markdown
 ---

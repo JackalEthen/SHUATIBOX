@@ -14,6 +14,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import org.json.JSONArray
 import java.io.File
 
 @InvokeArg
@@ -32,6 +33,23 @@ class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
         try {
             if (kind == "folder") {
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivityForResult(invoke, intent, "pickResult")
+            } else if (kind == "md") {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf(
+                            "text/markdown",
+                            "text/x-markdown",
+                            "text/plain",
+                            "application/octet-stream",
+                        ),
+                    )
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 startActivityForResult(invoke, intent, "pickResult")
@@ -56,21 +74,34 @@ class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.reject("已取消选择")
             return
         }
-        val uri: Uri? = result.data?.data
-        if (uri == null) {
+        val uris = mutableListOf<Uri>()
+        result.data?.clipData?.let { clip ->
+            for (index in 0 until clip.itemCount) {
+                uris.add(clip.getItemAt(index).uri)
+            }
+        }
+        result.data?.data?.let { uri ->
+            if (!uris.contains(uri)) uris.add(uri)
+        }
+        if (uris.isEmpty()) {
             invoke.reject("未获取到文件")
             return
         }
-        try {
-            activity.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        } catch (error: Exception) {
-            Log.e("SafCopy", "takePersistableUriPermission failed", error)
+        for (uri in uris) {
+            try {
+                activity.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            } catch (error: Exception) {
+                Log.e("SafCopy", "takePersistableUriPermission failed", error)
+            }
         }
         val ret = JSObject()
-        ret.put("uri", uri.toString())
+        ret.put("uri", uris.first().toString())
+        val array = JSONArray()
+        uris.forEach { array.put(it.toString()) }
+        ret.put("uris", array)
         invoke.resolve(ret)
     }
 

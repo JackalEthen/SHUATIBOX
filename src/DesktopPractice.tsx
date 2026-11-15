@@ -19,7 +19,7 @@ import {
   type SessionView,
 } from './api';
 import { AiTutor } from './AiTutor';
-import { Icon } from './icons';
+import { AiMark, Icon } from './icons';
 import { Modal } from './Modal';
 
 interface Props {
@@ -206,7 +206,7 @@ export function DesktopPractice({
   const questionStart = useRef(Date.now());
   const question = questions[index];
   const [aiReady, setAiReady] = useState(() =>
-    Boolean(settings.ai_url && settings.ai_key && settings.ai_model),
+    Boolean(settings.ai_url && settings.ai_key_set === '1' && settings.ai_model),
   );
 
   useEffect(() => {
@@ -221,7 +221,7 @@ export function DesktopPractice({
 
   useEffect(() => {
     getSettings()
-      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key && values.ai_model)))
+      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key_set === '1' && values.ai_model)))
       .catch(() => undefined);
   }, []);
 
@@ -260,16 +260,16 @@ export function DesktopPractice({
         setIndex((value) => Math.max(0, value - 1));
       } else if (event.key === 'ArrowRight') {
         setIndex((value) => Math.min(questions.length - 1, value + 1));
+      } else if (key === 'F') {
+        toggleFlag();
       } else if (/^[A-H]$/.test(key)) {
         const option = question.options.find((item) => item.label === key);
         if (option) choose(key);
-      } else if (key === 'F') {
-        toggleFlag();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [question, selected, submitted, index]);
+  }, [question, selected, submitted, index, flags, mode, isExam, busy]);
 
   useEffect(() => {
     if (result || view.session.durationSec <= 0 || view.session.status !== 'active') return;
@@ -655,7 +655,7 @@ export function DesktopPractice({
                   aria-disabled={!aiReady}
                   style={aiReady ? undefined : { opacity: 0.35 }}
                 >
-                  <Icon name="sparkle" />
+                  <AiMark />
                 </button>
                 <button
                   className="icon-btn"

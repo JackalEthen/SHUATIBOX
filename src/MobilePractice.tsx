@@ -18,7 +18,7 @@ import {
   type SessionView,
 } from './api';
 import { AiTutor } from './AiTutor';
-import { Icon } from './icons';
+import { AiMark, Icon } from './icons';
 import type { PracticeQuestion } from './questions';
 
 interface Props {
@@ -74,7 +74,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiReady, setAiReady] = useState(() =>
-    Boolean(settings.ai_url && settings.ai_key && settings.ai_model),
+    Boolean(settings.ai_url && settings.ai_key_set === '1' && settings.ai_model),
   );
   const [result, setResult] = useState<FinishResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -122,20 +122,6 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   };
 
   useEffect(() => {
-    if (!isExam) return;
-    const timer = window.setInterval(() => {
-      setRemaining((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer);
-          return 0;
-        }
-        return value - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [isExam]);
-
-  useEffect(() => {
     startedAt.current = Date.now();
     setAiOpen(false);
     if (!question) return;
@@ -145,7 +131,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
 
   useEffect(() => {
     getSettings()
-      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key && values.ai_model)))
+      .then((values) => setAiReady(Boolean(values.ai_url && values.ai_key_set === '1' && values.ai_model)))
       .catch(() => undefined);
   }, []);
 
@@ -245,6 +231,22 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       setConfirmSubmit(false);
     }
   }, [view.session.id, onNotice, onFinished]);
+
+  useEffect(() => {
+    if (!isExam || result || view.session.durationSec <= 0) return;
+    const timer = window.setInterval(() => {
+      const left = Math.max(
+        0,
+        view.session.durationSec - elapsedSeconds(view.session.createdAt),
+      );
+      setRemaining(left);
+      if (left <= 0) {
+        window.clearInterval(timer);
+        void finish();
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isExam, result, finish, view.session.durationSec, view.session.createdAt]);
 
   const toggleFlag = useCallback(async () => {
     if (!question) return;
@@ -493,7 +495,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             else onNotice(t("请先在设置中配置 AI 接口"));
           }}
         >
-          <Icon name="sparkle" />
+          <AiMark />
         </button>
         <button className="icon-btn" aria-label={t("标记")} style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined} onClick={() => void toggleFlag()}>
           <Icon name="check" />

@@ -5,6 +5,7 @@ mod i18n;
 mod importer;
 mod models;
 mod saf;
+mod secret;
 mod update;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,6 +49,7 @@ pub fn run() {
             commands::stats,
             commands::list_banks_cmd,
             commands::switch_bank,
+            commands::rename_bank,
             commands::revalidate_bank,
             commands::delete_bank,
             commands::export_backup,
@@ -55,14 +57,17 @@ pub fn run() {
             commands::clear_history,
             commands::import_bank,
             commands::import_into_bank,
+            commands::import_bank_files,
             ai::ai_import,
+            ai::ai_import_files,
             ai::ai_chat,
             ai::ai_cancel,
             ai::ai_test,
             commands::save_avatar,
             commands::load_practice_questions,
             saf::saf_materialize,
-            saf::saf_pick
+            saf::saf_pick,
+            saf::saf_pick_many
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

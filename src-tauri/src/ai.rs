@@ -41,6 +41,31 @@ impl AiConfig {
     }
 }
 
+pub(crate) fn validate_ai_url(value: &str) -> Result<(), String> {
+    let lower = value.trim().to_ascii_lowercase();
+    if let Some(rest) = lower.strip_prefix("https://") {
+        if rest.is_empty() || rest.starts_with('/') {
+            return Err(tr("AI 接口地址无效", "Invalid AI endpoint").to_string());
+        }
+        return Ok(());
+    }
+    if let Some(rest) = lower.strip_prefix("http://") {
+        let host = if rest.starts_with('[') {
+            rest.find(']').map(|index| &rest[..=index])
+        } else {
+            rest.split(|ch| ch == '/' || ch == ':' || ch == '?').next()
+        };
+        if matches!(host, Some("localhost") | Some("127.0.0.1") | Some("[::1]")) {
+            return Ok(());
+        }
+    }
+    Err(tr(
+        "AI 接口地址必须使用 https（本机地址可用 http）",
+        "AI endpoint must use https (http is allowed only for localhost)",
+    )
+    .to_string())
+}
+
 struct CancelState {
     active: HashMap<String, tokio::sync::oneshot::Sender<()>>,
     cancelled: HashSet<String>,
@@ -110,6 +135,31 @@ pub async fn ai_import(
     result
 }
 
+#[tauri::command]
+pub async fn ai_import_files(
+    app: AppHandle,
+    paths: Vec<String>,
+    set_active: Option<bool>,
+    bank_id: Option<String>,
+    title: Option<String>,
+) -> Result<AiImportSummary, String> {
+    let set_active = set_active.unwrap_or(true);
+    let config = load_config(&app)?;
+    let base = base_dir(&app)?;
+    emit(&app, "prepare", 0, 0, tr("准备文件", "Preparing files"));
+    let (temp_root, root) = crate::importer::stage_markdown_files(&base, &paths)?;
+    let title = title.or_else(|| {
+        paths
+            .first()
+            .and_then(|path| Path::new(path).file_stem())
+            .map(|value| value.to_string_lossy().to_string())
+            .filter(|value| !value.trim().is_empty())
+    });
+    let result = run_import(&app, &config, &root, set_active, bank_id, title).await;
+    let _ = fs::remove_dir_all(temp_root);
+    result
+}
+
 fn load_config(app: &AppHandle) -> Result<AiConfig, String> {
     let user = open_user(app)?;
     let mut stmt = user
@@ -123,11 +173,13 @@ fn load_config(app: &AppHandle) -> Result<AiConfig, String> {
         map.insert(row.0, row.1);
     }
     let url = map.get("ai_url").cloned().unwrap_or_default().trim().to_string();
-    let key = map.get("ai_key").cloned().unwrap_or_default().trim().to_string();
+    let stored_key = map.get("ai_key").cloned().unwrap_or_default();
+    let key = crate::secret::decrypt(app, stored_key.trim())?.trim().to_string();
     let model = map.get("ai_model").cloned().unwrap_or_default().trim().to_string();
     if url.is_empty() || key.is_empty() || model.is_empty() {
         return Err(tr("请先在设置中填写 AI 接口地址、密钥和模型", "Set the AI endpoint, key, and model in Settings first").to_string());
     }
+    validate_ai_url(&url)?;
     Ok(AiConfig { url, key, model })
 }
 
@@ -1134,6 +1186,16 @@ fn emit(app: &AppHandle, phase: &str, current: i64, total: i64, message: impl In
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ai_url_requires_safe_scheme() {
+        assert!(validate_ai_url("https://api.deepseek.com/v1").is_ok());
+        assert!(validate_ai_url("http://localhost:11434/v1").is_ok());
+        assert!(validate_ai_url("http://127.0.0.1:8080").is_ok());
+        assert!(validate_ai_url("http://example.com/v1").is_err());
+        assert!(validate_ai_url("http://localhost.evil.com/v1").is_err());
+        assert!(validate_ai_url("file:///tmp/key").is_err());
+    }
 
     #[test]
     fn chunks_respect_headings() {

@@ -4,10 +4,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  header?: ReactNode;
   closable?: boolean;
 }
 
-export function MobileSheet({ open, onClose, children, closable = true }: Props) {
+export function MobileSheet({ open, onClose, children, header, closable = true }: Props) {
   useEffect(() => {
     if (!open || !closable) return;
     const onKey = (event: KeyboardEvent) => {
@@ -23,7 +24,10 @@ export function MobileSheet({ open, onClose, children, closable = true }: Props)
   };
   return (
     <div className="sheet open" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-      <div className="sheet-card">{children}</div>
+      <div className={`sheet-card${header ? ' sheet-fixed' : ''}`}>
+        {header ? <div className="sheet-header">{header}</div> : null}
+        <div className={header ? 'sheet-body' : undefined}>{children}</div>
+      </div>
     </div>
   );
 }

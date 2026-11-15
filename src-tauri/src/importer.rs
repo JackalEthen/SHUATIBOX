@@ -6,7 +6,7 @@ use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
-
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -318,6 +318,15 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             message,
         });
     };
+    let warn_file = |issues: &mut Vec<Issue>, code: &str, line: usize, message: String| {
+        issues.push(Issue {
+            level: "warning",
+            code: code.to_string(),
+            file: file.to_string(),
+            line,
+            message,
+        });
+    };
     if matches!(meta_string(&meta, &["类型", "Type"]).as_str(), "模块索引" | "Module Index") {
         return ParsedFile {
             file: file.to_string(),
@@ -389,7 +398,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         if let Some(state) = material.take() {
             if state.q_count == 0 {
                 issues.push(Issue {
-                    level: "file",
+                    level: "warning",
                     code: "empty-material".to_string(),
                     file: file.to_string(),
                     line: state.line,
@@ -669,10 +678,10 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             let number: usize = capture.get(1).map(|value| value.as_str()).unwrap_or("0").parse().unwrap_or(0);
             content_started = true;
             if number < 1 {
-                file_issue(&mut issues, "material-number", line_no, if is_en() { format!("Material number must be a positive integer: {number}") } else { format!("材料编号必须为正整数：{number}") });
+                warn_file(&mut issues, "material-number", line_no, if is_en() { format!("Material number must be a positive integer: {number}") } else { format!("材料编号必须为正整数：{number}") });
             }
             if !material_numbers.insert(number) {
-                file_issue(&mut issues, "duplicate-material", line_no, if is_en() { format!("Duplicate material number: {number}") } else { format!("材料编号重复：{number}") });
+                warn_file(&mut issues, "duplicate-material", line_no, if is_en() { format!("Duplicate material number: {number}") } else { format!("材料编号重复：{number}") });
             }
             current_material = Some(MaterialState { number, line: line_no, content: Vec::new(), q_count: 0 });
             continue;
@@ -694,13 +703,13 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
             if level == "##" {
                 close_material(&mut issues, &mut current_material, &mut materials);
             } else if material_number.is_none() {
-                file_issue(&mut issues, "h3-outside-material", line_no, tr("### 小题只能出现在 ## 材料 N 内", "### subquestions may only appear inside ## Material N").to_string());
+                warn_file(&mut issues, "h3-outside-material", line_no, tr("### 小题只能出现在 ## 材料 N 内", "### subquestions may only appear inside ## Material N").to_string());
             }
             if number < 1 {
-                file_issue(&mut issues, "question-number", line_no, if is_en() { format!("Question number must be a positive integer: {number}") } else { format!("题号必须为正整数：{number}") });
+                warn_file(&mut issues, "question-number", line_no, if is_en() { format!("Question number must be a positive integer: {number}") } else { format!("题号必须为正整数：{number}") });
             }
             if !question_numbers.insert(number) {
-                file_issue(&mut issues, "duplicate-number", line_no, if is_en() { format!("Duplicate question number: {number}") } else { format!("题号重复：{number}") });
+                warn_file(&mut issues, "duplicate-number", line_no, if is_en() { format!("Duplicate question number: {number}") } else { format!("题号重复：{number}") });
             }
             let mut state = QuestionState {
                 number,
@@ -738,18 +747,28 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
         }
         if line.starts_with("# ") {
             if first_question_seen || content_started || h1_seen {
-                file_issue(&mut issues, "h1-after-content", line_no, tr("一级标题只能出现一次且在所有题目之前", "The H1 may appear only once, before all questions").to_string());
+                if let Some(state) = current_question.take() {
+                    finalize(state, &mut questions);
+                }
+                warn_file(&mut issues, "h1-after-content", line_no, tr("一级标题只能出现一次且在所有题目之前", "The H1 may appear only once, before all questions").to_string());
             } else {
                 h1_seen = true;
             }
             continue;
         }
         if line.starts_with("## ") {
-            file_issue(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H2 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的二级标题：{}", trimmed.chars().take(60).collect::<String>()) });
+            if let Some(state) = current_question.take() {
+                finalize(state, &mut questions);
+            }
+            close_material(&mut issues, &mut current_material, &mut materials);
+            warn_file(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H2 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的二级标题：{}", trimmed.chars().take(60).collect::<String>()) });
             continue;
         }
         if line.starts_with("### ") {
-            file_issue(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H3 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的三级标题：{}", trimmed.chars().take(60).collect::<String>()) });
+            if let Some(state) = current_question.take() {
+                finalize(state, &mut questions);
+            }
+            warn_file(&mut issues, "unknown-heading", line_no, if is_en() { format!("Unrecognized H3 heading: {}", trimmed.chars().take(60).collect::<String>()) } else { format!("无法识别的三级标题：{}", trimmed.chars().take(60).collect::<String>()) });
             continue;
         }
         if let Some(question) = &mut current_question {
@@ -869,7 +888,7 @@ fn parse_file(text: &str, file: &str, module_from_dir: &str) -> ParsedFile {
     if let Some(declared) = meta_value(&meta, &["题数", "Question Count"]).filter(|value| !value.is_empty()) {
         match declared.parse::<usize>() {
             Ok(count) if count == questions.len() => {}
-            Ok(count) => file_issue(&mut issues, "count-mismatch", 1, if is_en() { format!("Question Count declares {count}, parsed {} headings", questions.len()) } else { format!("题数 声明 {count}，实际解析 {} 道标题", questions.len()) }),
+            Ok(count) => warn_file(&mut issues, "count-mismatch", 1, if is_en() { format!("Question Count declares {count}, parsed {} headings", questions.len()) } else { format!("题数 声明 {count}，实际解析 {} 道标题", questions.len()) }),
             Err(_) => issues.push(Issue {
                 level: "warning",
                 code: "count-invalid".to_string(),
@@ -1094,10 +1113,40 @@ impl<'a> ImageStore<'a> {
     }
 }
 
+fn replace_file_atomic(temp: &Path, target: &Path) -> Result<Option<PathBuf>, String> {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or(0);
+    let backup = target.with_extension(format!("bak-{stamp}"));
+    let had_target = target.exists();
+    if had_target {
+        let _ = fs::remove_file(&backup);
+        fs::rename(target, &backup).map_err(|error| error.to_string())?;
+    }
+    match fs::rename(temp, target) {
+        Ok(()) => Ok(if had_target { Some(backup) } else { None }),
+        Err(error) => {
+            if had_target {
+                let _ = fs::rename(&backup, target);
+            }
+            Err(error.to_string())
+        }
+    }
+}
+
 pub(crate) fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> {
+    const MAX_ENTRIES: usize = 10_000;
+    const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
+    const MAX_TOTAL_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
     fs::create_dir_all(target).map_err(|error| error.to_string())?;
     let file = File::open(zip_path).map_err(|error| error.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|error| error.to_string())?;
+    if archive.len() > MAX_ENTRIES {
+        return Err(format!("zip has too many entries: {} > {}", archive.len(), MAX_ENTRIES));
+    }
+    let mut total = 0u64;
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|error| error.to_string())?;
         let Some(relative) = entry.enclosed_name() else { continue };
@@ -1106,11 +1155,22 @@ pub(crate) fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> 
             fs::create_dir_all(&out).map_err(|error| error.to_string())?;
             continue;
         }
+        if entry.size() > MAX_ENTRY_BYTES {
+            return Err(format!("zip entry too large: {} bytes", entry.size()));
+        }
         if let Some(parent) = out.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
         let mut output = File::create(&out).map_err(|error| error.to_string())?;
-        std::io::copy(&mut entry, &mut output).map_err(|error| error.to_string())?;
+        let mut limited = (&mut entry).take(MAX_ENTRY_BYTES + 1);
+        let copied = std::io::copy(&mut limited, &mut output).map_err(|error| error.to_string())?;
+        if copied > MAX_ENTRY_BYTES {
+            return Err("zip entry exceeds the extracted size limit".to_string());
+        }
+        total = total.saturating_add(copied);
+        if total > MAX_TOTAL_BYTES {
+            return Err(format!("zip exceeds the total extracted size limit: {MAX_TOTAL_BYTES} bytes"));
+        }
     }
     Ok(())
 }
@@ -1123,6 +1183,140 @@ pub(crate) fn make_temp_dir(base: &Path, tag: &str) -> Result<PathBuf, String> {
     let path = base.join("import-tmp").join(format!("{tag}-{nanos}"));
     fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     Ok(path)
+}
+
+fn image_refs(text: &str) -> Vec<String> {
+    let img_re = re(r#"(?is)<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#);
+    let markdown_re = re(r#"!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)"#);
+    let mut result = Vec::new();
+    for captures in img_re.captures_iter(text) {
+        if let Some(src) = captures.get(1).or_else(|| captures.get(2)).or_else(|| captures.get(3)) {
+            result.push(src.as_str().to_string());
+        }
+    }
+    for captures in markdown_re.captures_iter(text) {
+        if let Some(src) = captures.get(2) {
+            result.push(src.as_str().to_string());
+        }
+    }
+    result
+}
+
+fn safe_segment(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_alphanumeric() || ('\u{4e00}'..='\u{9fff}').contains(&ch) {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim_matches('-').chars().take(40).collect::<String>();
+    if cleaned.is_empty() { "bank".to_string() } else { cleaned }
+}
+
+pub(crate) fn stage_markdown_files(
+    base: &Path,
+    paths: &[String],
+) -> Result<(PathBuf, PathBuf), String> {
+    if paths.is_empty() {
+        return Err(tr("请选择 Markdown 文件", "Choose Markdown files").to_string());
+    }
+    let temp_root = make_temp_dir(base, "md")?;
+    let root = temp_root.join("files");
+    fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    for (index, raw) in paths.iter().enumerate() {
+        let source = PathBuf::from(raw);
+        let is_markdown = source
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(|value| {
+                let value = value.to_ascii_lowercase();
+                value == "md" || value == "markdown"
+            })
+            .unwrap_or(false);
+        if !source.is_file() || !is_markdown {
+            return Err(tr("请选择 Markdown 文件", "Choose Markdown files").to_string());
+        }
+        let stem = source
+            .file_stem()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let parent = source
+            .parent()
+            .and_then(|value| value.file_name())
+            .map(|value| value.to_string_lossy().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or(stem);
+        let dir = root.join(format!("{:02}-{}", index + 1, safe_segment(&parent)));
+        fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+        let name = source
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("{:02}.md", index + 1));
+        fs::copy(&source, dir.join(&name)).map_err(|error| error.to_string())?;
+
+        let text = fs::read_to_string(&source).unwrap_or_default();
+        for reference in image_refs(&text) {
+            let clean = reference
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .replace("&amp;", "&")
+                .replace("%20", " ");
+            if clean.is_empty()
+                || clean.starts_with("http://")
+                || clean.starts_with("https://")
+                || clean.starts_with("data:")
+                || clean.starts_with("asset:")
+                || clean.starts_with('/')
+                || clean.contains(':')
+                || clean.split(|ch| ch == '/' || ch == '\\').any(|part| part == "..")
+            {
+                continue;
+            }
+            let from = source.parent().unwrap_or(Path::new(".")).join(&clean);
+            if !from.is_file() {
+                continue;
+            }
+            let target = dir.join(&clean);
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+            }
+            fs::copy(&from, &target).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok((temp_root, root))
+}
+
+pub fn import_bank_files(
+    app: &tauri::AppHandle,
+    paths: &[String],
+    target_bank_id: Option<String>,
+    title_hint: Option<String>,
+    set_active: bool,
+) -> Result<ImportSummary, String> {
+    let base = base_dir(app)?;
+    let (temp_root, root) = stage_markdown_files(&base, paths)?;
+    let title = title_hint.or_else(|| {
+        paths
+            .first()
+            .and_then(|path| Path::new(path).file_stem())
+            .map(|value| value.to_string_lossy().to_string())
+            .filter(|value| !value.trim().is_empty())
+    });
+    let result = import_bank_ex(
+        app,
+        &root.to_string_lossy(),
+        target_bank_id,
+        title,
+        set_active,
+        true,
+    );
+    let _ = fs::remove_dir_all(temp_root);
+    result
 }
 
 const BANK_SCHEMA: &str = "
@@ -1243,6 +1437,7 @@ fn import_bank_ex(
         }
     }
     let source_root = existing_source.unwrap_or_else(|| root.to_string_lossy().to_string());
+    let mut replaced_backup: Option<PathBuf> = None;
 
     let result = (|| -> Result<ImportSummary, String> {
         let db = Connection::open(&db_path).map_err(|error| error.to_string())?;
@@ -1250,15 +1445,16 @@ fn import_bank_ex(
         db.execute_batch(BANK_SCHEMA)
         .map_err(|error| error.to_string())?;
 
-        let skip_papers: HashSet<String> = if existing_bank.is_some() {
-            let mut stmt = db.prepare("SELECT key FROM papers").map_err(|error| error.to_string())?;
+        let mut seen_ids: HashSet<String> = HashSet::new();
+        if existing_bank.is_some() {
+            let mut stmt = db.prepare("SELECT id FROM questions").map_err(|error| error.to_string())?;
             let rows = stmt
                 .query_map([], |row| row.get::<_, String>(0))
                 .map_err(|error| error.to_string())?;
-            rows.flatten().collect()
-        } else {
-            HashSet::new()
-        };
+            for row in rows.flatten() {
+                seen_ids.insert(row);
+            }
+        }
 
 
         let mut insert_paper = db.prepare("INSERT OR REPLACE INTO papers (key,title,year,region,exam_type,question_count,module_count) VALUES (?,?,?,?,?,?,?)").map_err(|error| error.to_string())?;
@@ -1302,7 +1498,7 @@ fn import_bank_ex(
                     continue;
                 }
             };
-            let parsed = parse_file(&text, &relative, &module_from_path(&relative));
+            let mut parsed = parse_file(&text, &relative, &module_from_path(&relative));
             if parsed.skipped {
                 skipped += 1;
                 continue;
@@ -1311,13 +1507,6 @@ fn import_bank_ex(
                 file_errors += 1;
                 for issue in parsed.issues.iter().filter(|issue| issue.level == "file") {
                     issues_out.push(format!("{}:{} {}", issue.file, issue.line, issue.message));
-                }
-                continue;
-            }
-            if skip_papers.contains(&parsed.paper_key) {
-                skipped += 1;
-                if issues_out.len() < 500 {
-                    issues_out.push(if is_en() { format!("{}:0 paper already exists; skipped: {}", relative, parsed.paper) } else { format!("{}:0 试卷已存在，已跳过：{}", relative, parsed.paper) });
                 }
                 continue;
             }
@@ -1337,18 +1526,22 @@ fn import_bank_ex(
                 )
             });
             paper.5.insert(parsed.module.clone());
-            let material_by_key: HashMap<String, &ParsedMaterial> = parsed.materials.iter().map(|item| (item.key.clone(), item)).collect();
-            for material in &parsed.materials {
+            let mut material_images: HashMap<usize, (String, bool, bool)> = HashMap::new();
+            for material in &mut parsed.materials {
                 let image = image_store.process(&material.content, full);
                 if image.missing {
                     image_missing_total += 1;
                 }
+                material.content = image.text.clone();
+                material_images.insert(material.number, (image.text, image.has_image, image.missing));
+            }
+            for material in &parsed.materials {
                 insert_material
                     .execute(params![
                         material.key,
                         parsed.paper_key,
                         if is_en() { format!("Material {}", material.number) } else { format!("材料 {}", material.number) },
-                        image.text,
+                        material.content,
                         relative,
                         material.line as i64
                     ])
@@ -1358,6 +1551,13 @@ fn import_bank_ex(
             for mut question in parsed.questions {
                 if question.status == "invalid" {
                     invalid += 1;
+                    continue;
+                }
+                if !seen_ids.insert(question.id.clone()) {
+                    skipped += 1;
+                    if issues_out.len() < 500 {
+                        issues_out.push(if is_en() { format!("{}:{} duplicate question id; skipped: {}", relative, question.line, question.id) } else { format!("{}:{} 题目 id 重复，已跳过：{}", relative, question.line, question.id) });
+                    }
                     continue;
                 }
                 for issue in question.issues.iter().filter(|issue| issue.level != "warning") {
@@ -1379,19 +1579,12 @@ fn import_bank_ex(
                     has_image |= option_image.has_image;
                     missing |= option_image.missing;
                 }
-                if let Some(material_number) = question.material_number {
-                    if let Some(material) = material_by_key.get(&question.material_key.clone().unwrap_or_default()) {
-                        let _ = material_number;
-                        let _ = material;
-                        missing |= false;
-                    }
-                }
-                if let Some(material) = question.material_number.and_then(|number| {
-                    parsed.materials.iter().find(|item| item.number == number)
-                }) {
-                    let image = image_store.process(&material.content, full);
-                    missing |= image.missing;
-                    has_image |= image.has_image;
+                if let Some((_, material_has_image, material_missing)) = question
+                    .material_number
+                    .and_then(|number| material_images.get(&number))
+                {
+                    missing |= *material_missing;
+                    has_image |= *material_has_image;
                 }
                 if has_image {
                     image_questions += 1;
@@ -1417,7 +1610,7 @@ fn import_bank_ex(
                         question.explanation,
                         question.material_key,
                         question.material_number.map(|number| if is_en() { format!("Material {number}") } else { format!("材料 {number}") }),
-                        question.material_number.and_then(|number| parsed.materials.iter().find(|item| item.number == number).map(|item| image_store.process(&item.content, full).text)),
+                        question.material_number.and_then(|number| material_images.get(&number).map(|(text, _, _)| text.clone())),
                         question.status,
                         if question.can_grade { 1 } else { 0 },
                         if question.answer_conflict { 1 } else { 0 },
@@ -1517,10 +1710,7 @@ fn import_bank_ex(
         drop(insert_question);
         if let Err((_, error)) = db.close() { return Err(error.to_string()); }
         if let Some(temp) = &temp_db {
-            if final_db.exists() {
-                fs::remove_file(&final_db).map_err(|error| error.to_string())?;
-            }
-            fs::rename(temp, &final_db).map_err(|error| error.to_string())?;
+            replaced_backup = replace_file_atomic(temp, &final_db)?;
         }
         let user = open_user(app)?;
         let keep_active = set_active || existing_bank.as_ref().map(|bank| bank.active).unwrap_or(false);
@@ -1551,11 +1741,19 @@ fn import_bank_ex(
         let _ = fs::remove_dir_all(dir);
     }
     if result.is_err() {
+        if let Some(backup) = &replaced_backup {
+            for suffix in ["", "-wal", "-shm"] {
+                let _ = fs::remove_file(format!("{}{}", final_db.to_string_lossy(), suffix));
+            }
+            let _ = fs::rename(backup, &final_db);
+        }
         if let Some(temp) = &temp_db {
             for suffix in ["", "-wal", "-shm"] {
                 let _ = fs::remove_file(format!("{}{}", temp.to_string_lossy(), suffix));
             }
         }
+    } else if let Some(backup) = replaced_backup {
+        let _ = fs::remove_file(backup);
     }
     result
 }
@@ -1605,6 +1803,50 @@ mod tests {
         assert_eq!(a.paper_key, b.paper_key);
         assert_eq!(a.questions.len(), 1);
         assert_eq!(b.questions.len(), 1);
+    }
+
+    #[test]
+    fn stages_multiple_markdown_files_into_one_root() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join(format!("md-stage-{nanos}"));
+        let first = base.join("a");
+        let second = base.join("b");
+        fs::create_dir_all(first.join("images")).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        fs::write(first.join("one.md"), "![x](images/x.png)\n").unwrap();
+        fs::write(first.join("images/x.png"), b"png").unwrap();
+        fs::write(second.join("two.md"), "---\nPaper: \"B\"\n---\n").unwrap();
+        let paths = vec![
+            first.join("one.md").to_string_lossy().to_string(),
+            second.join("two.md").to_string_lossy().to_string(),
+        ];
+        let (temp_root, root) = stage_markdown_files(&base, &paths).unwrap();
+        assert!(root.join("01-a/one.md").is_file());
+        assert!(root.join("01-a/images/x.png").is_file());
+        assert!(root.join("02-b/two.md").is_file());
+        let _ = fs::remove_dir_all(temp_root);
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn unknown_heading_keeps_rest_of_file() {
+        let text = "---\nPaper: \"P\"\nModule: \"M\"\nYear: \"2024\"\n---\n\n## Question 1\n\nStem\n- **A**. One\n- **B**. Two\n\n**Answer**: A\n\n## Unrecognized\n\nignored text\n";
+        let parsed = parse_file(text, "mixed.md", "");
+        assert!(!parsed.has_file_error);
+        assert_eq!(parsed.questions.len(), 1);
+        assert_eq!(parsed.questions[0].stem, "Stem");
+        assert!(parsed.issues.iter().any(|issue| issue.code == "unknown-heading"));
+    }
+
+    #[test]
+    fn duplicate_number_does_not_drop_file() {
+        let text = "---\nPaper: \"P\"\nModule: \"M\"\nYear: \"2024\"\n---\n\n## Question 1\n\nFirst\n- **A**. One\n- **B**. Two\n\n**Answer**: A\n\n## Question 1\n\nSecond\n- **A**. One\n- **B**. Two\n\n**Answer**: B\n";
+        let parsed = parse_file(text, "duplicate.md", "");
+        assert!(!parsed.has_file_error);
+        assert_eq!(parsed.questions.len(), 2);
+        assert!(parsed.issues.iter().any(|issue| issue.code == "duplicate-number"));
     }
 
     #[test]

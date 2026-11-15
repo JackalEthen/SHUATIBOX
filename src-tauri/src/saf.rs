@@ -77,8 +77,40 @@ pub async fn saf_pick(app: tauri::AppHandle, kind: Option<String>) -> Result<Str
         .ok_or_else(|| crate::i18n::tr("选择结果缺少 uri", "Selection result is missing a uri").to_string())
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn saf_pick_many(app: tauri::AppHandle, kind: Option<String>) -> Result<Vec<String>, String> {
+    let state = app.state::<SafState>();
+    let handle = state
+        .0
+        .lock()
+        .map_err(|error| error.to_string())?
+        .clone()
+        .ok_or_else(|| crate::i18n::tr("文件选择插件未就绪", "File picker plugin is not ready").to_string())?;
+    let payload = serde_json::json!({ "kind": kind.unwrap_or_else(|| "md".to_string()) });
+    let result: serde_json::Value = handle
+        .run_mobile_plugin_async("pick", payload)
+        .await
+        .map_err(|error| error.to_string())?;
+    let uris: Vec<String> = result
+        .get("uris")
+        .and_then(|value| value.as_array())
+        .map(|items| items.iter().filter_map(|value| value.as_str()).map(ToString::to_string).collect())
+        .unwrap_or_default();
+    if uris.is_empty() {
+        return Err(crate::i18n::tr("选择结果缺少 uri", "Selection result is missing a uri").to_string());
+    }
+    Ok(uris)
+}
+
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn saf_pick(_kind: Option<String>) -> Result<String, String> {
+    Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn saf_pick_many(_kind: Option<String>) -> Result<Vec<String>, String> {
     Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
 }

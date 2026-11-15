@@ -539,6 +539,10 @@ export async function switchBank(id: string): Promise<void> {
   return invoke('switch_bank', { id });
 }
 
+export async function renameBank(id: string, title: string): Promise<BankDto> {
+  return invoke<BankDto>('rename_bank', { id, title });
+}
+
 export async function revalidateBank(id: string): Promise<BankDto> {
   return invoke<BankDto>('revalidate_bank', { id });
 }
@@ -569,6 +573,24 @@ export async function importBank(path: string, setActive = true, target?: Import
     });
   }
   return invoke<ImportSummary>('import_bank', { path, setActive });
+}
+
+export async function importBankFiles(paths: string[], setActive = true, target?: ImportTarget): Promise<ImportSummary> {
+  return invoke<ImportSummary>('import_bank_files', {
+    paths,
+    setActive,
+    bankId: target?.bankId ?? null,
+    title: target?.title ?? null,
+  });
+}
+
+export async function aiImportFiles(paths: string[], setActive = true, target?: ImportTarget): Promise<AiImportSummary> {
+  return invoke<AiImportSummary>('ai_import_files', {
+    paths,
+    setActive,
+    bankId: target?.bankId ?? null,
+    title: target?.title ?? null,
+  });
 }
 
 export async function aiImport(path: string, setActive = true, target?: ImportTarget): Promise<AiImportSummary> {

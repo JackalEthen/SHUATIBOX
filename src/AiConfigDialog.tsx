@@ -16,6 +16,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
   const [url, setUrl] = useState('');
   const [model, setModel] = useState('');
   const [key, setKey] = useState('');
+  const [keySet, setKeySet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<AiTestResult | null>(null);
@@ -31,13 +32,14 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
       .then((values) => {
         setUrl(values.ai_url ?? '');
         setModel(values.ai_model ?? '');
-        setKey(values.ai_key ?? '');
+        setKey('');
+        setKeySet(values.ai_key_set === '1');
       })
       .catch(() => undefined);
   }, [open]);
 
   const save = async () => {
-    if (!url.trim() || !model.trim() || !key.trim()) {
+    if (!url.trim() || !model.trim() || (!key.trim() && !keySet)) {
       onNotice?.(t("请填写接口地址、模型和密钥"));
       return;
     }
@@ -45,7 +47,11 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
     setTestResult(null);
     setTestError('');
     try {
-      await setSettings({ ai_url: url.trim(), ai_model: model.trim(), ai_key: key.trim() });
+      const values: Record<string, string> = { ai_url: url.trim(), ai_model: model.trim() };
+      if (key.trim()) values.ai_key = key.trim();
+      await setSettings(values);
+      setKey('');
+      setKeySet(true);
       setBusy(false);
       setTesting(true);
       (window as unknown as { __shuatiboxAiTesting?: boolean }).__shuatiboxAiTesting = true;
@@ -101,7 +107,7 @@ export function AiConfigDialog({ open, onClose, mobile, onNotice }: Props) {
         <input
           type="password"
           className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--paper-2)] px-3 py-2 text-[13.5px] text-[var(--ink)] outline-none disabled:opacity-60"
-          placeholder="sk-..."
+          placeholder={keySet ? t("已保存，留空不修改") : "sk-..."}
           value={key}
           disabled={locked}
           onChange={(event) => change(setKey)(event.target.value)}

@@ -5,8 +5,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
   aiImport,
+  aiImportFiles,
   errorText,
   importBank,
+  importBankFiles,
   type AiImportSummary,
   type BankDto,
   type ImportProgress,
@@ -37,6 +39,7 @@ const isAndroid = () => /android/i.test(navigator.userAgent);
 
 export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, banks }: Props) {
   const [path, setPath] = useState('');
+  const [paths, setPaths] = useState<string[]>([]);
   const [label, setLabel] = useState('');
   const [targetId, setTargetId] = useState('current');
   const [newTitle, setNewTitle] = useState('');
@@ -61,12 +64,35 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
     };
   }, [isOpen]);
 
-  const pick = async (kind: 'folder' | 'zip') => {
+  const pick = async (kind: 'folder' | 'zip' | 'md') => {
     try {
       if (isAndroid()) {
-        const uri = await invoke<string>('saf_pick', { kind });
-        setPath(uri);
-        setLabel(kind === 'folder' ? t("已选择文件夹") : t("已选择 zip"));
+        if (kind === 'md') {
+          const uris = await invoke<string[]>('saf_pick_many', { kind: 'md' });
+          setPaths(uris);
+          setPath('');
+          setLabel(t("已选择 {p0} 个 Markdown 文件", { p0: uris.length }));
+        } else {
+          const uri = await invoke<string>('saf_pick', { kind });
+          setPath(uri);
+          setPaths([]);
+          setLabel(kind === 'folder' ? t("已选择文件夹") : t("已选择 zip"));
+        }
+        setSummary(null);
+        setAiResult(null);
+        setError('');
+        return;
+      }
+      if (kind === 'md') {
+        const value = await open({
+          directory: false,
+          multiple: true,
+          filters: [{ name: t("Markdown 文件"), extensions: ['md', 'markdown'] }],
+        });
+        if (!Array.isArray(value) || value.length === 0) return;
+        setPaths(value);
+        setPath('');
+        setLabel(t("已选择 {p0} 个 Markdown 文件", { p0: value.length }));
         setSummary(null);
         setAiResult(null);
         setError('');
@@ -75,10 +101,11 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
       const value = await open(
         kind === 'folder'
           ? { directory: true, multiple: false }
-          : { directory: false, multiple: false, filters: [{ name: t("题库压缩包"), extensions: ['zip', 'md'] }] },
+          : { directory: false, multiple: false, filters: [{ name: t("题库压缩包"), extensions: ['zip'] }] },
       );
       if (!value || Array.isArray(value)) return;
       setPath(value);
+      setPaths([]);
       setLabel(value.split(/[\\/]/).pop() || value);
       setSummary(null);
       setAiResult(null);
@@ -89,7 +116,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
   };
 
   const run = async () => {
-    if (!path) return;
+    if (!path && paths.length === 0) return;
     setBusy(true);
     setError('');
     setSummary(null);
@@ -101,16 +128,25 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
         : { bankId: targetId === 'current' ? bank.id : targetId, title: null };
     try {
       let target_path = path;
+      let files = paths;
       if (isAndroid()) {
-        target_path = await invoke<string>('saf_materialize', { uri: path, maxDepth: 6 });
+        if (files.length > 0) {
+          const materialized: string[] = [];
+          for (const uri of files) {
+            materialized.push(await invoke<string>('saf_materialize', { uri, maxDepth: 6 }));
+          }
+          files = materialized;
+        } else {
+          target_path = await invoke<string>('saf_materialize', { uri: path, maxDepth: 6 });
+        }
       }
       if (useAi) {
-        const result = await aiImport(target_path, true, target);
+        const result = files.length > 0 ? await aiImportFiles(files, true, target) : await aiImport(target_path, true, target);
         setAiResult(result);
         setSummary(result.summary);
         onNotice(result.failed > 0 ? t("导入完成，{p0} 个文件转换失败", { p0: result.failed }) : t("AI 转换导入完成"));
       } else {
-        const value = await importBank(target_path, true, target);
+        const value = files.length > 0 ? await importBankFiles(files, true, target) : await importBank(target_path, true, target);
         setSummary(value);
         onNotice(t("题库导入完成"));
       }
@@ -126,6 +162,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
   const close = () => {
     if (busy) return;
     setPath('');
+    setPaths([]);
     setLabel('');
     setTargetId('current');
     setNewTitle('');
@@ -142,22 +179,31 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
       : 12;
 
   return (
-    <MobileSheet open={isOpen} onClose={close} closable={!busy}>
-      <div className="grabber" />
-      <h3 className="text-[15px] font-semibold">{t("导入题库")}</h3>
-      <p className="text-[11px] text-[var(--muted)] mt-1">{t("选择题库文件夹或 zip，图片自动复制并去重。")}</p>
-
+    <MobileSheet
+      open={isOpen}
+      onClose={close}
+      closable={!busy}
+      header={
+        <>
+          <div className="grabber" />
+          <h3 className="text-[15px] font-semibold">{t("导入题库")}</h3>
+          <p className="text-[11px] text-[var(--muted)] mt-1">{t("选择题库文件夹、zip 或一个/多个 md 文件，图片自动复制并去重。")}</p>
+        </>
+      }
+    >
       {!summary ? (
         <>
           <div className="mt-4 rounded-2xl border border-dashed p-6 text-center" style={{ borderColor: 'var(--line)', background: 'var(--paper-2)' }}>
-            <div className="text-[13px]">{label || t("选择题库文件夹或 zip")}</div>
+            <div className="text-[13px]">{label || t("选择题库文件夹、zip 或 md 文件")}</div>
             <div className="flex gap-2 mt-3">
               <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('folder')}>{t("文件夹")}</button>
-              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip / md</button>
+              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('zip')}>zip</button>
+              <button className="btn btn-ghost btn-sm flex-1" disabled={busy} onClick={() => void pick('md')}>{t("md 文件")}</button>
             </div>
             <div className="text-[9px] text-[var(--muted)] mt-3">
               {isAndroid() ? t("通过系统文件选择器授权，复制到应用私有目录") : t("选择本地 Markdown 题库根目录")}
             </div>
+            <div className="text-[9px] text-[var(--muted)] mt-1">{t("一个或多个 md 文件会导入到同一个题库")}</div>
           </div>
 
           {bank ? (
@@ -225,7 +271,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
 
           <ImportFormatHelp />
 
-          <button className="btn btn-primary btn-block mt-3" disabled={!path || busy} onClick={() => void run()}>
+          <button className="btn btn-primary btn-block mt-3" disabled={(!path && paths.length === 0) || busy} onClick={() => void run()}>
             {busy ? t("正在导入…") : useAi ? t("AI 转换并导入") : t("开始导入")}
           </button>
         </>

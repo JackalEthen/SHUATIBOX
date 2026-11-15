@@ -9,6 +9,7 @@ import {
   type Bootstrap,
 } from './api';
 import { Modal } from './Modal';
+import { BankRenameDialog } from './BankRenameDialog';
 
 interface Props {
   open: boolean;
@@ -21,6 +22,7 @@ interface Props {
 
 export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice }: Props) {
   const [confirm, setConfirm] = useState<BankDto | null>(null);
+  const [rename, setRename] = useState<BankDto | null>(null);
 
   return (
     <>
@@ -82,11 +84,20 @@ export function BankDialog({ open, data, onClose, onRefresh, onImport, onNotice 
               >
                 {t("校验")}
               </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setRename(bank)}>{t("重命名")}</button>
               <button className="btn btn-danger btn-sm" onClick={() => setConfirm(bank)}>{t("删除")}</button>
             </div>
           ))}
         </div>
       </Modal>
+
+      <BankRenameDialog
+        open={!!rename}
+        bank={rename}
+        onClose={() => setRename(null)}
+        onSaved={onRefresh}
+        onNotice={onNotice}
+      />
 
       <Modal
         open={!!confirm}

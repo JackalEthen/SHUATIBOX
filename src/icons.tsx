@@ -31,6 +31,26 @@ interface IconProps extends SVGProps<SVGSVGElement> {
   name: IconName;
 }
 
+export function AiMark() {
+  return (
+    <svg className="ai-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="11.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <text
+        x="12"
+        y="12"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="currentColor"
+        fontSize="10.5"
+        fontWeight="700"
+        fontFamily="Arial, sans-serif"
+      >
+        AI
+      </text>
+    </svg>
+  );
+}
+
 export function Icon({ name, ...props }: IconProps) {
   const base = {
     viewBox: '0 0 24 24',
