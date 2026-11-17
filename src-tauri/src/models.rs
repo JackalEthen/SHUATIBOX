@@ -9,6 +9,13 @@ pub struct OptionDto {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct FontDto {
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ReviewDto {
     pub explanation_answer: Option<String>,
     pub missing: bool,

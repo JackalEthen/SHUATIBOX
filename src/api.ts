@@ -1,4 +1,5 @@
 ﻿import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { renderMarkdown, renderRich } from './markdown';
 import { t } from './i18n';
 import type { PracticeQuestion } from './questions';
@@ -6,6 +7,11 @@ import type { PracticeQuestion } from './questions';
 export interface OptionDto {
   label: string;
   text: string;
+}
+
+export interface FontDto {
+  name: string;
+  path: string;
 }
 
 export interface ReviewDto {
@@ -525,6 +531,28 @@ export async function saveProfile(input: Partial<Profile>): Promise<void> {
 
 export async function saveAvatarFile(path: string): Promise<string> {
   return invoke<string>('save_avatar', { path });
+}
+
+export async function saveFont(path: string): Promise<string> {
+  return invoke<string>('save_font', { path });
+}
+
+export async function listFonts(): Promise<FontDto[]> {
+  return invoke<FontDto[]>('list_fonts');
+}
+
+export async function pickFontFile(label: string): Promise<string | null> {
+  if (/android/i.test(navigator.userAgent)) {
+    const uri = await invoke<string>('saf_pick', { kind: 'font' });
+    return invoke<string>('saf_materialize', { uri, maxDepth: 1 });
+  }
+  const value = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: label, extensions: ['ttf', 'otf', 'woff', 'woff2'] }],
+  });
+  if (!value || Array.isArray(value)) return null;
+  return value;
 }
 
 export async function loadStats(days = 14): Promise<StatsDto> {

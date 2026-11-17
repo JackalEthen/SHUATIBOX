@@ -279,6 +279,26 @@ fn module_code(module: &str) -> String {
 }
 
 // ponytail: 用户提供的文件路径只校验扩展名，位置由系统文件选择器授权；数据库备份限定 .db
+fn sanitize_font_name(value: &str) -> String {
+    let mut name: String = value
+        .chars()
+        .take(64)
+        .map(|ch| {
+            if ch.is_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else if ch.is_whitespace() {
+                '-'
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if name.is_empty() {
+        name.push_str("font");
+    }
+    name
+}
+
 fn require_ext(path: &Path, allowed: &[&str]) -> Result<(), String> {
     let ext = path
         .extension()
@@ -2197,6 +2217,68 @@ pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String
     Ok(target.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+pub fn save_font(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let source = PathBuf::from(&path);
+    if !source.is_file() {
+        return Err(tr("字体文件不存在", "Font file does not exist").to_string());
+    }
+    require_ext(&source, &["ttf", "otf", "woff", "woff2"])?;
+    let size = std::fs::metadata(&source).map_err(|error| error.to_string())?.len();
+    if size > 30 * 1024 * 1024 {
+        return Err(tr("字体文件不能超过 30MB", "Font file must be 30MB or smaller").to_string());
+    }
+    let stem = source
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("font");
+    let ext = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .unwrap_or_default();
+    let dir = crate::db::base_dir(&app)?.join("fonts");
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let target = dir.join(format!("{}.{ext}", sanitize_font_name(stem)));
+    if source != target {
+        std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
+    }
+    Ok(target.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn list_fonts(app: tauri::AppHandle) -> Result<Vec<FontDto>, String> {
+    let dir = crate::db::base_dir(&app)?.join("fonts");
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut fonts = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|error| error.to_string())? {
+        let path = entry.map_err(|error| error.to_string())?.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_ascii_lowercase())
+            .unwrap_or_default();
+        if !["ttf", "otf", "woff", "woff2"].contains(&ext.as_str()) {
+            continue;
+        }
+        let name = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("font")
+            .to_string();
+        fonts.push(FontDto {
+            name,
+            path: path.to_string_lossy().to_string(),
+        });
+    }
+    fonts.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+    Ok(fonts)
+}
 
 #[tauri::command]
 pub fn load_practice_questions(
@@ -2225,14 +2307,20 @@ pub fn load_practice_questions(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_session, merge_mixed, update_asset, update_candidates, update_is_newer,
-        update_review_item,
+        build_session, merge_mixed, sanitize_font_name, update_asset, update_candidates,
+        update_is_newer, update_review_item,
     };
     use crate::models::SessionSpec;
     use rusqlite::{params, Connection};
 
     fn ids(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn sanitizes_font_file_names() {
+        assert_eq!(sanitize_font_name("My Font/v2"), "My-Font_v2");
+        assert_eq!(sanitize_font_name(""), "font");
     }
 
     #[test]

@@ -19,6 +19,7 @@ import {
   type SessionView,
 } from './api';
 import { AiTutor } from './AiTutor';
+import { AnswerCard } from './AnswerCard';
 import { AiMark, Icon } from './icons';
 import { Modal } from './Modal';
 
@@ -186,6 +187,7 @@ export function DesktopPractice({
   });
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -324,6 +326,13 @@ export function DesktopPractice({
   };
 
   const persistDraft = (labels: string[]) => {
+    updateAnswer({
+      questionId: question.id,
+      selected: labels,
+      submitted: false,
+      correct: answers[question.id]?.correct ?? false,
+      flagged: flags.has(question.id),
+    });
     saveAnswer({
       sessionId: view.session.id,
       questionId: question.id,
@@ -665,6 +674,9 @@ export function DesktopPractice({
                 >
                   <Icon name="check" />
                 </button>
+                <button className="icon-btn" onClick={() => setCardOpen(true)} aria-label={t("答题卡")}>
+                  <Icon name="list" />
+                </button>
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 {!isExam ? (
@@ -728,6 +740,22 @@ export function DesktopPractice({
           <span className="ans-cell flagged" style={{ width: 24, height: 24 }} />
           <span>{t("已标记")}</span>
         </div>
+      </Modal>
+
+      <Modal open={cardOpen} title={t("答题卡")} onClose={() => setCardOpen(false)}>
+        <AnswerCard
+          questions={questions}
+          answers={answers}
+          flags={flags}
+          isExam={isExam}
+          mode={mode}
+          current={index}
+          className="grid grid-cols-10 gap-2"
+          onPick={(itemIndex) => {
+            setIndex(itemIndex);
+            setCardOpen(false);
+          }}
+        />
       </Modal>
 
       <Modal open={materialOpen} title={question.material?.title ?? t("材料")} onClose={() => setMaterialOpen(false)} wide>

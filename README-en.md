@@ -45,10 +45,11 @@
 - Review: spaced repetition (1/2/4/7/15/30/60 days) with a configurable daily review limit
 - Desktop sidebar: collapsible icon-only mode with remembered state
 - Grading: instant per-question grading or grade after submission; single-choice, multi-choice, true/false, 2–8 options
+- Answer sheet: open beside the flag button while practicing; numbered cells show unanswered, correct/incorrect, answered and flagged states, with answered cells in green during exams and deferred grading
 - Study tools: wrong-question book (pending / mastered), favorites, notes
 - Search: full text over stems, options, explanations, qid and paper titles, with material preview
 - Statistics: daily volume, accuracy, weak question types, exam history
-- Appearance: light/dark, 5 accent colors and 4 reading text sizes
+- Appearance: light/dark, 5 accent colors and 4 reading text sizes; set the app font and practice-page font separately to system default, Hei, Song or an imported font
 - Bilingual UI: switch between Chinese and English in Settings; defaults to the system language. AI explanations and import messages follow the UI language
 - Bank management: import and switch between multiple question banks; import one or more `.md` files directly (images are copied automatically), or import a folder or zip; rename banks; imports can append to the current bank, an existing bank, or a new bank, duplicate questions are skipped (never overwritten), and the import report lists invalid questions and missing images
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers

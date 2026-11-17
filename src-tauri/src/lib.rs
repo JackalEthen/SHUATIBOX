@@ -64,6 +64,8 @@ pub fn run() {
             ai::ai_cancel,
             ai::ai_test,
             commands::save_avatar,
+            commands::save_font,
+            commands::list_fonts,
             commands::load_practice_questions,
             saf::saf_materialize,
             saf::saf_pick,

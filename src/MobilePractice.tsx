@@ -18,6 +18,7 @@ import {
   type SessionView,
 } from './api';
 import { AiTutor } from './AiTutor';
+import { AnswerCard } from './AnswerCard';
 import { AiMark, Icon } from './icons';
 import type { PracticeQuestion } from './questions';
 
@@ -62,6 +63,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   const [flags, setFlags] = useState<Set<string>>(new Set(view.flags));
   const [favorite, setFavorite] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -500,6 +502,9 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <button className="icon-btn" aria-label={t("标记")} style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined} onClick={() => void toggleFlag()}>
           <Icon name="check" />
         </button>
+        <button className="icon-btn" aria-label={t("答题卡")} onClick={() => setCardOpen(true)}>
+          <Icon name="list" />
+        </button>
         <div className="flex-1" />
         {isExam ? (
           <>
@@ -547,6 +552,32 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             <button className="btn btn-primary btn-block mt-2" onClick={() => { setSheet(false); setConfirmSubmit(true); }}>{t("交卷")}</button>
             <div className="h-4" />
           </div>
+        </div>
+      </div>
+
+      <div className={`sheet ${cardOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setCardOpen(false)}>
+        <div className="sheet-card">
+          <div className="grabber" />
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] font-semibold">{t("答题卡")}</h3>
+            <button className="icon-btn" onClick={() => setCardOpen(false)} aria-label={t("关闭")}><Icon name="x" /></button>
+          </div>
+          <div className="mt-4 max-h-[60vh] overflow-y-auto scroll">
+            <AnswerCard
+              questions={questions}
+              answers={answers}
+              flags={flags}
+              isExam={isExam}
+              mode="instant"
+              current={index}
+              onPick={(itemIndex) => {
+                setIndex(itemIndex);
+                setCardOpen(false);
+              }}
+            />
+          </div>
+          <button className="btn btn-ghost btn-block mt-4" onClick={() => setCardOpen(false)}>{t("继续答题")}</button>
+          <div className="h-4" />
         </div>
       </div>
 

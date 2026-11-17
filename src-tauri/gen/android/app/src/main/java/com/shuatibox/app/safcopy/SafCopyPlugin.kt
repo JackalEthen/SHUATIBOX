@@ -53,6 +53,25 @@ class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 startActivityForResult(invoke, intent, "pickResult")
+            } else if (kind == "font") {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf(
+                            "font/ttf",
+                            "font/otf",
+                            "font/woff",
+                            "font/woff2",
+                            "application/x-font-ttf",
+                            "application/x-font-opentype",
+                            "application/octet-stream",
+                        ),
+                    )
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivityForResult(invoke, intent, "pickResult")
             } else {
                 val mime = if (kind == "image") "image/*" else "application/zip"
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {

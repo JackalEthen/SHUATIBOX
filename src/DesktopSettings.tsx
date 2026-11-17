@@ -17,6 +17,7 @@ import {
   type Bootstrap,
   type Profile,
 } from './api';
+import { FontSettings } from './FontSettings';
 import { AiConfigDialog } from './AiConfigDialog';
 import { BankRenameDialog } from './BankRenameDialog';
 import { Icon } from './icons';
@@ -36,7 +37,7 @@ interface Props {
 }
 
 export function DesktopSettings({ data, appearance, profile, onProfileChange, onRefresh, onNotice, onImport }: Props) {
-  const { accent, setAccent, dark, setDark, fontScale, setFontScale } = appearance;
+  const { accent, setAccent, dark, setDark, fontScale, setFontScale, appFont, setAppFont, practiceFont, setPracticeFont } = appearance;
   const lang = useLang();
   const [confirmBank, setConfirmBank] = useState<BankDto | null>(null);
   const [renameBank, setRenameBank] = useState<BankDto | null>(null);
@@ -289,6 +290,14 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
             </div>
           </div>
         </div>
+
+        <FontSettings
+          appFont={appFont}
+          practiceFont={practiceFont}
+          setAppFont={setAppFont}
+          setPracticeFont={setPracticeFont}
+          onNotice={onNotice}
+        />
 
         <div className="card mt-4 p-5">
           <div className="flex items-center justify-between gap-4">

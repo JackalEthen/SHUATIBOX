@@ -23,6 +23,24 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    const sync = () => {
+      document.querySelectorAll<HTMLElement>('button[aria-label]').forEach((button) => {
+        const label = button.getAttribute('aria-label');
+        if (label && button.title !== label) button.title = label;
+      });
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['aria-label'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const onNotice = (message: string) => {
     setNotice('');
     window.setTimeout(() => setNotice(message), 0);

@@ -21,6 +21,7 @@ export type IconName =
   | 'panelLeftOpen'
   | 'star'
   | 'note'
+  | 'list'
   | 'alert'
   | 'edit'
   | 'expand'
@@ -181,6 +182,13 @@ export function Icon({ name, ...props }: IconProps) {
         <svg {...base}>
           <path d="M4 4h16v16H4z" />
           <path d="M8 9h8M8 13h6" />
+        </svg>
+      );
+    case 'list':
+      return (
+        <svg {...base}>
+          <path d="M8 6h12M8 12h12M8 18h12" />
+          <path d="M4 6h.01M4 12h.01M4 18h.01" />
         </svg>
       );
     case 'alert':

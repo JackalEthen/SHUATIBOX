@@ -1,6 +1,7 @@
 import { setLang, t, useLang, fmtNumber } from './i18n';
 import { useEffect, useState } from 'react';
 import { clearHistory, errorText, exportBackup, importBackup, setSettings, type Bootstrap } from './api';
+import { FontSettings } from './FontSettings';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
 import { UpdateCard } from './UpdateCard';
@@ -22,7 +23,7 @@ function fmt(value: number) {
 }
 
 export function MobileSettings({ data, appearance, onBack, onBank, onImport, onNotice, onRefresh }: Props) {
-  const { dark, setDark, accent, setAccent, fontScale, setFontScale } = appearance;
+  const { dark, setDark, accent, setAccent, fontScale, setFontScale, appFont, setAppFont, practiceFont, setPracticeFont } = appearance;
   const lang = useLang();
   const [goal, setGoal] = useState(Number(data.settings.daily_goal ?? '50'));
   const [archive, setArchive] = useState(Number(data.settings.archive_streak ?? '2'));
@@ -132,6 +133,15 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
           </div>
         </div>
       </div>
+
+      <FontSettings
+        appFont={appFont}
+        practiceFont={practiceFont}
+        setAppFont={setAppFont}
+        setPracticeFont={setPracticeFont}
+        onNotice={onNotice}
+        mobile
+      />
 
       <div className="card mt-3 p-4">
         <div className="flex items-center justify-between">
