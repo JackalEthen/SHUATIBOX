@@ -1,5 +1,6 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
+import { JudgeModePicker, type JudgeMode } from './JudgeMode';
 import { Modal } from './Modal';
 
 interface Props {
@@ -9,14 +10,18 @@ interface Props {
   initial?: number;
   mobile?: boolean;
   onClose: () => void;
-  onStart: (count: number) => void;
+  onStart: (count: number, judgeMode: JudgeMode) => void;
 }
 
 export function CountDialog({ open, title, max, initial = 20, mobile, onClose, onStart }: Props) {
   const [count, setCount] = useState(1);
+  const [judgeMode, setJudgeMode] = useState<JudgeMode>('instant');
 
   useEffect(() => {
-    if (open) setCount(Math.max(1, Math.min(initial, max)));
+    if (open) {
+      setCount(Math.max(1, Math.min(initial, max)));
+      setJudgeMode('instant');
+    }
   }, [open, initial, max]);
 
   useEffect(() => {
@@ -63,13 +68,16 @@ export function CountDialog({ open, title, max, initial = 20, mobile, onClose, o
         </button>
         <span className="text-[13.5px] text-[var(--muted)]">{t("题")}</span>
       </div>
+      <div className="mt-4">
+        <JudgeModePicker value={judgeMode} onChange={setJudgeMode} />
+      </div>
     </>
   );
 
   const actions = (
     <>
       <button className="btn btn-ghost" onClick={onClose}>{t("取消")}</button>
-      <button className="btn btn-primary" onClick={() => onStart(value)}>{t("开始重做")}</button>
+      <button className="btn btn-primary" onClick={() => onStart(value, judgeMode)}>{t("开始重做")}</button>
     </>
   );
 

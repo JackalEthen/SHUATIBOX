@@ -162,9 +162,9 @@ export function DesktopWrong({ data, onStart, onNotice, refreshKey }: Props) {
         max={page.pending}
         initial={20}
         onClose={() => setRedoOpen(false)}
-        onStart={(count) => {
+        onStart={(count, judgeMode) => {
           setRedoOpen(false);
-          onStart({ mode: 'wrong', count, title: t("错题重做") });
+          onStart({ mode: 'wrong', count, judgeMode, title: t("错题重做") });
         }}
       />
 

@@ -111,9 +111,9 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
         initial={20}
         mobile
         onClose={() => setRedoOpen(false)}
-        onStart={(count) => {
+        onStart={(count, judgeMode) => {
           setRedoOpen(false);
-          onStart({ mode: 'wrong', count, title: t("错题重做") });
+          onStart({ mode: 'wrong', count, judgeMode, title: t("错题重做") });
         }}
       />
     </div>

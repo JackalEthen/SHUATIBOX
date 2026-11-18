@@ -17,6 +17,7 @@ import { Icon, type IconName } from './icons';
 import { APP_VERSION } from './version';
 import { PracticeSetupDialog } from './PracticeSetupDialog';
 import { ImportDialog } from './ImportDialog';
+import { JudgeModeDialog } from './JudgeMode';
 import { UpdateDialog } from './UpdateDialog';
 import type { Appearance, Accent } from './theme';
 
@@ -51,6 +52,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   const [starting, setStarting] = useState(false);
   const [profile, setProfile] = useState<Profile>({ name: 'Boss', avatar: '' });
   const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
+  const [modeSpec, setModeSpec] = useState<SessionSpec | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const autoUpdateChecked = useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -114,8 +116,16 @@ export function DesktopApp({ appearance, onNotice }: Props) {
   };
 
   const requestStart = (spec: SessionSpec) => {
+    if (spec.mode === 'exam') {
+      void begin({ ...spec, judgeMode: 'deferred' });
+      return;
+    }
     if (spec.mode === 'module') {
       setSetupSpec(spec);
+      return;
+    }
+    if (!spec.judgeMode) {
+      setModeSpec(spec);
       return;
     }
     void begin(spec);
@@ -448,10 +458,20 @@ export function DesktopApp({ appearance, onNotice }: Props) {
         moduleName={setupSpec?.module ?? null}
         wrongCount={data.wrongCount}
         onClose={() => setSetupSpec(null)}
-        onStart={(count, mixWrong) => {
+        onStart={(count, mixWrong, judgeMode) => {
           if (!setupSpec) return;
-          const spec = { ...setupSpec, count, mixWrong };
+          const spec = { ...setupSpec, count, mixWrong, judgeMode };
           setSetupSpec(null);
+          void begin(spec);
+        }}
+      />
+      <JudgeModeDialog
+        open={modeSpec !== null}
+        onClose={() => setModeSpec(null)}
+        onStart={(judgeMode) => {
+          if (!modeSpec) return;
+          const spec = { ...modeSpec, judgeMode };
+          setModeSpec(null);
           void begin(spec);
         }}
       />

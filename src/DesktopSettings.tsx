@@ -43,7 +43,6 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
   const [renameBank, setRenameBank] = useState<BankDto | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [practiceMode, setPracticeMode] = useState(data.settings.practice_mode ?? 'instant');
   const [archive, setArchive] = useState(data.settings.archive_streak ?? '2');
   const reviewEnabled = data.settings.review_enabled !== '0';
   const reviewLimit = data.settings.review_limit ?? '50';
@@ -229,23 +228,6 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
           <div className="card p-5">
             <h2 className="text-[13.5px] font-semibold">{t("刷题")}</h2>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[12px]">{t("默认显示答案")}</div>
-                  <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{t("进入练习时的判分方式")}</div>
-                </div>
-                <select
-                  className="chip bg-transparent"
-                  value={practiceMode}
-                  onChange={(event) => {
-                    setPracticeMode(event.target.value);
-                    saveSetting({ practice_mode: event.target.value });
-                  }}
-                >
-                  <option value="instant">{t("逐题显示")}</option>
-                  <option value="deferred">{t("交卷后显示")}</option>
-                </select>
-              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[12px]">{t("错题移出阈值")}</div>

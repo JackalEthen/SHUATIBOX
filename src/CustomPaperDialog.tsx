@@ -1,6 +1,7 @@
 import { t } from './i18n';
 import { useState } from 'react';
 import type { Bootstrap, SessionSpec } from './api';
+import { JudgeModePicker, type JudgeMode } from './JudgeMode';
 import { Modal } from './Modal';
 
 interface Props {
@@ -16,6 +17,7 @@ export function CustomPaperDialog({ open, data, onClose, onStart }: Props) {
   const [count, setCount] = useState(20);
   const [order, setOrder] = useState('random');
   const [duration, setDuration] = useState(0);
+  const [judgeMode, setJudgeMode] = useState<JudgeMode>('instant');
 
   const toggle = (set: Set<string>, value: string, update: (next: Set<string>) => void) => {
     const next = new Set(set);
@@ -42,6 +44,7 @@ export function CustomPaperDialog({ open, data, onClose, onStart }: Props) {
                 years: [...years],
                 count,
                 order,
+                judgeMode,
                 durationSec: duration || undefined,
                 title: t("自定义练习"),
               });
@@ -108,6 +111,8 @@ export function CustomPaperDialog({ open, data, onClose, onStart }: Props) {
             </select>
           </div>
         </div>
+        <JudgeModePicker value={judgeMode} onChange={setJudgeMode} />
+
         <div className="text-[11px] text-[var(--muted)] bg-[var(--paper-2)] rounded-xl p-3">
 
           {t("已选：")}{modules.size ? [...modules].join('、') : t("全部模块")} · {years.size ? [...years].join('、') : t("全部年份")} · {count}  {t("题 ·")}{' '}

@@ -1,5 +1,6 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
+import { JudgeModePicker, type JudgeMode } from './JudgeMode';
 import { Modal } from './Modal';
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   wrongCount: number;
   mobile?: boolean;
   onClose: () => void;
-  onStart: (count: number, mixWrong: boolean) => void;
+  onStart: (count: number, mixWrong: boolean, judgeMode: JudgeMode) => void;
 }
 
 const presets = [10, 20, 50, 100];
@@ -16,11 +17,13 @@ const presets = [10, 20, 50, 100];
 export function PracticeSetupDialog({ open, moduleName, wrongCount, mobile, onClose, onStart }: Props) {
   const [count, setCount] = useState(20);
   const [mixWrong, setMixWrong] = useState(false);
+  const [judgeMode, setJudgeMode] = useState<JudgeMode>('instant');
 
   useEffect(() => {
     if (!open) return;
     setCount(20);
     setMixWrong(false);
+    setJudgeMode('instant');
   }, [open]);
 
   const safeCount = Math.min(500, Math.max(1, Math.round(count) || 20));
@@ -60,6 +63,8 @@ export function PracticeSetupDialog({ open, moduleName, wrongCount, mobile, onCl
         <div className="text-[11px] text-[var(--muted)] mt-1.5">{t("范围 1–500 题，图片题需先导入题库图片。")}</div>
       </div>
 
+      <JudgeModePicker value={judgeMode} onChange={setJudgeMode} />
+
       <label className={`flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--card)] p-3 ${wrongCount > 0 ? 'cursor-pointer' : 'opacity-60'}`}>
         <input
           type="checkbox"
@@ -80,7 +85,7 @@ export function PracticeSetupDialog({ open, moduleName, wrongCount, mobile, onCl
   );
 
   const start = () => {
-    onStart(safeCount, mixWrong && wrongCount > 0);
+    onStart(safeCount, mixWrong && wrongCount > 0, judgeMode);
     onClose();
   };
 

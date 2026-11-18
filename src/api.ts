@@ -83,6 +83,7 @@ export interface SessionSpec {
   examType?: string | null;
   count?: number | null;
   mixWrong?: boolean | null;
+  judgeMode?: 'instant' | 'deferred' | null;
   order?: string | null;
   durationSec?: number | null;
   title?: string | null;

@@ -96,6 +96,7 @@ pub struct SessionSpec {
     pub exam_type: Option<String>,
     pub count: Option<i64>,
     pub mix_wrong: Option<bool>,
+    pub judge_mode: Option<String>,
     pub order: Option<String>,
     pub duration_sec: Option<i64>,
     pub title: Option<String>,

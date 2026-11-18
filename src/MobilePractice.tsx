@@ -46,6 +46,8 @@ function elapsedSeconds(createdAt: string) {
 
 export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onFinished }: Props) {
   const isExam = view.session.mode === 'exam';
+  const mode =
+    isExam || (view.session.spec.judgeMode ?? settings.practice_mode) === 'deferred' ? 'deferred' : 'instant';
   const [edits, setEdits] = useState<Record<string, QuestionDto>>({});
   const questions = useMemo<PracticeQuestion[]>(
     () => view.questions.map((question) => toQuestion(edits[question.id] ?? question, assetDir)),
@@ -62,8 +64,8 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   const [verdicts, setVerdicts] = useState<Record<string, AnswerResult>>({});
   const [flags, setFlags] = useState<Set<string>>(new Set(view.flags));
   const [favorite, setFavorite] = useState(false);
-  const [sheet, setSheet] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -126,6 +128,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   useEffect(() => {
     startedAt.current = Date.now();
     setAiOpen(false);
+    setMenuOpen(false);
     if (!question) return;
     setFavorite(false);
     isFavorite(question.id).then(setFavorite).catch(() => setFavorite(false));
@@ -141,6 +144,10 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
     const win = window as unknown as { __shuatiboxBack?: () => string };
     const previous = win.__shuatiboxBack;
     const handler = () => {
+      if (menuOpen) {
+        setMenuOpen(false);
+        return 'handled';
+      }
       if (aiOpen) {
         setAiOpen(false);
         return 'handled';
@@ -151,45 +158,13 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
     return () => {
       if (win.__shuatiboxBack === handler) win.__shuatiboxBack = previous;
     };
-  }, [aiOpen]);
-
-  const submit = useCallback(
-    async (label: string) => {
-      if (!question || busy) return;
-      const selected = current?.selected ?? [];
-      const next = selected.includes(label) ? selected.filter((item) => item !== label) : [...selected, label];
-      setBusy(true);
-      try {
-        await saveAnswer({
-          sessionId: view.session.id,
-          questionId: question.id,
-          selected: next,
-          submitted: false,
-          elapsedMs: Date.now() - startedAt.current,
-        });
-        setAnswers((prev) => ({
-          ...prev,
-          [question.id]: {
-            questionId: question.id,
-            selected: next,
-            submitted: false,
-            correct: false,
-            flagged: prev[question.id]?.flagged ?? false,
-          },
-        }));
-      } catch (error) {
-        onNotice(t("选择失败：{p0}", { p0: errorText(error) }));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [question, busy, current, view.session.id, onNotice],
-  );
+  }, [aiOpen, menuOpen]);
 
   const grade = useCallback(
-    async (final: boolean) => {
+    async (final: boolean, labels?: string[]) => {
       if (!question || busy) return;
-      const selected = answers[question.id]?.selected ?? [];
+      const selected = labels ?? answers[question.id]?.selected ?? [];
+      if (selected.length === 0) return;
       setBusy(true);
       try {
         const value = await saveAnswer({
@@ -218,6 +193,43 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       }
     },
     [question, busy, answers, view.session.id, onNotice],
+  );
+
+  const submit = useCallback(
+    async (label: string) => {
+      if (!question || busy) return;
+      const selected = current?.selected ?? [];
+      const next = selected.includes(label) ? selected.filter((item) => item !== label) : [...selected, label];
+      if (mode === 'instant' && !isExam && !question.multi) {
+        await grade(false, next);
+        return;
+      }
+      setBusy(true);
+      try {
+        await saveAnswer({
+          sessionId: view.session.id,
+          questionId: question.id,
+          selected: next,
+          submitted: false,
+          elapsedMs: Date.now() - startedAt.current,
+        });
+        setAnswers((prev) => ({
+          ...prev,
+          [question.id]: {
+            questionId: question.id,
+            selected: next,
+            submitted: false,
+            correct: false,
+            flagged: prev[question.id]?.flagged ?? false,
+          },
+        }));
+      } catch (error) {
+        onNotice(t("选择失败：{p0}", { p0: errorText(error) }));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [question, busy, current, mode, isExam, view.session.id, onNotice, grade],
   );
 
   const finish = useCallback(async () => {
@@ -368,21 +380,53 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             <span className="px-2.5 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-ink)] font-mono text-[13px] font-semibold tabular-nums">
               {formatClock(remaining)}
             </span>
-          ) : (
-            <>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ minWidth: 52 }}
-                disabled={busy}
-                onClick={() => void grade(false)}
-              >
-                {t("判题")}
-              </button>
-              <div className="seg">
-                <button className={(answers[question.id]?.submitted || verdict) ? 'active' : ''} disabled>{t("逐题")}</button>
-              </div>
-            </>
-          )}
+          ) : null}
+          <div className="relative">
+            <button
+              className="icon-btn"
+              aria-label={t("更多")}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((value) => !value)}
+            >
+              <Icon name="list" />
+            </button>
+            {menuOpen ? (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-28 rounded-xl border border-[var(--line)] bg-[var(--card)] py-1 shadow-[var(--shadow-lg)]">
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[13px]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setNoteOpen(true);
+                      getNote(question.id).then((value) => setNote(value.content)).catch(() => setNote(''));
+                    }}
+                  >
+                    {t("笔记")}
+                  </button>
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[13px]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openEdit();
+                    }}
+                  >
+                    {t("编辑")}
+                  </button>
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[13px]"
+                    style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void toggleFlag();
+                    }}
+                  >
+                    {t("标注")}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -449,9 +493,13 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             <div className="text-[13px] font-semibold text-[var(--ink-2)] mt-3">{t("解析")}</div>
             <div className="read-explain text-[var(--ink-2)] mt-1" dangerouslySetInnerHTML={{ __html: question.explanationHtml }} />
           </div>
-        ) : !isExam ? (
-          <button className="btn btn-ghost btn-block mt-4" disabled={busy} onClick={() => void grade(false)}>
-            {t("显示答案")}
+        ) : mode === 'instant' && !isExam && question.multi && !showAnswer ? (
+          <button
+            className="btn btn-ghost btn-block mt-4"
+            disabled={busy || !current?.selected?.length}
+            onClick={() => void grade(false, current?.selected)}
+          >
+            {t("提交本题")}
           </button>
         ) : null}
 
@@ -459,100 +507,74 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         <div className="h-24" />
       </div>
 
-      <div className="shrink-0 border-t border-[var(--line)] bg-[var(--card)] px-3 py-1.5 flex items-center gap-1.5" style={{ paddingBottom: 'calc(6px + var(--safe-bottom, env(safe-area-inset-bottom)))' }}>
-        <button className="icon-btn" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, value - 1))} aria-label={t("上一题")}>
-          <Icon name="chevronLeft" strokeWidth={1.8} />
-        </button>
+      <div
+        className="shrink-0 border-t border-[var(--line)] bg-[var(--card)] flex items-center"
+        style={{
+          paddingLeft: 'clamp(6px, 2.4vw, 14px)',
+          paddingRight: 'clamp(6px, 2.4vw, 14px)',
+          paddingTop: 'clamp(4px, 1.2vw, 8px)',
+          paddingBottom: 'calc(clamp(4px, 1.2vw, 8px) + var(--safe-bottom, env(safe-area-inset-bottom)))',
+          columnGap: 'clamp(2px, 1.4vw, 10px)',
+        }}
+      >
         <button
-          className="icon-btn"
-          aria-label={t("收藏")}
-          style={favorite ? { color: 'var(--warn)' } : undefined}
-          onClick={() => {
-            toggleFavorite(question.id)
-              .then((value) => {
-                setFavorite(value);
-                onNotice(value ? t("已收藏") : t("已取消收藏"));
-              })
-              .catch((error) => onNotice(t("收藏失败：{p0}", { p0: errorText(error) })));
-          }}
+          className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
+          disabled={index === 0}
+          onClick={() => setIndex((value) => Math.max(0, value - 1))}
         >
-          <Icon name="star" />
+          {t("上一题")}
         </button>
-        <button className="icon-btn" aria-label={t("笔记")} onClick={() => {
-          setNoteOpen(true);
-          getNote(question.id).then((value) => setNote(value.content)).catch(() => setNote(''));
-        }}>
-          <Icon name="note" />
-        </button>
-        <button className="icon-btn" aria-label={t("编辑本题")} onClick={openEdit}>
-          <Icon name="edit" />
-        </button>
-        <button
-          className="icon-btn"
-          aria-label={t("AI 讲解")}
-          aria-disabled={!aiReady}
-          style={aiReady ? undefined : { opacity: 0.35 }}
-          onClick={() => {
-            if (aiReady) setAiOpen(true);
-            else onNotice(t("请先在设置中配置 AI 接口"));
-          }}
+        <div
+          className="flex-1 min-w-0 flex items-center justify-center"
+          style={{ columnGap: 'clamp(4px, 2vw, 16px)' }}
         >
-          <AiMark />
-        </button>
-        <button className="icon-btn" aria-label={t("标记")} style={flags.has(question.id) ? { color: 'var(--warn)' } : undefined} onClick={() => void toggleFlag()}>
-          <Icon name="check" />
-        </button>
-        <button className="icon-btn" aria-label={t("答题卡")} onClick={() => setCardOpen(true)}>
-          <Icon name="list" />
-        </button>
-        <div className="flex-1" />
-        {isExam ? (
-          <>
-            <button className="btn btn-ghost btn-sm flex-1" onClick={() => setSheet(true)}>{t("答题卡")}</button>
-            <button className="btn btn-primary btn-sm flex-1" onClick={() => setConfirmSubmit(true)}>{t("交卷")}</button>
-          </>
-        ) : (
-          <>
-            <button
-              className="btn btn-primary btn-sm flex-1"
-              onClick={() => {
-                if (index === questions.length - 1) setConfirmSubmit(true);
-                else setIndex((value) => value + 1);
-              }}
-            >
-              {t("下一题")}
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="sheet-wrap">
-        <div className={`sheet ${sheet ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setSheet(false)}>
-          <div className="sheet-card">
-            <div className="grabber" />
-            <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold">{t("答题卡")}</h3>
-              <span className="text-[11px] text-[var(--muted)]">{t("已答")} {answeredCount}/{questions.length}</span>
-            </div>
-            <div className="grid grid-cols-5 gap-2.5 mt-4">
-              {questions.map((item, itemIndex) => {
-                const answer = answers[item.id];
-                const classes = ['ans-cell'];
-                if (answer?.submitted) classes.push('done');
-                if (itemIndex === index) classes.push('current');
-                if (flags.has(item.id)) classes.push('flagged');
-                return (
-                  <button key={item.id} className={classes.join(' ')} onClick={() => { setIndex(itemIndex); setSheet(false); }}>
-                    {itemIndex + 1}
-                  </button>
-                );
-              })}
-            </div>
-            <button className="btn btn-ghost btn-block mt-4" onClick={() => setSheet(false)}>{t("继续答题")}</button>
-            <button className="btn btn-primary btn-block mt-2" onClick={() => { setSheet(false); setConfirmSubmit(true); }}>{t("交卷")}</button>
-            <div className="h-4" />
-          </div>
+          <button
+            className="icon-btn"
+            aria-label={t("收藏")}
+            style={favorite ? { color: 'var(--warn)' } : undefined}
+            onClick={() => {
+              toggleFavorite(question.id)
+                .then((value) => {
+                  setFavorite(value);
+                  onNotice(value ? t("已收藏") : t("已取消收藏"));
+                })
+                .catch((error) => onNotice(t("收藏失败：{p0}", { p0: errorText(error) })));
+            }}
+          >
+            <Icon name="star" />
+          </button>
+          <button
+            className="icon-btn"
+            aria-label={t("AI 讲解")}
+            aria-disabled={!aiReady}
+            style={aiReady ? undefined : { opacity: 0.35 }}
+            onClick={() => {
+              if (aiReady) setAiOpen(true);
+              else onNotice(t("请先在设置中配置 AI 接口"));
+            }}
+          >
+            <AiMark />
+          </button>
+          <button className="icon-btn" aria-label={t("答题卡")} onClick={() => setCardOpen(true)}>
+            <Icon name="grid" />
+          </button>
         </div>
+        {isExam ? (
+          <button className="btn btn-primary btn-sm shrink-0 whitespace-nowrap" onClick={() => setConfirmSubmit(true)}>
+            {t("交卷")}
+          </button>
+        ) : (
+          <button
+            className="btn btn-primary btn-sm shrink-0 whitespace-nowrap"
+            style={{ paddingLeft: 'clamp(10px, 3vw, 18px)', paddingRight: 'clamp(10px, 3vw, 18px)' }}
+            onClick={() => {
+              if (index === questions.length - 1) setConfirmSubmit(true);
+              else setIndex((value) => value + 1);
+            }}
+          >
+            {t("下一题")}
+          </button>
+        )}
       </div>
 
       <div className={`sheet ${cardOpen ? 'open' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && setCardOpen(false)}>
@@ -562,13 +584,13 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
             <h3 className="text-[15px] font-semibold">{t("答题卡")}</h3>
             <button className="icon-btn" onClick={() => setCardOpen(false)} aria-label={t("关闭")}><Icon name="x" /></button>
           </div>
-          <div className="mt-4 max-h-[60vh] overflow-y-auto scroll">
+          <div className="mt-4 max-h-[60vh] overflow-y-auto scroll p-2">
             <AnswerCard
               questions={questions}
               answers={answers}
               flags={flags}
               isExam={isExam}
-              mode="instant"
+              mode={mode}
               current={index}
               onPick={(itemIndex) => {
                 setIndex(itemIndex);

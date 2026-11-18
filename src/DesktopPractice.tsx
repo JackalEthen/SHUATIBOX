@@ -159,8 +159,8 @@ export function DesktopPractice({
     [view, assetDir, edits],
   );
   const isExam = view.session.mode === 'exam';
-  const initialMode = isExam ? 'deferred' : settings.practice_mode === 'deferred' ? 'deferred' : 'instant';
-  const [mode, setMode] = useState<'instant' | 'deferred'>(initialMode);
+  const mode =
+    isExam || (view.session.spec.judgeMode ?? settings.practice_mode) === 'deferred' ? 'deferred' : 'instant';
   const [index, setIndex] = useState(() => {
     const first = view.questions.findIndex((question) => !view.answers.find((answer) => answer.questionId === question.id)?.submitted);
     return first < 0 ? 0 : first;
@@ -186,7 +186,6 @@ export function DesktopPractice({
     };
   });
   const [busy, setBusy] = useState(false);
-  const [sheet, setSheet] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -400,14 +399,6 @@ export function DesktopPractice({
     }).catch((error) => onNotice(t("标记失败：{p0}", { p0: errorText(error) })));
   }
 
-  async function reveal() {
-    if (selected.length > 0) {
-      await grade(selected);
-    } else {
-      setSubmitted(true);
-    }
-  }
-
   async function finish(auto = false) {
     if (finishing.current) return;
     if (!auto && !confirmSubmit) {
@@ -492,31 +483,14 @@ export function DesktopPractice({
               <Icon name="clock" className="w-3 h-3" />
               {formatClock(remaining)}
             </span>
-          ) : (
-            <div className="ml-auto flex items-center gap-3">
-              <div className="seg">
-                <button className={mode === 'instant' ? 'active' : ''} onClick={() => setMode('instant')}>
-                  {t("逐题显示")}
-                </button>
-                <button className={mode === 'deferred' ? 'active' : ''} onClick={() => setMode('deferred')}>
-                  {t("交卷后显示")}
-                </button>
-              </div>
-              <span className="text-[10px] text-[var(--muted)]">
-                {mode === 'instant' ? t("点击选项立即判分") : t("交卷后统一显示")}
-              </span>
-            </div>
-          )}
-          <div className={isExam ? 'ml-auto flex items-center gap-2' : 'flex items-center gap-2'}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setSheet(true)}>
-              {t("答题卡")}
-            </button>
-            {isExam ? (
+          ) : null}
+          {isExam ? (
+            <div className="ml-auto flex items-center gap-2">
               <button className="btn btn-primary btn-sm" onClick={() => void finish(false)}>
                 {t("交卷")}
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
 
         <div className={`practice-grid flex-1 min-h-0 ${question.material ? '' : 'no-material'}`}>
@@ -675,13 +649,13 @@ export function DesktopPractice({
                   <Icon name="check" />
                 </button>
                 <button className="icon-btn" onClick={() => setCardOpen(true)} aria-label={t("答题卡")}>
-                  <Icon name="list" />
+                  <Icon name="grid" />
                 </button>
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                {!isExam ? (
-                  <button className="btn btn-ghost" onClick={() => void reveal()} disabled={isSubmitted}>
-                    {t("显示答案")}
+                {mode === 'instant' && !isExam && question.multi && selected.length > 0 && !isSubmitted ? (
+                  <button className="btn btn-ghost" onClick={() => void grade(selected)} disabled={busy}>
+                    {t("提交本题")}
                   </button>
                 ) : null}
                 {!isExam ? (
@@ -708,39 +682,6 @@ export function DesktopPractice({
           </div>
         </div>
       </div>
-
-      <Modal open={sheet} title={t("答题卡 · 已答 {p0} / {p1}", { p0: answeredCount, p1: questions.length })} onClose={() => setSheet(false)}>
-        <div className="grid grid-cols-10 gap-2">
-          {questions.map((item, itemIndex) => {
-            const itemAnswer = answers[item.id];
-            const classes = ['ans-cell'];
-            if (itemAnswer?.submitted) classes.push('done');
-            if (itemIndex === index) classes.push('current');
-            if (flags.has(item.id)) classes.push('flagged');
-            return (
-              <button
-                key={item.id}
-                className={classes.join(' ')}
-                onClick={() => {
-                  setIndex(itemIndex);
-                  setSheet(false);
-                }}
-              >
-                {itemIndex + 1}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-4 mt-4 text-[11px] text-[var(--muted)]">
-          <span>{t("未答")}</span>
-          <span className="ans-cell done" style={{ width: 24, height: 24 }} />
-          <span>{t("已答")}</span>
-          <span className="ans-cell current" style={{ width: 24, height: 24 }} />
-          <span>{t("当前题")}</span>
-          <span className="ans-cell flagged" style={{ width: 24, height: 24 }} />
-          <span>{t("已标记")}</span>
-        </div>
-      </Modal>
 
       <Modal open={cardOpen} title={t("答题卡")} onClose={() => setCardOpen(false)}>
         <AnswerCard

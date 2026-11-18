@@ -22,6 +22,7 @@ export type IconName =
   | 'star'
   | 'note'
   | 'list'
+  | 'grid'
   | 'alert'
   | 'edit'
   | 'expand'
@@ -189,6 +190,15 @@ export function Icon({ name, ...props }: IconProps) {
         <svg {...base}>
           <path d="M8 6h12M8 12h12M8 18h12" />
           <path d="M4 6h.01M4 12h.01M4 18h.01" />
+        </svg>
+      );
+    case 'grid':
+      return (
+        <svg {...base}>
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       );
     case 'alert':

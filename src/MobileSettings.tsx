@@ -174,13 +174,6 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
             ))}
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-[13.5px]">{t("默认判分")}</span>
-          <div className="seg">
-            <button className={data.settings.practice_mode === 'instant' ? 'active' : ''} onClick={() => save({ practice_mode: 'instant' })}>{t("逐题")}</button>
-            <button className={data.settings.practice_mode === 'deferred' ? 'active' : ''} onClick={() => save({ practice_mode: 'deferred' })}>{t("交卷")}</button>
-          </div>
-        </div>
       </div>
 
       <div className="card mt-3 p-4">

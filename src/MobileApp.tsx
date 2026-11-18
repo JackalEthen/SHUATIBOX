@@ -30,6 +30,7 @@ import { MobileWrong } from './MobileWrong';
 import { BankSheet } from './mobile/BankSheet';
 import { CustomPaperSheet } from './mobile/CustomPaperSheet';
 import { ImportSheet } from './mobile/ImportSheet';
+import { JudgeModeDialog } from './JudgeMode';
 import { PracticeSetupDialog } from './PracticeSetupDialog';
 import { UpdateDialog } from './UpdateDialog';
 
@@ -82,6 +83,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [setupSpec, setSetupSpec] = useState<SessionSpec | null>(null);
+  const [modeSpec, setModeSpec] = useState<SessionSpec | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const autoUpdateChecked = useRef(false);
 
@@ -133,8 +135,16 @@ export function MobileApp({ appearance, onNotice }: Props) {
   );
 
   const requestStart = (spec: SessionSpec) => {
+    if (spec.mode === 'exam') {
+      void begin({ ...spec, judgeMode: 'deferred' });
+      return;
+    }
     if (spec.mode === 'module') {
       setSetupSpec(spec);
+      return;
+    }
+    if (!spec.judgeMode) {
+      setModeSpec(spec);
       return;
     }
     void begin(spec);
@@ -163,6 +173,10 @@ export function MobileApp({ appearance, onNotice }: Props) {
   useEffect(() => {
     type BackBridge = () => string;
     const handler: BackBridge = () => {
+      if (modeSpec) {
+        setModeSpec(null);
+        return 'handled';
+      }
       if (setupSpec) {
         setSetupSpec(null);
         return 'handled';
@@ -214,7 +228,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
     return () => {
       delete (window as unknown as { __shuatiboxBack?: BackBridge }).__shuatiboxBack;
     };
-  }, [setupSpec, bankOpen, customOpen, importOpen, aiConfigOpen, leavePractice, onNotice]);
+  }, [modeSpec, setupSpec, bankOpen, customOpen, importOpen, aiConfigOpen, leavePractice, onNotice]);
 
   if (loading && !data) {
     return (
@@ -402,10 +416,20 @@ export function MobileApp({ appearance, onNotice }: Props) {
         wrongCount={data.wrongCount}
         mobile
         onClose={() => setSetupSpec(null)}
-        onStart={(count, mixWrong) => {
+        onStart={(count, mixWrong, judgeMode) => {
           if (!setupSpec) return;
-          const spec = { ...setupSpec, count, mixWrong };
+          const spec = { ...setupSpec, count, mixWrong, judgeMode };
           setSetupSpec(null);
+          void begin(spec);
+        }}
+      />
+      <JudgeModeDialog
+        open={modeSpec !== null}
+        onClose={() => setModeSpec(null)}
+        onStart={(judgeMode) => {
+          if (!modeSpec) return;
+          const spec = { ...modeSpec, judgeMode };
+          setModeSpec(null);
           void begin(spec);
         }}
       />
