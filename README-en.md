@@ -51,7 +51,8 @@
 - Statistics: daily volume, accuracy, weak question types, exam history
 - Appearance: light/dark, 5 accent colors and 4 reading text sizes; set the app font and practice-page font separately to system default, Hei, Song or an imported font
 - Bilingual UI: switch between Chinese and English in Settings; defaults to the system language. AI explanations and import messages follow the UI language
-- Bank management: import and switch between multiple question banks; import one or more `.md` files directly (images are copied automatically), or import a folder or zip; rename banks; imports can append to the current bank, an existing bank, or a new bank, duplicate questions are skipped (never overwritten), and the import report lists invalid questions and missing images
+- Bank management: import and switch between multiple question banks; import one or more `.md` / `.txt` / `.html` / `.htm` / `.docx` files directly (images are copied automatically), or import a folder or a `zip` / `tar` / `tar.gz` / `tgz` archive; txt and html are converted to the bank format automatically, docx headings, options and images are detected; rename banks; imports can append to the current bank, an existing bank, or a new bank, duplicate questions are skipped (never overwritten), and the import report lists invalid questions and missing images
+- Bank storage location: move the bank databases and images to a custom folder in Settings (any empty folder on Windows, `Android/data/com.shuatibox.app/files/banks` on Android); questions, images and practice records keep working after the move
 - AI explanations: explain the current question from the practice page, including material, stem, options and reference answer; multi-turn follow-ups, image questions, cancel anytime, Markdown answers
 - AI settings: configure an OpenAI-compatible endpoint with automatic connectivity and vision checks after saving; AI conversion import normalizes non-conforming Markdown into the bank format with chunked conversion, per-file isolation, a conversion report and selectable target bank
 - In-place editing: fix a stem, option, answer or explanation while practicing; changes are written back to the local bank and reflected in the wrong book and search
@@ -66,7 +67,7 @@
 | Shell | Tauri 2 |
 | Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
 | Rendering | marked + DOMPurify |
-| Backend | Rust + rusqlite (SQLite) + zip + sha2 + reqwest |
+| Backend | Rust + rusqlite (SQLite) + zip + tar + sha2 + reqwest |
 | Platforms | Windows, Android |
 
 ## Quick Start
@@ -89,7 +90,7 @@ npm run tauri -- android build --debug --target aarch64 --apk
 
 ## Question Bank Format
 
-Import a folder of Markdown files, one or more `.md` files, or a zip. Each `.md` file is one module of one paper, starting with frontmatter:
+Import a folder of Markdown files, one or more `.md` files, or a zip / tar / tar.gz archive. Each `.md` file is one module of one paper, starting with frontmatter:
 
 ```markdown
 ---
@@ -146,10 +147,10 @@ The full format contract lives in [`import-format.md`](import-format.md).
 | Environment | Path |
 | --- | --- |
 | Development | `data/` in the project root |
-| Installed (Windows) | `%APPDATA%\com.shuatibox.app` |
-| Android | App private storage |
+| Installed (Windows) | `%APPDATA%\com.shuatibox.app` (default, movable in Settings) |
+| Android | App private storage (movable to `Android/data/com.shuatibox.app/files/banks`) |
 
-Question bank databases and images live in that directory. Uninstalling the Windows app removes the question banks, images, study records, and settings from that directory.
+The bank folder can be moved in Settings → Data → Bank storage location; the target folder must be empty, and the move copies the bank databases and images. Question bank databases and images live in that directory; uninstalling the Windows app removes them from the default directory along with study records and settings.
 
 ## Project Layout
 
