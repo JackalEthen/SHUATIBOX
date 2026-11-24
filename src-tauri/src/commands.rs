@@ -2022,14 +2022,57 @@ pub fn delete_bank(app: tauri::AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_banks_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = crate::db::banks_dir(&app)?;
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let text = dir.canonicalize().unwrap_or(dir).to_string_lossy().to_string();
+    Ok(text.strip_prefix(r"\\?\").unwrap_or(&text).to_string())
+}
+
+#[tauri::command]
+pub fn set_banks_dir(app: tauri::AppHandle, path: Option<String>) -> Result<String, String> {
+    crate::db::set_banks_dir(&app, path)
+}
+
+#[tauri::command]
+pub fn platform_banks_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    if !cfg!(target_os = "android") {
+        return Ok(None);
+    }
+    // ponytail: Android 的 SAF 目录不是真实路径，改用应用自己的外部私有目录（无需权限）
+    let id = app.config().identifier.clone();
+    for path in [
+        format!("/storage/emulated/0/Android/data/{id}/files/banks"),
+        format!("/sdcard/Android/data/{id}/files/banks"),
+    ] {
+        let dir = PathBuf::from(&path);
+        if std::fs::create_dir_all(&dir).is_err() {
+            continue;
+        }
+        let probe = dir.join(".write-test");
+        if std::fs::write(&probe, b"ok").is_ok() {
+            let _ = std::fs::remove_file(&probe);
+            return Ok(Some(path));
+        }
+    }
+    Err(tr("外部存储不可用", "External storage is unavailable").to_string())
+}
+
+#[tauri::command]
 pub fn export_backup(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let user = open_user(&app)?;
     let target = PathBuf::from(path);
     require_ext(&target, &["db"])?;
-    // ponytail: 禁止把备份写到应用数据目录内，避免覆盖 user.db 或题库
+    // ponytail: 禁止把备份写到应用数据目录或题库目录内，避免覆盖 user.db 或题库
     let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
+    let banks = crate::db::banks_dir(&app)?.canonicalize().ok();
     if let Some(parent) = target.parent() {
-        if parent.canonicalize().map(|p| p.starts_with(&root)).unwrap_or(false) {
+        let in_app = parent.canonicalize().map(|p| p.starts_with(&root)).unwrap_or(false);
+        let in_banks = banks
+            .as_ref()
+            .and_then(|banks| parent.canonicalize().ok().map(|p| p.starts_with(banks)))
+            .unwrap_or(false);
+        if in_app || in_banks {
             return Err(tr("备份不能写入应用数据目录", "Backup cannot be written into the app data directory").to_string());
         }
     }
@@ -2118,8 +2161,13 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     for (_, to) in moved {
         let _ = std::fs::remove_file(to);
     }
-    // ponytail: 备份可能被篡改，剔除 banks 表中指向数据目录之外的条目，避免后续删库误伤
-    let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
+    // ponytail: 备份可能被篡改，剔除 banks 表中指向应用数据/题库目录之外的条目，避免后续删库误伤
+    let roots = [
+        crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?,
+        crate::db::banks_dir(&app)?
+            .canonicalize()
+            .map_err(|error| error.to_string())?,
+    ];
     let user = open_user(&app)?;
     let paths: Vec<(String, String)> = {
         let mut stmt = user
@@ -2133,7 +2181,7 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     for (id, path) in paths {
         let legal = Path::new(&path)
             .canonicalize()
-            .map(|p| p.starts_with(&root))
+            .map(|p| roots.iter().any(|root| p.starts_with(root)))
             .unwrap_or(false);
         if !legal {
             user.execute("DELETE FROM banks WHERE id=?1", params![id])

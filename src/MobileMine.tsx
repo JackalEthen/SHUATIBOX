@@ -79,11 +79,11 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
   };
 
   const rows = [
-    { icon: 'stats' as const, title: t("学习统计"), sub: t("正确率、模块分布、模拟考试"), onClick: onStats },
-    { icon: 'star' as const, title: t("我的收藏"), sub: t("{p0} 题 · 只读查看", { p0: fmt(data.favoriteCount) }), onClick: onFavorites },
-    { icon: 'library' as const, title: t("题库管理"), sub: t("{p0} · {p1} 套卷", { p0: data.bank.title, p1: fmt(data.bank.paperCount) }), onClick: onBank },
-    { icon: 'settings' as const, title: t("偏好设置"), sub: t("深色模式、字号、数据备份"), onClick: onSettings },
-    { icon: 'library' as const, title: t("导入题库"), sub: t("文件夹 / zip"), onClick: onImport },
+    { icon: 'stats' as const, title: t("学习统计"), onClick: onStats },
+    { icon: 'star' as const, title: t("我的收藏"), onClick: onFavorites },
+    { icon: 'library' as const, title: t("题库管理"), onClick: onBank },
+    { icon: 'settings' as const, title: t("偏好设置"), onClick: onSettings },
+    { icon: 'library' as const, title: t("导入题库"), onClick: onImport },
   ];
 
   return (
@@ -122,7 +122,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
               {profile.name}
             </button>
           )}
-          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">{t("数据仅保存在应用私有目录")}</div>
+          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">{t("数据保存在本机")}</div>
         </div>
       </div>
 
@@ -152,8 +152,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
               <Icon name={row.icon} className="w-4 h-4" strokeWidth={1.8} />
             </div>
             <div className="flex-1">
-              <div className="text-[13.5px]">{row.title}</div>
-              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{row.sub}</div>
+              <div className="text-[15px] font-medium">{row.title}</div>
             </div>
             <Icon name="chevronRight" className="w-4 h-4 text-[var(--muted)]" />
           </button>

@@ -1,5 +1,5 @@
 import { setLang, t, useLang, fmtNumber } from './i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import {
@@ -7,10 +7,13 @@ import {
   deleteBank,
   errorText,
   exportBackup,
+  getBanksDir,
   importBackup,
+  platformBanksDir,
   revalidateBank,
   saveAvatarFile,
   saveProfile,
+  setBanksDir,
   setSettings,
   switchBank,
   type BankDto,
@@ -50,6 +53,51 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
+  const [banksDir, setBanksDirState] = useState('');
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    getBanksDir()
+      .then(setBanksDirState)
+      .catch(() => setBanksDirState(''));
+  }, []);
+
+  const chooseBanksDir = async () => {
+    setBusy(true);
+    try {
+      let path: string | null = null;
+      if (isAndroid) {
+        path = await platformBanksDir();
+        if (!path) return;
+      } else {
+        const value = await open({ multiple: false, directory: true });
+        if (!value || Array.isArray(value)) return;
+        path = value;
+      }
+      const saved = await setBanksDir(path);
+      setBanksDirState(saved);
+      onNotice(t("题库目录已迁移"));
+      onRefresh();
+    } catch (error) {
+      onNotice(t("迁移失败：{p0}", { p0: errorText(error) }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetBanksDir = async () => {
+    setBusy(true);
+    try {
+      const saved = await setBanksDir(null);
+      setBanksDirState(saved);
+      onNotice(t("题库目录已恢复默认"));
+      onRefresh();
+    } catch (error) {
+      onNotice(t("迁移失败：{p0}", { p0: errorText(error) }));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const avatarUrl = profile.avatar ? convertFileSrc(profile.avatar) : '';
 
@@ -426,6 +474,21 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
               {t("清空学习记录")}
             </button>
           </div>
+          <div className="mt-4 pt-4 border-t border-[var(--line)]">
+            <div className="text-[12px] font-medium">{t("题库存储位置")}</div>
+            <div className="text-[10.5px] text-[var(--muted)] mt-1 break-all">{banksDir || t("读取中…")}</div>
+            <div className="flex items-center gap-2 mt-3">
+              <button className="btn btn-ghost btn-sm" onClick={() => void chooseBanksDir()} disabled={busy}>
+                {isAndroid ? t("使用外部目录") : t("选择目录")}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => void resetBanksDir()} disabled={busy}>
+                {t("恢复默认")}
+              </button>
+            </div>
+            <div className="text-[10px] text-[var(--muted)] mt-2">
+              {t("目标目录需为空，迁移会复制题库数据库与图片资源；学习记录仍保存在原位置。")}
+            </div>
+          </div>
         </div>
 
         <UpdateCard onNotice={onNotice} />
@@ -434,7 +497,7 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
 
           {t("刷题盒子 SHUATIBOX v")}{APP_VERSION}  {t("· 本地离线")}
           <br />
-          {t("图片仅存于应用私有目录，不写入系统图库。")}
+          {t("图片保存在题库目录，不写入系统图库。")}
         </div>
       </div>
 

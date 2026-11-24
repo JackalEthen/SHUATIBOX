@@ -1,6 +1,7 @@
 import { setLang, t, useLang, fmtNumber } from './i18n';
 import { useEffect, useState } from 'react';
-import { clearHistory, errorText, exportBackup, importBackup, setSettings, type Bootstrap } from './api';
+import { clearHistory, errorText, exportBackup, getBanksDir, importBackup, platformBanksDir, setBanksDir, setSettings, type Bootstrap } from './api';
+import { open } from '@tauri-apps/plugin-dialog';
 import { FontSettings } from './FontSettings';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
@@ -28,6 +29,38 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
   const [goal, setGoal] = useState(Number(data.settings.daily_goal ?? '50'));
   const [archive, setArchive] = useState(Number(data.settings.archive_streak ?? '2'));
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
+  const [banksDir, setBanksDirState] = useState('');
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    getBanksDir().then(setBanksDirState).catch(() => undefined);
+  }, []);
+
+  const moveBanks = async (dir: string | null) => {
+    try {
+      const saved = await setBanksDir(dir);
+      setBanksDirState(saved);
+      onNotice(t("题库目录已迁移"));
+      onRefresh();
+    } catch (error) {
+      onNotice(t("迁移失败：{p0}", { p0: errorText(error) }));
+    }
+  };
+
+  const chooseBanksDir = async () => {
+    try {
+      if (isAndroid) {
+        const dir = await platformBanksDir();
+        if (dir) await moveBanks(dir);
+        return;
+      }
+      const value = await open({ directory: true, multiple: false });
+      if (!value || Array.isArray(value)) return;
+      await moveBanks(value);
+    } catch (error) {
+      onNotice(t("迁移失败：{p0}", { p0: errorText(error) }));
+    }
+  };
 
   const save = (values: Record<string, string>) => {
     setSettings(values).catch((error) => onNotice(errorText(error)));
@@ -223,6 +256,18 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
           >
             {t("导入备份")}
           </button>
+        </div>
+        <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--line)' }}>
+          <div className="text-[12px] font-medium">{t("题库存储位置")}</div>
+          <div className="text-[10px] text-[var(--muted)] mt-1 break-all">{banksDir || t("读取中…")}</div>
+          <div className="flex gap-2 mt-2">
+            <button className="btn btn-ghost btn-sm flex-1" onClick={() => void chooseBanksDir()}>
+              {isAndroid ? t("使用外部目录") : t("选择目录")}
+            </button>
+            <button className="btn btn-ghost btn-sm flex-1" onClick={() => void moveBanks(null)}>
+              {t("恢复默认")}
+            </button>
+          </div>
         </div>
         <button
           className="btn btn-danger btn-sm btn-block mt-2"

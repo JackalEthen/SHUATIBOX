@@ -51,7 +51,8 @@
 - 统计：每日题量、正确率、薄弱题型、历史考试
 - 外观：浅色/深色、5 种主题色、4 档阅读字号；全应用与做题页可分别设置系统默认、黑体、宋体或导入字体
 - 界面语言：设置中可切换中文 / English，默认跟随系统语言；英文界面下 AI 讲解与导入提示同步英文
-- 题库管理：多题库导入与切换；支持直接选择单个或多个 `.md` 文件导入（图片自动复制），也可导入文件夹或 zip；支持题库重命名；导入时可追加到当前题库、已有题库或新建题库，重复题目自动跳过（不覆盖），导入报告列出无效题与缺图
+- 题库管理：多题库导入与切换；支持直接选择单个或多个 `.md` / `.txt` / `.html` / `.htm` / `.docx` 文件导入（图片自动复制），也可导入文件夹或 `zip` / `tar` / `tar.gz` / `tgz` 压缩包；txt 与 html 自动转换为题库格式，docx 自动识别标题、选项与图片；支持题库重命名；导入时可追加到当前题库、已有题库或新建题库，重复题目自动跳过（不覆盖），导入报告列出无效题与缺图
+- 题库存储位置：可在设置中把题库数据库与图片迁移到自定义目录（Windows 任选空文件夹，Android 使用 `Android/data/com.shuatibox.app/files/banks`），迁移后题目、图片与练习记录照常可用
 - AI 题目讲解：做题页可对当前题目发起讲解，自动带入材料、题干、选项和参考答案；支持多轮追问、图片题与随时取消，回答以 Markdown 展示
 - AI 设置：配置 OpenAI 兼容接口，保存后自动检测连通性与读图能力；AI 转换导入可把不规范的 Markdown 自动整理成题库格式，分块转换、单文件失败隔离，输出转换报告，同样可选择导入目标题库
 - 题目编辑：做题时直接修改题干、选项、答案、解析，保存写回本地题库，错题本与搜索同步更新
@@ -66,7 +67,7 @@
 | 应用壳 | Tauri 2 |
 | 前端 | React 19 + TypeScript + Vite + Tailwind CSS |
 | 内容渲染 | marked + DOMPurify |
-| 后端 | Rust + rusqlite (SQLite) + zip + sha2 + reqwest |
+| 后端 | Rust + rusqlite (SQLite) + zip + tar + sha2 + reqwest |
 | 平台 | Windows、Android |
 
 ## 快速开始
@@ -89,7 +90,7 @@ npm run tauri -- android build --debug --target aarch64 --apk
 
 ## 题库格式
 
-导入一个 Markdown 文件夹、单个或多个 `.md` 文件，或 zip。每个 `.md` 文件是一张试卷的一个模块，文件头使用 frontmatter：
+导入一个 Markdown 文件夹、单个或多个 `.md` 文件，或 zip / tar / tar.gz。每个 `.md` 文件是一张试卷的一个模块，文件头使用 frontmatter：
 
 ```markdown
 ---
@@ -146,8 +147,10 @@ npm run tauri -- android build --debug --target aarch64 --apk
 | 环境 | 路径 |
 | --- | --- |
 | 开发模式 | 项目根目录 `data/` |
-| Windows 安装版 | `%APPDATA%\com.shuatibox.app` |
-| Android | 应用私有目录 |
+| Windows 安装版 | `%APPDATA%\com.shuatibox.app`（默认，可在设置中迁移） |
+| Android | 应用私有目录（可在设置中迁至 `Android/data/com.shuatibox.app/files/banks`） |
+
+题库目录可在「设置 → 数据 → 题库存储位置」迁移，目标目录需为空；迁移会复制题库数据库与图片。
 
 题库数据库与图片都保存在该目录。卸载 Windows 安装版时会自动删除该目录下的题库、图片、做题记录和设置。
 

@@ -1,6 +1,6 @@
 [package]
 name = "shuatibox"
-version = "1.5.5"
+version = "1.5.6"
 description = "刷题盒子"
 edition = "2021"
 
@@ -22,6 +22,8 @@ chrono = "0.4"
 regex = "1"
 sha2 = "0.10"
 zip = "9"
+tar = "0.4"
+flate2 = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 base64 = "0.22"
 aes-gcm = "0.10"

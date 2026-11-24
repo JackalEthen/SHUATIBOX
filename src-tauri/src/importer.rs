@@ -1175,6 +1175,273 @@ pub(crate) fn extract_zip(zip_path: &Path, target: &Path) -> Result<(), String> 
     Ok(())
 }
 
+fn lower_name(path: &Path) -> String {
+    path.file_name()
+        .map(|value| value.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
+pub(crate) fn is_archive(path: &Path) -> bool {
+    let name = lower_name(path);
+    name.ends_with(".zip") || name.ends_with(".tar") || name.ends_with(".tar.gz") || name.ends_with(".tgz")
+}
+
+fn is_markdown(path: &Path) -> bool {
+    matches!(lower_name(path).rsplit_once('.').map(|(_, ext)| ext), Some("md" | "markdown"))
+}
+
+fn convertible(path: &Path) -> bool {
+    matches!(lower_name(path).rsplit_once('.').map(|(_, ext)| ext), Some("txt" | "html" | "htm" | "docx"))
+}
+
+const ARCHIVE_MAX_ENTRIES: usize = 10_000;
+const ARCHIVE_MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
+const ARCHIVE_MAX_TOTAL_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
+fn extract_tar(file: File, gzip: bool, target: &Path) -> Result<(), String> {
+    fs::create_dir_all(target).map_err(|error| error.to_string())?;
+    let reader: Box<dyn Read> = if gzip {
+        Box::new(flate2::read::GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+    let mut archive = tar::Archive::new(reader);
+    let mut total = 0u64;
+    let entries = archive.entries().map_err(|error| error.to_string())?;
+    for (index, entry) in entries.enumerate() {
+        if index >= ARCHIVE_MAX_ENTRIES {
+            return Err(format!("archive has too many entries: > {ARCHIVE_MAX_ENTRIES}"));
+        }
+        let mut entry = entry.map_err(|error| error.to_string())?;
+        let relative = entry.path().map_err(|error| error.to_string())?.into_owned();
+        if relative.components().any(|part| {
+            matches!(
+                part,
+                std::path::Component::ParentDir | std::path::Component::RootDir | std::path::Component::Prefix(_)
+            )
+        }) {
+            continue;
+        }
+        let out = target.join(&relative);
+        let kind = entry.header().entry_type();
+        if kind.is_dir() {
+            fs::create_dir_all(&out).map_err(|error| error.to_string())?;
+            continue;
+        }
+        if !kind.is_file() {
+            continue;
+        }
+        if let Some(parent) = out.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let size = entry.header().size().unwrap_or(0);
+        if size > ARCHIVE_MAX_ENTRY_BYTES {
+            return Err(format!("archive entry too large: {size} bytes"));
+        }
+        let mut output = File::create(&out).map_err(|error| error.to_string())?;
+        let copied = std::io::copy(&mut (&mut entry).take(ARCHIVE_MAX_ENTRY_BYTES + 1), &mut output)
+            .map_err(|error| error.to_string())?;
+        if copied > ARCHIVE_MAX_ENTRY_BYTES {
+            return Err("archive entry exceeds the extracted size limit".to_string());
+        }
+        total = total.saturating_add(copied);
+        if total > ARCHIVE_MAX_TOTAL_BYTES {
+            return Err(format!("archive exceeds the total extracted size limit: {ARCHIVE_MAX_TOTAL_BYTES} bytes"));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn extract_archive(path: &Path, target: &Path) -> Result<(), String> {
+    let name = lower_name(path);
+    if name.ends_with(".zip") {
+        return extract_zip(path, target);
+    }
+    let file = File::open(path).map_err(|error| error.to_string())?;
+    let gzip = name.ends_with(".tar.gz") || name.ends_with(".tgz");
+    extract_tar(file, gzip, target)
+}
+
+fn xml_text(value: &str) -> String {
+    value
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+}
+
+fn html_to_markdown(html: &str) -> String {
+    let mut text = html.to_string();
+    for tag in ["script", "style", "head"] {
+        let block = Regex::new(&format!(r"(?is)<{tag}\b.*?</{tag}>")).unwrap();
+        text = block.replace_all(&text, " ").to_string();
+    }
+    let img_re = re(r#"(?is)<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>"#);
+    let mut with_images = String::with_capacity(text.len());
+    let mut last = 0usize;
+    for capture in img_re.captures_iter(&text) {
+        let Some(whole) = capture.get(0) else { continue };
+        let src = capture.get(1).or_else(|| capture.get(2)).or_else(|| capture.get(3));
+        with_images.push_str(&text[last..whole.start()]);
+        if let Some(src) = src {
+            with_images.push_str(&format!("\n\n![]({})\n\n", src.as_str().trim()));
+        }
+        last = whole.end();
+    }
+    with_images.push_str(&text[last..]);
+    let mut text = with_images;
+    for level in 1..=6 {
+        let pattern = format!(r"(?is)<h{level}\b[^>]*>(.*?)</h{level}>");
+        let heading = Regex::new(&pattern).unwrap();
+        let replacement = format!("\n\n{} $1\n\n", "#".repeat(level));
+        text = heading.replace_all(&text, replacement.as_str()).to_string();
+    }
+    text = re(r"(?is)<li\b[^>]*>(.*?)</li>").replace_all(&text, "\n- $1\n").to_string();
+    text = re(r"(?is)<strong\b[^>]*>(.*?)</strong>").replace_all(&text, "**$1**").to_string();
+    text = re(r"(?is)<b\b[^>]*>(.*?)</b>").replace_all(&text, "**$1**").to_string();
+    text = re(r"(?is)<br\s*/?>").replace_all(&text, "\n").to_string();
+    text = re(r"(?is)</(p|div|tr|h[1-6]|ul|ol)>").replace_all(&text, "\n\n").to_string();
+    text = re(r"(?is)<[^>]+>").replace_all(&text, "").to_string();
+    let text = xml_text(&text);
+    let mut output = String::with_capacity(text.len());
+    let mut blank = 0usize;
+    for line in text.lines() {
+        let trimmed = line.trim_end();
+        if trimmed.trim().is_empty() {
+            blank += 1;
+            if blank > 1 {
+                continue;
+            }
+        } else {
+            blank = 0;
+        }
+        output.push_str(trimmed.trim());
+        output.push('\n');
+    }
+    output
+}
+
+fn docx_to_markdown(path: &Path, media_dir: &Path, ref_prefix: &str) -> Result<String, String> {
+    let file = File::open(path).map_err(|error| error.to_string())?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|error| error.to_string())?;
+    let mut rels: HashMap<String, String> = HashMap::new();
+    if let Ok(mut entry) = zip.by_name("word/_rels/document.xml.rels") {
+        let mut raw = String::new();
+        entry.read_to_string(&mut raw).map_err(|error| error.to_string())?;
+        for capture in re(r#"<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="([^"]+)""#).captures_iter(&raw) {
+            rels.insert(capture[1].to_string(), capture[2].to_string());
+        }
+    }
+    let mut xml = String::new();
+    zip.by_name("word/document.xml")
+        .map_err(|error| error.to_string())?
+        .read_to_string(&mut xml)
+        .map_err(|error| error.to_string())?;
+    let mut media: HashMap<String, String> = HashMap::new();
+    let mut output = String::new();
+    for capture in re(r"(?s)<w:p\b[^>]*>(.*?)</w:p>").captures_iter(&xml) {
+        let paragraph = &capture[1];
+        let mut level = 0usize;
+        if let Some(style) = re(r#"<w:pStyle\b[^>]*w:val="([^"]+)""#).captures(paragraph) {
+            let value = style[1].to_ascii_lowercase();
+            if let Some(rest) = value.strip_prefix("heading") {
+                level = rest.trim().parse::<usize>().unwrap_or(0).min(6);
+            }
+        }
+        if level == 0 {
+            if let Some(outline) = re(r#"<w:outlineLvl\b[^>]*w:val="(\d)""#).captures(paragraph) {
+                level = outline[1].parse::<usize>().unwrap_or(0) + 1;
+            }
+        }
+        let mut line = String::new();
+        for run in re(r"(?s)<w:r\b[^>]*>(.*?)</w:r>").captures_iter(paragraph) {
+            let body = &run[1];
+            let bold = re(r"<w:b\b[^>]*/>").is_match(body);
+            let mut piece = String::new();
+            for text in re(r"(?s)<w:t\b[^>]*>(.*?)</w:t>").captures_iter(body) {
+                piece.push_str(&xml_text(&text[1]));
+            }
+            piece = piece.replace("\r", "").replace('\n', " ");
+            if piece.is_empty() {
+                continue;
+            }
+            if bold {
+                line.push_str(&format!("**{piece}**"));
+            } else {
+                line.push_str(&piece);
+            }
+        }
+        for blip in re(r#"<a:blip\b[^>]*r:embed="([^"]+)""#).captures_iter(paragraph) {
+            let Some(target) = rels.get(&blip[1]) else { continue };
+            let entry_name = format!("word/{}", target.trim_start_matches('/'));
+            let file_name = entry_name.rsplit('/').next().unwrap_or("image").to_string();
+            if !media.contains_key(&file_name) {
+                if let Ok(mut entry) = zip.by_name(&entry_name) {
+                    let mut bytes = Vec::new();
+                    if entry.read_to_end(&mut bytes).is_ok() {
+                        fs::create_dir_all(media_dir).map_err(|error| error.to_string())?;
+                        fs::write(media_dir.join(&file_name), bytes).map_err(|error| error.to_string())?;
+                        media.insert(file_name.clone(), format!("{ref_prefix}/{file_name}"));
+                    }
+                }
+            }
+            if let Some(relative) = media.get(&file_name) {
+                line.push_str(&format!("![]({relative})"));
+            }
+        }
+        let line = line.trim().to_string();
+        if level > 0 && !line.is_empty() {
+            output.push_str(&format!("{} {line}\n\n", "#".repeat(level)));
+        } else if !line.is_empty() {
+            output.push_str(&line);
+            output.push_str("\n\n");
+        }
+    }
+    Ok(output)
+}
+
+fn normalize_to_markdown(path: &Path, media_dir: &Path) -> Result<String, String> {
+    let name = lower_name(path);
+    let stem = path.file_stem().map(|value| value.to_string_lossy().to_string()).unwrap_or_default();
+    let text = if name.ends_with(".docx") {
+        docx_to_markdown(path, media_dir, &format!("{stem}.media"))?
+    } else {
+        let raw = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let raw = raw.trim_start_matches('\u{feff}');
+        if name.ends_with(".html") || name.ends_with(".htm") {
+            html_to_markdown(raw)
+        } else {
+            raw.to_string()
+        }
+    };
+    if is_markdown(path) || text.trim_start().starts_with("---") {
+        return Ok(text);
+    }
+    // ponytail: 非 md 输入自动补 frontmatter，试卷名取文件名；字段不全时仍按原解析器报问题
+    Ok(format!("---\n试卷: {stem}\n---\n\n{text}"))
+}
+
+pub(crate) fn normalize_tree(root: &Path) {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if convertible(&path) {
+                let stem = path.file_stem().map(|value| value.to_string_lossy().to_string()).unwrap_or_default();
+                let media_dir = path.with_file_name(format!("{stem}.media"));
+                if let Ok(text) = normalize_to_markdown(&path, &media_dir) {
+                    let _ = fs::write(path.with_extension("md"), text);
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn make_temp_dir(base: &Path, tag: &str) -> Result<PathBuf, String> {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1222,23 +1489,19 @@ pub(crate) fn stage_markdown_files(
     paths: &[String],
 ) -> Result<(PathBuf, PathBuf), String> {
     if paths.is_empty() {
-        return Err(tr("请选择 Markdown 文件", "Choose Markdown files").to_string());
+        return Err(tr("请选择导入文件", "Choose files to import").to_string());
     }
     let temp_root = make_temp_dir(base, "md")?;
     let root = temp_root.join("files");
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
     for (index, raw) in paths.iter().enumerate() {
         let source = PathBuf::from(raw);
-        let is_markdown = source
-            .extension()
-            .and_then(|value| value.to_str())
-            .map(|value| {
-                let value = value.to_ascii_lowercase();
-                value == "md" || value == "markdown"
-            })
-            .unwrap_or(false);
-        if !source.is_file() || !is_markdown {
-            return Err(tr("请选择 Markdown 文件", "Choose Markdown files").to_string());
+        if !source.is_file() || !(is_markdown(&source) || convertible(&source)) {
+            return Err(tr(
+                "仅支持 md / markdown / txt / html / docx",
+                "Only md, markdown, txt, html, and docx are supported",
+            )
+            .to_string());
         }
         let stem = source
             .file_stem()
@@ -1249,16 +1512,13 @@ pub(crate) fn stage_markdown_files(
             .and_then(|value| value.file_name())
             .map(|value| value.to_string_lossy().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or(stem);
+            .unwrap_or_else(|| stem.clone());
         let dir = root.join(format!("{:02}-{}", index + 1, safe_segment(&parent)));
         fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-        let name = source
-            .file_name()
-            .map(|value| value.to_string_lossy().to_string())
-            .unwrap_or_else(|| format!("{:02}.md", index + 1));
-        fs::copy(&source, dir.join(&name)).map_err(|error| error.to_string())?;
+        let md_name = format!("{stem}.md");
+        let text = normalize_to_markdown(&source, &dir.join(format!("{stem}.media")))?;
+        fs::write(dir.join(&md_name), &text).map_err(|error| error.to_string())?;
 
-        let text = fs::read_to_string(&source).unwrap_or_default();
         for reference in image_refs(&text) {
             let clean = reference
                 .trim()
@@ -1375,18 +1635,25 @@ fn import_bank_ex(
         return Err(tr("题库路径不存在", "Bank path does not exist").to_string());
     }
     let base = base_dir(app)?;
-    let banks_dir = base.join("banks");
+    let banks_dir = crate::db::banks_dir(app)?;
     fs::create_dir_all(&banks_dir).map_err(|error| error.to_string())?;
     let mut temp_zip = None;
     let root = if source.is_dir() {
-        source.canonicalize().map_err(|error| error.to_string())?
-    } else if source.extension().map(|value| value.eq_ignore_ascii_case("zip")).unwrap_or(false) {
+        let dir = source.canonicalize().map_err(|error| error.to_string())?;
+        normalize_tree(&dir);
+        dir
+    } else if is_archive(&source) {
         let dir = make_temp_dir(&base, "zip")?;
-        extract_zip(&source, &dir)?;
+        extract_archive(&source, &dir)?;
+        normalize_tree(&dir);
         temp_zip = Some(dir.clone());
         dir.canonicalize().map_err(|error| error.to_string())?
     } else {
-        return Err(tr("请选择 Markdown 文件夹或 zip", "Choose a Markdown folder or zip").to_string());
+        return Err(tr(
+            "请选择题库文件夹或压缩包（zip / tar / tar.gz / tgz）",
+            "Choose a bank folder or archive (zip, tar, tar.gz, tgz)",
+        )
+        .to_string());
     };
 
     let existing_bank = match target_bank_id.as_deref() {
@@ -1858,5 +2125,101 @@ mod tests {
         assert_eq!(parsed.questions.len(), 1);
         assert_eq!(parsed.questions[0].answer, vec!["B".to_string()]);
         assert_eq!(explanation_answer("The correct answer is B."), Some("B".to_string()));
+    }
+
+    fn temp_root(tag: &str) -> PathBuf {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../Temp")
+            .join(format!("{tag}-{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn html_becomes_parseable_markdown() {
+        let html = r#"<html><body><h2>第1题</h2><p>题干</p><ul><li><strong>A</strong>. 甲</li><li><strong>B</strong>. 乙</li></ul><p><strong>答案</strong>：A</p></body></html>"#;
+        let md = html_to_markdown(html);
+        let text = format!("---\n试卷: t\n---\n\n{md}");
+        let parsed = parse_file(&text, "t.md", "");
+        assert_eq!(parsed.questions.len(), 1);
+        assert_eq!(parsed.questions[0].answer, vec!["A".to_string()]);
+    }
+
+    #[test]
+    fn txt_gets_frontmatter_and_parses() {
+        let dir = temp_root("txt");
+        let path = dir.join("试卷A.txt");
+        fs::write(&path, "## 第1题\n\n题干\n- **A**. 甲\n- **B**. 乙\n\n**答案**：B\n").unwrap();
+        let text = normalize_to_markdown(&path, &dir.join("media")).unwrap();
+        assert!(text.starts_with("---\n试卷: 试卷A\n---"));
+        let parsed = parse_file(&text, "试卷A.md", "");
+        assert_eq!(parsed.questions.len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn docx_headings_bold_and_media_convert() {
+        let dir = temp_root("docx");
+        let path = dir.join("试卷.docx");
+        let xml = r#"<w:document><w:body>
+            <w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>第1题</w:t></w:r></w:p>
+            <w:p><w:r><w:t>题干</w:t></w:r></w:p>
+            <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>A</w:t></w:r><w:r><w:t>. 甲</w:t></w:r></w:p>
+            <w:p><w:r><w:t>答案：A</w:t></w:r></w:p>
+        </w:body></w:document>"#;
+        {
+            let file = File::create(&path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            writer.start_file("word/document.xml", zip::write::SimpleFileOptions::default()).unwrap();
+            std::io::Write::write_all(&mut writer, xml.as_bytes()).unwrap();
+            writer.finish().unwrap();
+        }
+        let md = normalize_to_markdown(&path, &dir.join("media")).unwrap();
+        assert!(md.contains("## 第1题"), "missing heading: {md}");
+        assert!(md.contains("**A**"), "missing bold option: {md}");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn unstructured_txt_becomes_ai_job_input() {
+        let dir = temp_root("txt-plain");
+        fs::write(
+            dir.join("reading.txt"),
+            "阅读下面的文字，完成各题。\n\n1. 下列对原文内容的理解，正确的一项是（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n\n答案：A\n",
+        )
+        .unwrap();
+        normalize_tree(&dir);
+        let md = fs::read_to_string(dir.join("reading.md")).unwrap();
+        assert!(md.starts_with("---\n试卷: reading\n---"));
+        let probe = probe_file(&md, "reading.md");
+        assert!(probe.stems.is_empty(), "unstructured text should need AI conversion");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tar_gz_extracts_and_skips_traversal() {
+        let dir = temp_root("tar");
+        let archive_path = dir.join("bank.tar.gz");
+        {
+            let file = File::create(&archive_path).unwrap();
+            let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+            let mut builder = tar::Builder::new(encoder);
+            let mut header = tar::Header::new_gnu();
+            header.set_size(6);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append_data(&mut header, "a.md", &b"# hi\n\n"[..]).unwrap();
+            let mut bad = tar::Header::new_gnu();
+            bad.set_size(4);
+            bad.set_mode(0o644);
+            bad.set_cksum();
+            let _ = builder.append_data(&mut bad, "../escape.md", &b"evil"[..]);
+            builder.into_inner().unwrap().finish().unwrap();
+        }
+        let out = dir.join("out");
+        extract_archive(&archive_path, &out).unwrap();
+        assert!(out.join("a.md").exists());
+        assert!(!dir.join("escape.md").exists());
+        let _ = fs::remove_dir_all(dir);
     }
 }

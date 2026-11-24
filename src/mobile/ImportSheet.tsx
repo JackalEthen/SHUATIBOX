@@ -1,6 +1,7 @@
 import { fmtNumber, t } from '../i18n';
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -87,7 +88,7 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
         const value = await open({
           directory: false,
           multiple: true,
-          filters: [{ name: t("Markdown 文件"), extensions: ['md', 'markdown'] }],
+          filters: [{ name: t("文件"), extensions: ['md', 'markdown', 'txt', 'html', 'htm', 'docx'] }],
         });
         if (!Array.isArray(value) || value.length === 0) return;
         setPaths(value);
@@ -203,7 +204,37 @@ export function ImportSheet({ open: isOpen, onClose, onNotice, onDone, bank, ban
             <div className="text-[9px] text-[var(--muted)] mt-3">
               {isAndroid() ? t("通过系统文件选择器授权，复制到应用私有目录") : t("选择本地 Markdown 题库根目录")}
             </div>
-            <div className="text-[9px] text-[var(--muted)] mt-1">{t("一个或多个 md 文件会导入到同一个题库")}</div>
+            <div className="flex items-start justify-center gap-1 text-[9px] text-[var(--muted)] mt-1 leading-4 text-left">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-3 h-3 mt-0.5 shrink-0"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
+              </svg>
+              <span>
+                {t("导入前请选择导入的题库；一个文件夹导入为一个题库；md/txt/html/docx如不使用AI转换，请严格按照")}
+                <button
+                  type="button"
+                  className="underline underline-offset-2"
+                  onClick={() =>
+                    void openUrl('https://github.com/JackalEthen/SHUATIBOX/blob/master/import-format.md').catch((error) =>
+                      onNotice(errorText(error)),
+                    )
+                  }
+                >
+                  import-format.md
+                </button>
+                {t("内的格式编写")}
+              </span>
+            </div>
           </div>
 
           {bank ? (

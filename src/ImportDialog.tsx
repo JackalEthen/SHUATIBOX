@@ -1,6 +1,7 @@
 import { t, fmtNumber } from './i18n';
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { listen } from '@tauri-apps/api/event';
 import {
   aiImport,
@@ -90,7 +91,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
     const value = await open({
       directory: false,
       multiple: false,
-      filters: [{ name: t("题库压缩包"), extensions: ['zip'] }],
+      filters: [{ name: t("题库压缩包"), extensions: ['zip', 'tar', 'gz', 'tgz'] }],
     });
     if (value && !Array.isArray(value)) {
       setPath(value);
@@ -105,7 +106,7 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
     const value = await open({
       directory: false,
       multiple: true,
-      filters: [{ name: t("Markdown 文件"), extensions: ['md', 'markdown'] }],
+      filters: [{ name: t("Markdown 文件"), extensions: ['md', 'markdown', 'txt', 'html', 'htm', 'docx'] }],
     });
     if (Array.isArray(value) && value.length > 0) {
       setPaths(value);
@@ -184,28 +185,58 @@ export function ImportDialog({ open: isOpen, onClose, onDone, onNotice, bank, ba
       }
     >
       <div className="text-[10.5px] text-[var(--muted)] leading-5">
-        {t("支持 Markdown 文件、文件夹或 zip。图片自动复制并按 SHA-256 去重；缺图保留占位并写入报告。")}
+        {t("支持 Markdown / txt / html / docx 文件、文件夹或压缩包（zip / tar / tar.gz / tgz）。图片自动复制并按 SHA-256 去重；缺图保留占位并写入报告。")}
       </div>
 
       <div className="mt-3 rounded-xl border border-dashed border-[var(--line)] bg-[var(--paper-2)] p-5 text-center">
-        <div className="text-[12px] text-[var(--ink-2)]">{t("把题库文件夹、zip 或 md 文件选进来")}</div>
+        <div className="text-[12px] text-[var(--ink-2)]">{t("把题库文件夹、压缩包或文件选进来")}</div>
         <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("结构：模块目录 / 试卷.md / 90-图片")}</div>
         <div className="flex flex-wrap justify-center gap-2 mt-3">
           <button className="btn btn-ghost" onClick={() => void chooseFolder()} disabled={busy}>
             {t("选择文件夹")}
           </button>
           <button className="btn btn-ghost" onClick={() => void chooseZip()} disabled={busy}>
-            {t("选择 zip")}
+            {t("选择压缩包")}
           </button>
           <button className="btn btn-ghost" onClick={() => void chooseMd()} disabled={busy}>
-            {t("选择 md（可多选）")}
+            {t("选择文件（可多选）")}
           </button>
         </div>
-        <div className="text-[10px] text-[var(--muted)] mt-2">{t("一个或多个 md 文件会导入到同一个题库")}</div>
+        <div className="flex items-start gap-1.5 text-[10px] text-[var(--muted)] mt-2 leading-5">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-3 h-3 mt-0.5 shrink-0"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
+          </svg>
+          <span>
+            {t("导入前请选择导入的题库；一个文件夹导入为一个题库；md/txt/html/docx如不使用AI转换，请严格按照")}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-[var(--accent-ink)]"
+              onClick={() =>
+                void openUrl('https://github.com/JackalEthen/SHUATIBOX/blob/master/import-format.md').catch((error) =>
+                  onNotice(errorText(error)),
+                )
+              }
+            >
+              import-format.md
+            </button>
+            {t("内的格式编写")}
+          </span>
+        </div>
         {path ? <div className="text-[10.5px] text-[var(--accent-ink)] mt-3 break-all">{path}</div> : null}
         {paths.length > 0 ? (
           <div className="text-[10.5px] text-[var(--accent-ink)] mt-3 break-all">
-            {paths.length === 1 ? paths[0] : t("已选择 {p0} 个 Markdown 文件", { p0: paths.length })}
+            {paths.length === 1 ? paths[0] : t("已选择 {p0} 个文件", { p0: paths.length })}
           </div>
         ) : null}
       </div>

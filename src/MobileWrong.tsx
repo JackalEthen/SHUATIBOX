@@ -40,22 +40,18 @@ export function MobileWrong({ onStart, onNotice, reloadKey }: Props) {
 
   return (
     <div className="px-4 pt-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-[20px] font-semibold">{t("错题集")}</h2>
-          <p className="text-[11.5px] text-[var(--muted)] mt-1">{t("答错自动收录 · 连续答对后移入已掌握")}</p>
-        </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-[20px] font-semibold">{t("错题集")}</h2>
         <button
           className="btn btn-primary btn-sm"
           disabled={page.pending === 0}
           onClick={() => setRedoOpen(true)}
         >
-
           {t("重做")} {page.pending}
         </button>
       </div>
 
-      <div className="seg mt-3 w-full">
+      <div className="seg mt-2 w-full">
         <button className={`flex-1 ${status === 'pending' ? 'active' : ''}`} onClick={() => setStatus('pending')}>{t("待攻克")} {page.pending}</button>
         <button className={`flex-1 ${status === 'mastered' ? 'active' : ''}`} onClick={() => setStatus('mastered')}>{t("已掌握")} {page.mastered}</button>
       </div>

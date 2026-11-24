@@ -1,6 +1,7 @@
 use crate::db::{asset_dir, base_dir, ensure_active_bank, open_user};
 use crate::importer::{
-    derive_exam_type, extract_zip, make_temp_dir, parse_meta, probe_file, walk_markdown,
+    derive_exam_type, extract_archive, is_archive, make_temp_dir, normalize_tree, parse_meta,
+    probe_file, walk_markdown,
 };
 use crate::i18n::{is_en, tr};
 use crate::models::{AiFileReport, AiImportSummary, ImportProgress};
@@ -442,24 +443,23 @@ fn prepare_workspace(base: &Path, source: &Path) -> Result<(PathBuf, PathBuf), S
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
     if source.is_dir() {
         copy_tree(source, &root)?;
-    } else if source
-        .extension()
-        .map(|value| value.eq_ignore_ascii_case("zip"))
-        .unwrap_or(false)
-    {
-        extract_zip(source, &root)?;
-    } else if source
-        .extension()
-        .map(|value| value.eq_ignore_ascii_case("md"))
-        .unwrap_or(false)
-    {
+        normalize_tree(&root);
+    } else if is_archive(source) {
+        extract_archive(source, &root)?;
+        normalize_tree(&root);
+    } else if source.is_file() {
         let name = source
             .file_name()
             .map(|value| value.to_string_lossy().to_string())
             .unwrap_or_else(|| "import.md".to_string());
         fs::copy(source, root.join(name)).map_err(|error| error.to_string())?;
+        normalize_tree(&root);
     } else {
-        return Err(tr("请选择 Markdown 文件、文件夹或 zip", "Choose a Markdown file, folder, or zip").to_string());
+        return Err(tr(
+            "请选择 Markdown / txt / html / docx 文件、文件夹或压缩包",
+            "Choose a Markdown, txt, html, or docx file, folder, or archive",
+        )
+        .to_string());
     }
     Ok((temp_root, root))
 }

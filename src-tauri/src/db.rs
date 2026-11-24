@@ -19,15 +19,29 @@ pub fn user_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("user.db"))
 }
 
-pub fn default_bank_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+pub fn banks_dir_with(conn: &Connection, app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let configured: Option<String> = conn
+        .query_row("SELECT value FROM settings WHERE key='banks_dir'", [], |row| row.get(0))
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if let Some(dir) = configured.filter(|value| !value.trim().is_empty()) {
+        return Ok(PathBuf::from(dir));
+    }
+    Ok(base_dir(app)?.join("banks"))
+}
+
+pub fn banks_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let conn = open_user(app)?;
+    banks_dir_with(&conn, app)
+}
+
+pub fn default_bank_path(conn: &Connection, app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     let dir = base_dir(app)?;
+    let banks = banks_dir_with(conn, app)?;
     let candidates = if cfg!(debug_assertions) && !cfg!(target_os = "android") {
         vec![dir.join("shuatibox.db")]
     } else {
-        vec![
-            dir.join("banks/default.db"),
-            dir.join("shuatibox.db"),
-        ]
+        vec![banks.join("default.db"), banks.join("shuatibox.db"), dir.join("shuatibox.db")]
     };
     if let Some(found) = candidates.into_iter().find(|path| path.exists()) {
         return Ok(Some(found));
@@ -36,8 +50,8 @@ pub fn default_bank_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, Stri
         if let Ok(resource) = app.path().resource_dir() {
             let source = resource.join("shuatibox.db");
             if source.exists() {
-                let target = dir.join("shuatibox.db");
-                std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+                let target = banks.join("shuatibox.db");
+                std::fs::create_dir_all(&banks).map_err(|error| error.to_string())?;
                 std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
                 return Ok(Some(target));
             }
@@ -201,7 +215,7 @@ pub fn init_user(app: &tauri::AppHandle) -> Result<(), String> {
         .query_row("SELECT COUNT(*) FROM banks", [], |row| row.get(0))
         .map_err(|error| error.to_string())?;
     if count == 0 {
-        if let Some(path) = default_bank_path(app)? {
+        if let Some(path) = default_bank_path(&conn, app)? {
             register_bank(&conn, "default", tr("行测真题 2016–2026", "Civil Service Questions 2016–2026"), &path, None, true)?;
         }
     }
@@ -437,6 +451,176 @@ pub fn asset_dir(bank: &BankDto) -> PathBuf {
     }
 }
 
+fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    text.strip_prefix(r"\\?\").unwrap_or(&text).to_string()
+}
+
+fn rebase(path: &Path, from: &Path, to: &Path) -> Option<PathBuf> {
+    path.strip_prefix(from).ok().map(|tail| to.join(tail))
+}
+
+fn copy_dir_all(from: &Path, to: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(|error| error.to_string())?;
+    for entry in std::fs::read_dir(from).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_all(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+pub fn set_banks_dir(app: &tauri::AppHandle, target: Option<String>) -> Result<String, String> {
+    let conn = open_user(app)?;
+        let old = banks_dir_with(&conn, app)?;
+        let new = match target.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+            Some(dir) => PathBuf::from(dir),
+            None => base_dir(app)?.join("banks"),
+        };
+        let base_c = base_dir(app)?.canonicalize().map_err(|error| error.to_string())?;
+        std::fs::create_dir_all(&new).map_err(|error| error.to_string())?;
+        let probe = new.join(format!(".write-test-{}", std::process::id()));
+        std::fs::write(&probe, b"ok").map_err(|error| format!("目标目录不可写：{error}"))?;
+        let _ = std::fs::remove_file(&probe);
+        let new_c = new.canonicalize().map_err(|error| error.to_string())?;
+        let old_c = old.canonicalize().unwrap_or_else(|_| old.clone());
+
+        if new_c != old_c {
+            if new_c.starts_with(&old_c) || old_c.starts_with(&new_c) {
+                return Err(tr(
+                    "目标目录不能与当前题库目录互相包含",
+                    "Target directory cannot contain or be inside the current one",
+                )
+                .to_string());
+            }
+            if std::fs::read_dir(&new_c)
+                .map_err(|error| error.to_string())?
+                .next()
+                .is_some()
+            {
+                return Err(tr("目标目录必须为空", "Target directory must be empty").to_string());
+            }
+            let rows: Vec<(String, String)> = {
+                let mut stmt = conn
+                    .prepare("SELECT id, path FROM banks")
+                    .map_err(|error| error.to_string())?;
+                let mapped = stmt
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .map_err(|error| error.to_string())?;
+                mapped.flatten().collect()
+            };
+            let mut rewrites: Vec<(String, String, Option<PathBuf>)> = Vec::new();
+            for (id, path) in &rows {
+                let path = PathBuf::from(path);
+                let (next, carry) = match rebase(&path, &old_c, &new_c) {
+                    Some(next) => (next, None),
+                    None => {
+                        let name = path.file_name().map(PathBuf::from).unwrap_or_else(|| PathBuf::from(format!("{id}.db")));
+                        (new_c.join(name), Some(path.clone()))
+                    }
+                };
+                rewrites.push((id.clone(), display_path(&next), carry));
+            }
+            let rollback = || {
+                let _ = std::fs::remove_dir_all(&new_c);
+            };
+            if old.exists() {
+                if let Err(error) = copy_dir_all(&old_c, &new_c) {
+                    rollback();
+                    return Err(error);
+                }
+            }
+            for (id, _, carry) in &rewrites {
+                if let Some(path) = carry {
+                    let name = path.file_name().unwrap();
+                    let to = new_c.join(name);
+                    if path.exists() && !to.exists() {
+                        if let Err(error) = std::fs::copy(path, &to) {
+                            rollback();
+                            return Err(error.to_string());
+                        }
+                    }
+                    let assets = if id == "default" {
+                        path.parent().map(|parent| parent.join("assets"))
+                    } else {
+                        Some(path.with_extension("assets"))
+                    };
+                    let assets_to = if id == "default" {
+                        new_c.join("assets")
+                    } else {
+                        new_c.join(format!("{}.assets", to.file_stem().unwrap_or_default().to_string_lossy()))
+                    };
+                    if let Some(assets) = assets.filter(|assets| assets.is_dir()) {
+                        if let Err(error) = copy_dir_all(&assets, &assets_to) {
+                            rollback();
+                            return Err(error);
+                        }
+                    }
+                }
+            }
+            // ponytail: 插件/自定义目录为空的写入探针通过后仍可能中途失败，失败即回滚新目录并保留旧目录
+            if let Err(error) = conn.execute_batch("BEGIN") {
+                rollback();
+                return Err(error.to_string());
+            }
+            let mut failed = None;
+            for (id, path, _) in &rewrites {
+                if let Err(error) = conn.execute(
+                    "UPDATE banks SET path=?1 WHERE id=?2",
+                    rusqlite::params![path, id],
+                ) {
+                    failed = Some(error.to_string());
+                    break;
+                }
+            }
+            if failed.is_none() {
+                let saved = if new_c == base_c.join("banks") {
+                    conn.execute("DELETE FROM settings WHERE key='banks_dir'", [])
+                } else {
+                    conn.execute(
+                        "INSERT INTO settings (key,value) VALUES ('banks_dir',?1)
+                         ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                        rusqlite::params![display_path(&new_c)],
+                    )
+                };
+                if let Err(error) = saved {
+                    failed = Some(error.to_string());
+                }
+            }
+            match failed {
+                Some(error) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    rollback();
+                    return Err(error);
+                }
+                None => conn.execute_batch("COMMIT").map_err(|error| error.to_string())?,
+            }
+            if old_c != base_c {
+                let _ = std::fs::remove_dir_all(&old_c);
+            }
+            let _ = app.asset_protocol_scope().allow_directory(&new_c, true);
+            return Ok(display_path(&new_c));
+        }
+
+        if new_c == base_c.join("banks") {
+            conn.execute("DELETE FROM settings WHERE key='banks_dir'", [])
+                .map_err(|error| error.to_string())?;
+        } else {
+            conn.execute(
+                "INSERT INTO settings (key,value) VALUES ('banks_dir',?1)
+                 ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                rusqlite::params![display_path(&new_c)],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+        let _ = app.asset_protocol_scope().allow_directory(&new_c, true);
+        Ok(display_path(&new_c))
+}
+
 pub fn question_from_row(row: &Row<'_>) -> rusqlite::Result<QuestionDto> {
     let options_json: String = row.get(9)?;
     let answer_text: String = row.get(10)?;
@@ -484,7 +668,21 @@ pub const QUESTION_COLUMNS: &str =
 #[cfg(test)]
 mod tests {
     use super::seed_review_items;
+    use super::rebase;
     use rusqlite::Connection;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn rebase_rewrites_only_paths_inside_source() {
+        let from = Path::new("/data/banks");
+        let to = Path::new("/mnt/q/banks");
+        assert_eq!(
+            rebase(Path::new("/data/banks/a.db"), from, to),
+            Some(PathBuf::from("/mnt/q/banks/a.db"))
+        );
+        assert_eq!(rebase(Path::new("/data/other/a.db"), from, to), None);
+    }
+
 
     #[test]
     fn seed_review_items_from_attempts_and_pending_wrong_once() {

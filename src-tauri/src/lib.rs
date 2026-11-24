@@ -8,6 +8,8 @@ mod saf;
 mod secret;
 mod update;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -18,6 +20,9 @@ pub fn run() {
         .setup(|app| {
             if let Err(error) = db::init_user(app.handle()) {
                 eprintln!("初始化本地数据库失败：{error}");
+            }
+            if let Ok(dir) = db::banks_dir(app.handle()) {
+                let _ = app.handle().asset_protocol_scope().allow_directory(&dir, true);
             }
             Ok(())
         })
@@ -54,6 +59,9 @@ pub fn run() {
             commands::delete_bank,
             commands::export_backup,
             commands::import_backup,
+            commands::get_banks_dir,
+            commands::set_banks_dir,
+            commands::platform_banks_dir,
             commands::clear_history,
             commands::import_bank,
             commands::import_into_bank,

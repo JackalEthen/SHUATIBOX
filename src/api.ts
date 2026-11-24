@@ -588,6 +588,18 @@ export async function importBackup(path: string): Promise<void> {
   return invoke('import_backup', { path });
 }
 
+export async function getBanksDir(): Promise<string> {
+  return invoke<string>('get_banks_dir');
+}
+
+export async function setBanksDir(path: string | null): Promise<string> {
+  return invoke<string>('set_banks_dir', { path });
+}
+
+export async function platformBanksDir(): Promise<string | null> {
+  return invoke<string | null>('platform_banks_dir');
+}
+
 export async function clearHistory(): Promise<void> {
   return invoke('clear_history');
 }

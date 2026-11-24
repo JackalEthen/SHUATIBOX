@@ -286,8 +286,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
   const header = (
     <div className="appbar">
       <div className="flex-1 min-w-0">
-        <h1>{t(titles[screen])}</h1>
-        <p className="text-[10.5px] text-[var(--muted)] -mt-0.5 truncate">{data.bank.title}</p>
+        <h1 className="text-[20px] leading-7">{t(titles[screen])}</h1>
       </div>
       <button className="icon-btn" onClick={() => setScreen('search')} aria-label={t("搜索")}>
         <Icon name="search" strokeWidth={1.8} />

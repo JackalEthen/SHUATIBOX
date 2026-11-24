@@ -14,15 +14,23 @@ interface Props {
   onStats: () => void;
 }
 
-const actions: Array<{ icon: IconName; title: string; sub: string; to: 'library' | 'wrong' | 'search' }> = [
-  { icon: 'library', title: "模块刷题", sub: "按模块 / 题型 / 年份", to: 'library' },
-  { icon: 'clock', title: "整卷练习", sub: "按套卷计时练习", to: 'library' },
-  { icon: 'wrong', title: "错题重做", sub: "按错题攻克", to: 'wrong' },
-  { icon: 'search', title: "搜索题目", sub: "题干 / 选项 / 解析", to: 'search' },
+const actions: Array<{ icon: IconName; title: string; to: 'library' | 'wrong' | 'search' }> = [
+  { icon: 'library', title: "模块刷题", to: 'library' },
+  { icon: 'clock', title: "整卷练习", to: 'library' },
+  { icon: 'wrong', title: "错题重做", to: 'wrong' },
+  { icon: 'search', title: "搜索题目", to: 'search' },
 ];
 
 function fmt(value: number) {
   return fmtNumber(value);
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return "早上好，";
+  if (hour >= 11 && hour < 14) return "中午好，";
+  if (hour >= 14 && hour < 18) return "下午好，";
+  return "晚上好，";
 }
 
 export function MobileHome({ data, summary, profileName, onStart, onResume, onLibrary, onWrong, onSearch, onStats }: Props) {
@@ -47,7 +55,7 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
     <div className="px-4 pt-4">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">{t("你好，")}{profileName}</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight">{t(greeting())}{profileName}</h2>
           <p className="text-[12px] text-[var(--muted)] mt-1">
             {data.bank.title} · {fmt(data.bank.questionCount)}  {t("题")}
           </p>
@@ -150,12 +158,11 @@ export function MobileHome({ data, summary, profileName, onStart, onResume, onLi
 
       <div className="grid grid-cols-2 gap-3 mt-3">
         {actions.map((item) => (
-          <button key={item.title} className="card p-4 text-left" onClick={() => go(item.to)}>
-            <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center mb-2">
+          <button key={item.title} className="card p-3.5 flex items-center gap-3 text-left" onClick={() => go(item.to)}>
+            <div className="w-9 h-9 rounded-xl bg-[var(--accent-soft)] text-[var(--accent-ink)] grid place-items-center shrink-0">
               <Icon name={item.icon} className="w-5 h-5" strokeWidth={1.8} />
             </div>
-            <div className="text-[13px] font-medium">{t(item.title)}</div>
-            <div className="text-[11px] text-[var(--muted)] mt-0.5">{t(item.sub)}</div>
+            <div className="text-[15px] font-medium">{t(item.title)}</div>
           </button>
         ))}
       </div>
