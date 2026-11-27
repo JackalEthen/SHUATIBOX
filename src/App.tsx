@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { DesktopApp } from './DesktopApp';
+import { MiniPractice } from './MiniPractice';
 import { MobileApp } from './MobileApp';
 import { useAppearance } from './theme';
 import { useLang } from './i18n';
@@ -7,6 +8,7 @@ import { useLang } from './i18n';
 export default function App() {
   useLang();
   const appearance = useAppearance();
+  const [mini] = useState(() => new URLSearchParams(window.location.search).get('mini') === '1');
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [notice, setNotice] = useState('');
 
@@ -45,6 +47,10 @@ export default function App() {
     setNotice('');
     window.setTimeout(() => setNotice(message), 0);
   };
+
+  if (mini) {
+    return <MiniPractice />;
+  }
 
   return (
     <>

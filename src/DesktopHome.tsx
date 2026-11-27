@@ -206,16 +206,17 @@ export function DesktopHome({
             { icon: 'wrong' as const, title: t("错题重做"), sub: t("{p0} 题待攻克", { p0: wrongCount }), action: onWrong },
             { icon: 'search' as const, title: t("搜索题目"), sub: t("题干 / 选项 / 解析"), action: onSearch },
           ].map((item) => (
-            <button key={item.title} className="card p-4 text-left hover:border-[var(--accent)] transition" onClick={item.action}>
-              <div
-                className={`w-8 h-8 rounded-lg grid place-items-center mb-3 ${
-                  item.title === t("错题重做") ? 'bg-[var(--bad-soft)] text-[var(--bad)]' : 'bg-[var(--accent-soft)] text-[var(--accent-ink)]'
-                }`}
-              >
-                <Icon name={item.icon} className="w-4 h-4" strokeWidth={1.8} />
+            <button key={item.title} className="card px-4 py-3 text-left hover:border-[var(--accent)] transition" onClick={item.action}>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
+                    item.title === t("错题重做") ? 'bg-[var(--bad-soft)] text-[var(--bad)]' : 'bg-[var(--accent-soft)] text-[var(--accent-ink)]'
+                  }`}
+                >
+                  <Icon name={item.icon} className="w-4 h-4" strokeWidth={1.8} />
+                </div>
+                <div className="text-[13px] font-medium">{item.title}</div>
               </div>
-              <div className="text-[13px] font-medium">{item.title}</div>
-              <div className="text-[10.5px] text-[var(--muted)] mt-0.5">{item.sub}</div>
             </button>
           ))}
         </div>

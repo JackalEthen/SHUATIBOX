@@ -15,6 +15,7 @@ interface Props {
   onFavorites: () => void;
   onBank: () => void;
   onImport: () => void;
+  onReader: () => void;
   onNotice: (message: string) => void;
 }
 
@@ -24,7 +25,7 @@ function fmt(value: number) {
 
 const isAndroid = () => /android/i.test(navigator.userAgent);
 
-export function MobileMine({ data, profile, onProfileChange, onStats, onSettings, onFavorites, onBank, onImport, onNotice }: Props) {
+export function MobileMine({ data, profile, onProfileChange, onStats, onSettings, onFavorites, onBank, onImport, onReader, onNotice }: Props) {
   const [stats, setStats] = useState<StatsDto | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile.name);
@@ -83,6 +84,7 @@ export function MobileMine({ data, profile, onProfileChange, onStats, onSettings
     { icon: 'star' as const, title: t("我的收藏"), onClick: onFavorites },
     { icon: 'library' as const, title: t("题库管理"), onClick: onBank },
     { icon: 'settings' as const, title: t("偏好设置"), onClick: onSettings },
+    { icon: 'book' as const, title: t("Markdown 阅读器"), onClick: onReader },
     { icon: 'library' as const, title: t("导入题库"), onClick: onImport },
   ];
 

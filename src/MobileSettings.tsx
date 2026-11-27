@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { clearHistory, errorText, exportBackup, getBanksDir, importBackup, platformBanksDir, setBanksDir, setSettings, type Bootstrap } from './api';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FontSettings } from './FontSettings';
+import { BackgroundSettings } from './BackgroundSettings';
 import { AiConfigDialog } from './AiConfigDialog';
 import { Icon } from './icons';
 import { UpdateCard } from './UpdateCard';
@@ -165,6 +166,7 @@ export function MobileSettings({ data, appearance, onBack, onBank, onImport, onN
             ))}
           </div>
         </div>
+        <BackgroundSettings onNotice={onNotice} />
       </div>
 
       <FontSettings

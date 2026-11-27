@@ -2,10 +2,13 @@ import { t } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   errorText,
+  closeMiniWindow,
   finishSession,
   getNote,
+  getSession,
   getSettings,
   isFavorite,
+  openMiniWindow,
   saveAnswer,
   saveNote,
   toggleFavorite,
@@ -18,10 +21,16 @@ import {
   type SessionSpec,
   type SessionView,
 } from './api';
+import { emit, listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AiTutor } from './AiTutor';
 import { AnswerCard } from './AnswerCard';
 import { AiMark, Icon } from './icons';
+import { loadPracticeBg, practiceBgStyle } from './practiceBg';
+import { actionForEvent, keyLabel, loadShortcuts } from './shortcuts';
 import { Modal } from './Modal';
+
+const WINDOW_LABEL = getCurrentWindow().label;
 
 interface Props {
   view: SessionView;
@@ -187,6 +196,13 @@ export function DesktopPractice({
   });
   const [busy, setBusy] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [miniOpen, setMiniOpen] = useState(false);
+  const bg = useMemo(loadPracticeBg, []);
+  const shortcutHint = useMemo(() => {
+    const map = loadShortcuts();
+    return `${keyLabel(map.prev)} / ${keyLabel(map.next)} ${t("翻题")} · ${keyLabel(map.flag)} ${t("标注")} · ${keyLabel(map.favorite)} ${t("收藏")} · A–H ${t("选择")}`;
+  }, []);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -253,17 +269,42 @@ export function DesktopPractice({
 
   useEffect(() => {
     if (!question) return;
+    const map = loadShortcuts();
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const action = actionForEvent(event, map);
+      if (action) {
+        event.preventDefault();
+        if (action === 'prev') setIndex((value) => Math.max(0, value - 1));
+        else if (action === 'next') setIndex((value) => Math.min(questions.length - 1, value + 1));
+        else if (action === 'submit') {
+          if (question.multi && !isSubmitted && selected.length > 0) void grade(selected);
+        } else if (action === 'finish') {
+          void finish(false);
+        } else if (action === 'favorite') {
+          toggleFavorite(question.id)
+            .then((value) => {
+              setFavorite(value);
+              onNotice(value ? t("已收藏") : t("已取消收藏"));
+            })
+            .catch((error) => onNotice(t("收藏失败：{p0}", { p0: errorText(error) })));
+        } else if (action === 'flag') {
+          toggleFlag();
+        } else if (action === 'card') {
+          setCardOpen(true);
+        } else if (action === 'note') {
+          void openNote();
+        } else if (action === 'ai') {
+          if (aiReady) setAiOpen(true);
+          else onNotice(t("请先在设置中配置 AI 接口"));
+        } else if (action === 'edit') {
+          openEdit();
+        }
+        return;
+      }
       const key = event.key.toUpperCase();
-      if (event.key === 'ArrowLeft') {
-        setIndex((value) => Math.max(0, value - 1));
-      } else if (event.key === 'ArrowRight') {
-        setIndex((value) => Math.min(questions.length - 1, value + 1));
-      } else if (key === 'F') {
-        toggleFlag();
-      } else if (/^[A-H]$/.test(key)) {
+      if (/^[A-H]$/.test(key)) {
         const option = question.options.find((item) => item.label === key);
         if (option) choose(key);
       }
@@ -271,6 +312,28 @@ export function DesktopPractice({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [question, selected, submitted, index, flags, mode, isExam, busy]);
+
+  useEffect(() => {
+    const unlisten = listen<{ sessionId: string; origin: string }>('session-updated', async (event) => {
+      if (event.payload.sessionId !== view.session.id || event.payload.origin === WINDOW_LABEL) return;
+      try {
+        const next = await getSession(view.session.id);
+        setAnswers(Object.fromEntries(next.answers.map((item) => [item.questionId, item])));
+        setFlags(new Set(next.flags));
+      } catch {
+      }
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [view.session.id]);
+
+  useEffect(() => {
+    const unlisten = listen<{ open: boolean }>('mini-state', (event) => setMiniOpen(event.payload.open));
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     if (result || view.session.durationSec <= 0 || view.session.status !== 'active') return;
@@ -324,6 +387,10 @@ export function DesktopPractice({
     setAnswers((current) => ({ ...current, [value.questionId]: value }));
   };
 
+  const broadcast = () => {
+    void emit('session-updated', { sessionId: view.session.id, origin: WINDOW_LABEL });
+  };
+
   const persistDraft = (labels: string[]) => {
     updateAnswer({
       questionId: question.id,
@@ -338,7 +405,9 @@ export function DesktopPractice({
       selected: labels,
       submitted: false,
       elapsedMs: Date.now() - questionStart.current,
-    }).catch((error) => onNotice(t("保存失败：{p0}", { p0: errorText(error) })));
+    })
+      .then(broadcast)
+      .catch((error) => onNotice(t("保存失败：{p0}", { p0: errorText(error) })));
   };
 
   const grade = async (labels: string[]) => {
@@ -360,6 +429,7 @@ export function DesktopPractice({
         flagged: flags.has(question.id),
       });
       setSubmitted(true);
+      broadcast();
     } catch (error) {
       onNotice(t("判分失败：{p0}", { p0: errorText(error) }));
     } finally {
@@ -396,7 +466,9 @@ export function DesktopPractice({
       selected,
       submitted: isSubmitted,
       flagged: next.has(question.id),
-    }).catch((error) => onNotice(t("标记失败：{p0}", { p0: errorText(error) })));
+    })
+      .then(broadcast)
+      .catch((error) => onNotice(t("标记失败：{p0}", { p0: errorText(error) })));
   }
 
   async function finish(auto = false) {
@@ -463,9 +535,36 @@ export function DesktopPractice({
   const answeredCount = view.questions.filter((item) => answers[item.id]?.submitted).length;
 
   return (
-    <section id="screen-practice" className="screen immersive active">
+    <section
+      id="screen-practice"
+      className={`screen immersive active relative${bg.color || bg.image ? ' has-bg' : ''}`}
+      style={practiceBgStyle(bg)}
+    >
       <div className="h-full flex flex-col min-h-0">
-        <div className="h-14 shrink-0 border-b border-[var(--line)] flex items-center gap-3 px-5">
+        {miniOpen ? (
+          <div
+            className="absolute inset-0 z-30 grid place-items-center backdrop-blur-sm"
+            style={{ background: 'color-mix(in srgb, var(--paper) 86%, transparent)' }}
+          >
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-2xl grid place-items-center bg-[var(--accent-soft)] text-[var(--accent-ink)]">
+                <Icon name="pin" className="w-5 h-5" />
+              </div>
+              <div className="mt-3 text-[15px] font-semibold">{t("小窗已开启")}</div>
+              <div className="mt-1 text-[11.5px] text-[var(--muted)]">{t("在小窗中答题，关闭小窗后这里恢复")}</div>
+              <button
+                className="btn btn-ghost btn-sm mt-4"
+                onClick={() => {
+                  void closeMiniWindow();
+                  setMiniOpen(false);
+                }}
+              >
+                {t("关闭小窗")}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <div className="h-14 shrink-0 border-b border-[var(--line)] bg-[var(--card)] flex items-center gap-3 px-5">
           <button className="icon-btn" onClick={onExit} aria-label={t("返回")}>
             <Icon name="chevronLeft" strokeWidth={1.8} />
           </button>
@@ -484,13 +583,57 @@ export function DesktopPractice({
               {formatClock(remaining)}
             </span>
           ) : null}
-          {isExam ? (
-            <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 relative">
+            {isExam ? (
               <button className="btn btn-primary btn-sm" onClick={() => void finish(false)}>
                 {t("交卷")}
               </button>
-            </div>
-          ) : null}
+            ) : null}
+            <button
+              className="icon-btn"
+              aria-label={t("更多")}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((value) => !value)}
+            >
+              <Icon name="list" />
+            </button>
+            {menuOpen ? (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-40 rounded-xl border border-[var(--line)] bg-[var(--card)] py-1 shadow-[var(--shadow-lg)]">
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[12.5px]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void openNote();
+                    }}
+                  >
+                    {t("笔记")}
+                  </button>
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[12.5px]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openEdit();
+                    }}
+                  >
+                    {t("编辑本题")}
+                  </button>
+                  <button
+                    className="block w-full px-3 py-2 text-left text-[12.5px]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openMiniWindow(view.session.id, index).catch((error) =>
+                        onNotice(t("打开卡片刷题失败：{p0}", { p0: errorText(error) })),
+                      );
+                    }}
+                  >
+                    {t("卡片刷题")}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
 
         <div className={`practice-grid flex-1 min-h-0 ${question.material ? '' : 'no-material'}`}>
@@ -596,7 +739,7 @@ export function DesktopPractice({
 
                 <div className="mt-6 flex items-center gap-3 text-[11px] text-[var(--muted)]">
                   <span>{t("本题来源：")}{question.paperTitle ?? question.source}</span>
-                  <span className="ml-auto">{t("A–H 选择 · ← → 翻题 · F 收藏")}</span>
+                  <span className="ml-auto">{shortcutHint}</span>
                 </div>
               </div>
             </div>
@@ -621,12 +764,6 @@ export function DesktopPractice({
                   style={favorite ? { color: 'var(--warn)' } : undefined}
                 >
                   <Icon name="star" />
-                </button>
-                <button className="icon-btn" onClick={() => void openNote()} aria-label={t("笔记")}>
-                  <Icon name="note" />
-                </button>
-                <button className="icon-btn" onClick={openEdit} aria-label={t("编辑本题")}>
-                  <Icon name="edit" />
                 </button>
                 <button
                   className="icon-btn"

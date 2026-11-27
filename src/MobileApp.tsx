@@ -27,6 +27,7 @@ import { MobileSearch } from './MobileSearch';
 import { MobileSettings } from './MobileSettings';
 import { MobileStats } from './MobileStats';
 import { MobileWrong } from './MobileWrong';
+import { MdReader } from './MdReader';
 import { BankSheet } from './mobile/BankSheet';
 import { CustomPaperSheet } from './mobile/CustomPaperSheet';
 import { ImportSheet } from './mobile/ImportSheet';
@@ -43,6 +44,7 @@ export type MobileScreen =
   | 'mine'
   | 'favorites'
   | 'stats'
+  | 'reader'
   | 'settings';
 
 interface Props {
@@ -66,6 +68,7 @@ const titles: Record<MobileScreen, string> = {
   mine: "我的",
   favorites: "我的收藏",
   stats: "学习统计",
+  reader: "MD 阅读器",
   settings: "设置",
 };
 
@@ -338,6 +341,7 @@ export function MobileApp({ appearance, onNotice }: Props) {
             onFavorites={() => setScreen('favorites')}
             onBank={() => setBankOpen(true)}
             onImport={() => setImportOpen(true)}
+            onReader={() => setScreen('reader')}
             onNotice={onNotice}
           />
         ) : screen === 'favorites' ? (
@@ -350,6 +354,16 @@ export function MobileApp({ appearance, onNotice }: Props) {
           />
         ) : screen === 'stats' ? (
           <MobileStats onBack={() => setScreen('mine')} reloadKey={reloadKey} onNotice={onNotice} />
+        ) : screen === 'reader' ? (
+          <div className="px-4 pt-4" style={{ height: 'calc(100vh - 140px)' }}>
+            <button className="btn btn-ghost btn-sm mb-2" onClick={() => setScreen('mine')}>
+              <Icon name="chevronLeft" className="w-4 h-4" />
+              {t("返回")}
+            </button>
+            <div style={{ height: 'calc(100% - 38px)' }}>
+              <MdReader onNotice={onNotice} mobile />
+            </div>
+          </div>
         ) : (
           <MobileSettings
             data={data}

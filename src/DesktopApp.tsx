@@ -12,6 +12,7 @@ import { DesktopSearch } from './DesktopSearch';
 import { DesktopSettings } from './DesktopSettings';
 import { DesktopStats } from './DesktopStats';
 import { DesktopWrong } from './DesktopWrong';
+import { MdReader } from './MdReader';
 import { ExamPicker } from './ExamPicker';
 import { Icon, type IconName } from './icons';
 import { APP_VERSION } from './version';
@@ -21,7 +22,7 @@ import { JudgeModeDialog } from './JudgeMode';
 import { UpdateDialog } from './UpdateDialog';
 import type { Appearance, Accent } from './theme';
 
-type Screen = 'home' | 'library' | 'practice' | 'wrong' | 'favorites' | 'search' | 'stats' | 'settings';
+type Screen = 'home' | 'library' | 'practice' | 'wrong' | 'favorites' | 'search' | 'stats' | 'reader' | 'settings';
 
 interface Props {
   appearance: Appearance;
@@ -200,7 +201,9 @@ export function DesktopApp({ appearance, onNotice }: Props) {
                 ? t("搜索")
               : screen === 'stats'
                 ? t("统计")
-                : t("设置");
+                : screen === 'reader'
+                  ? t("阅读")
+                  : t("设置");
 
   const homeData: HomeSummary = home ?? {
     today: data.today,
@@ -223,6 +226,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
     { icon: 'star', label: t("收藏"), badge: String(data.favoriteCount), target: 'favorites' },
     { icon: 'search', label: t("搜索"), target: 'search' },
     { icon: 'stats', label: t("统计"), target: 'stats' },
+    { icon: 'book', label: t("阅读"), target: 'reader' },
     { icon: 'settings', label: t("设置"), target: 'settings' },
   ];
 
@@ -371,7 +375,7 @@ export function DesktopApp({ appearance, onNotice }: Props) {
           </div>
         </header>
 
-        <div className={`flex-1 min-h-0 ${screen === 'practice' ? 'overflow-hidden' : 'overflow-y-auto scroll'}`}>
+        <div className={`flex-1 min-h-0 ${screen === 'practice' || screen === 'reader' ? 'overflow-hidden' : 'overflow-y-auto scroll'}`}>
           {screen === 'home' ? (
             <DesktopHome
               data={homeData}
@@ -428,6 +432,10 @@ export function DesktopApp({ appearance, onNotice }: Props) {
             />
           ) : screen === 'stats' ? (
             <DesktopStats refreshKey={refreshKey} onStart={(spec) => void begin(spec)} onNotice={onNotice} />
+          ) : screen === 'reader' ? (
+            <div className="h-full p-6">
+              <MdReader onNotice={onNotice} />
+            </div>
           ) : (
             <DesktopSettings
               data={data}

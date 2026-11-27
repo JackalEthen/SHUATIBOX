@@ -21,3 +21,9 @@ keystore.properties
 # README screenshots (jpg is globally ignored)
 !screenshots/Windows-example-1.jpg
 !screenshots/Windows-example-2.jpg
+
+# Android background images
+!public/background/*.jpg
+!public/background/*.jpeg
+
+Temp/

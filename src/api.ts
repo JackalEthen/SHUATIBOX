@@ -1,4 +1,4 @@
-﻿import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { renderMarkdown, renderRich } from './markdown';
 import { t } from './i18n';
@@ -342,7 +342,6 @@ export interface ImportProgress {
 function localize(html: string, assetDir: string): string {
   if (!assetDir || !html.includes('asset:')) return html;
   return html.replace(/asset:([^"'\s<>]+)/g, (_match, file: string) => {
-    // ponytail: 拒绝路径穿越，只允许 assets 目录内的单层文件名
     if (file.includes('..') || file.includes('/') || file.includes('\\')) return '';
     try {
       return convertFileSrc(`${assetDir}/${file}`);
@@ -536,6 +535,26 @@ export async function saveAvatarFile(path: string): Promise<string> {
 
 export async function saveFont(path: string): Promise<string> {
   return invoke<string>('save_font', { path });
+}
+
+export async function savePracticeBgFile(path: string): Promise<string> {
+  return invoke<string>('save_practice_bg', { path });
+}
+
+export async function readTextFile(path: string): Promise<string> {
+  return invoke<string>('read_text_file', { path });
+}
+
+export async function writeTextFile(path: string, content: string): Promise<void> {
+  return invoke('write_text_file', { path, content });
+}
+
+export async function openMiniWindow(sessionId: string, index: number): Promise<void> {
+  return invoke('open_mini_window', { sessionId, index });
+}
+
+export async function closeMiniWindow(): Promise<void> {
+  return invoke('close_mini_window');
 }
 
 export async function listFonts(): Promise<FontDto[]> {

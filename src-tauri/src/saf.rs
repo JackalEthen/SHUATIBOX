@@ -26,6 +26,7 @@ pub async fn saf_materialize(
     app: tauri::AppHandle,
     uri: String,
     max_depth: Option<u32>,
+    ext: Option<String>,
 ) -> Result<String, String> {
     let state = app.state::<SafState>();
     let handle = state
@@ -37,6 +38,7 @@ pub async fn saf_materialize(
     let payload = serde_json::json!({
         "uri": uri,
         "maxDepth": max_depth.unwrap_or(6),
+        "ext": ext,
     });
     let result: serde_json::Value = handle
         .run_mobile_plugin_async("copyTree", payload)
@@ -51,7 +53,7 @@ pub async fn saf_materialize(
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
-pub async fn saf_materialize(_uri: String, _max_depth: Option<u32>) -> Result<String, String> {
+pub async fn saf_materialize(_uri: String, _max_depth: Option<u32>, _ext: Option<String>) -> Result<String, String> {
     Err(crate::i18n::tr("该功能仅在 Android 端可用", "This feature is available only on Android").to_string())
 }
 

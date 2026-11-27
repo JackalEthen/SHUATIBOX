@@ -20,6 +20,8 @@ import {
 import { AiTutor } from './AiTutor';
 import { AnswerCard } from './AnswerCard';
 import { AiMark, Icon } from './icons';
+import { loadPracticeBg, practiceBgStyle } from './practiceBg';
+import { actionForEvent, loadShortcuts } from './shortcuts';
 import type { PracticeQuestion } from './questions';
 
 interface Props {
@@ -88,6 +90,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
       : 0,
   );
   const startedAt = useRef(Date.now());
+  const bg = useMemo(loadPracticeBg, []);
 
   const question = questions[index];
   const current = question ? answers[question.id] : undefined;
@@ -282,6 +285,58 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
     }
   }, [question, flags, answers, view.session.id, onNotice]);
 
+  useEffect(() => {
+    if (!question) return;
+    const map = loadShortcuts();
+    const onKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (event.key === 'Escape') {
+        setCardOpen(false);
+        setNoteOpen(false);
+        setEditOpen(false);
+        setAiOpen(false);
+        setMaterialOpen(false);
+        setMenuOpen(false);
+      }
+      const action = actionForEvent(event, map);
+      if (action) {
+        event.preventDefault();
+        if (action === 'prev') setIndex((value) => Math.max(0, value - 1));
+        else if (action === 'next') setIndex((value) => Math.min(questions.length - 1, value + 1));
+        else if (action === 'submit') {
+          const labels = current?.selected ?? [];
+          if (question.multi && !current?.submitted && labels.length > 0) void grade(true, labels);
+        } else if (action === 'finish') setConfirmSubmit(true);
+        else if (action === 'flag') void toggleFlag();
+        else if (action === 'card') setCardOpen(true);
+        else if (action === 'note') {
+          setNoteOpen(true);
+          getNote(question.id).then((value) => setNote(value.content)).catch(() => setNote(''));
+        } else if (action === 'ai') {
+          if (aiReady) setAiOpen(true);
+          else onNotice(t("请先在设置中配置 AI 接口"));
+        } else if (action === 'edit') openEdit();
+        else if (action === 'favorite') {
+          toggleFavorite(question.id)
+            .then((value) => {
+              setFavorite(value);
+              onNotice(value ? t("已收藏") : t("已取消收藏"));
+            })
+            .catch((error) => onNotice(t("收藏失败：{p0}", { p0: errorText(error) })));
+        }
+        return;
+      }
+      const key = event.key.toUpperCase();
+      if (/^[A-H]$/.test(key) && !current?.submitted) {
+        const option = question.options.find((item) => item.label === key);
+        if (option) void submit(key);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [question, index, flags, current, busy, cardOpen, noteOpen, editOpen, aiOpen, materialOpen, aiReady]);
+
   if (result) {
     const groups = new Map<string, { total: number; correct: number }>();
     for (const item of view.questions) {
@@ -365,7 +420,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
   const showAnswer = current?.submitted || (verdict && verdict.canGrade === false);
 
   return (
-    <div className="shell shell-flush">
+    <div className={`shell shell-flush${bg.color || bg.image ? ' has-bg' : ''}`} style={practiceBgStyle(bg)}>
       <div className="h-12 shrink-0 border-b border-[var(--line)] flex items-center gap-2 px-3" style={{ background: 'var(--paper)' }}>
         <button className="icon-btn" onClick={onExit} aria-label={t("返回")}><Icon name="chevronLeft" strokeWidth={1.8} /></button>
         <div className="min-w-0">
@@ -440,7 +495,7 @@ export function MobilePractice({ view, assetDir, settings, onExit, onNotice, onF
         </div>
 
         {question.material ? (
-          <button className="w-full card p-3 flex items-center gap-2 text-left mt-3" onClick={() => setMaterialOpen(true)}>
+          <button className="w-full card material-card p-3 flex items-center gap-2 text-left mt-3" onClick={() => setMaterialOpen(true)}>
             <Icon name="book" className="w-4 h-4 text-[var(--accent-ink)]" strokeWidth={1.7} />
             <span className="text-[13.5px]">{t("查看材料：")}{question.material.title}</span>
             <span className="ml-auto text-[11px] text-[var(--muted)]">{t("点击展开")}</span>

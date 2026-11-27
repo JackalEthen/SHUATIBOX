@@ -1,4 +1,4 @@
-﻿use crate::db::{
+use crate::db::{
     bank_by_id, bank_conn, bank_conn_rw, ensure_active_bank, init_user, list_banks, open_user,
     question_from_row, read_bank_counts, set_active_bank, user_db_path, QUESTION_COLUMNS,
 };
@@ -278,7 +278,6 @@ fn module_code(module: &str) -> String {
 .to_string()
 }
 
-// ponytail: 用户提供的文件路径只校验扩展名，位置由系统文件选择器授权；数据库备份限定 .db
 fn sanitize_font_name(value: &str) -> String {
     let mut name: String = value
         .chars()
@@ -312,7 +311,6 @@ fn require_ext(path: &Path, allowed: &[&str]) -> Result<(), String> {
     }
 }
 
-// ponytail: DB 内 JSON 解析失败时记日志再兜底，避免静默丢弃用户数据
 pub(crate) fn parse_json_or_warn<T: serde::de::DeserializeOwned + Default>(raw: &str, field: &str) -> T {
     match serde_json::from_str(raw) {
         Ok(value) => value,
@@ -1556,7 +1554,6 @@ pub fn list_wrong(
             })
         })
         .collect::<Vec<_>>();
-    // ponytail: items 受 LIMIT 截断，total 报真实错题总数（pending+mastered），前端据此提示
     let total = pending + mastered;
     Ok(WrongPage { items, total, pending, mastered })
 }
@@ -1704,7 +1701,6 @@ pub fn add_report(
     Ok(())
 }
 
-// ponytail: 用户直接编辑题目内容，写回当前题库 db；只改文本，不处理图片文件
 fn parse_answer_letters(raw: &str, options: &[OptionDto]) -> Result<Vec<String>, String> {
     let cleaned: String = raw
         .chars()
@@ -2039,7 +2035,6 @@ pub fn platform_banks_dir(app: tauri::AppHandle) -> Result<Option<String>, Strin
     if !cfg!(target_os = "android") {
         return Ok(None);
     }
-    // ponytail: Android 的 SAF 目录不是真实路径，改用应用自己的外部私有目录（无需权限）
     let id = app.config().identifier.clone();
     for path in [
         format!("/storage/emulated/0/Android/data/{id}/files/banks"),
@@ -2063,7 +2058,6 @@ pub fn export_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     let user = open_user(&app)?;
     let target = PathBuf::from(path);
     require_ext(&target, &["db"])?;
-    // ponytail: 禁止把备份写到应用数据目录或题库目录内，避免覆盖 user.db 或题库
     let root = crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
     let banks = crate::db::banks_dir(&app)?.canonicalize().ok();
     if let Some(parent) = target.parent() {
@@ -2161,7 +2155,6 @@ pub fn import_backup(app: tauri::AppHandle, path: String) -> Result<(), String> 
     for (_, to) in moved {
         let _ = std::fs::remove_file(to);
     }
-    // ponytail: 备份可能被篡改，剔除 banks 表中指向应用数据/题库目录之外的条目，避免后续删库误伤
     let roots = [
         crate::db::base_dir(&app)?.canonicalize().map_err(|error| error.to_string())?,
         crate::db::banks_dir(&app)?
@@ -2244,7 +2237,6 @@ pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String
     if !source.is_file() {
         return Err(tr("图片不存在", "Image does not exist").to_string());
     }
-    // ponytail: 只接受图片扩展名，杜绝 user-avatar.<任意后缀> 污染应用目录
     let allowed = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
     require_ext(&source, &allowed)?;
     let ext = source
@@ -2263,6 +2255,126 @@ pub fn save_avatar(app: tauri::AppHandle, path: String) -> Result<String, String
     }
     std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
     Ok(target.to_string_lossy().to_string())
+}
+
+const TEXT_MAX_BYTES: u64 = 2 * 1024 * 1024;
+const TEXT_WRITE_MAX_BYTES: usize = 5 * 1024 * 1024;
+
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    let file = PathBuf::from(&path);
+    if !file.is_file() {
+        return Err(tr("文件不存在", "File does not exist").to_string());
+    }
+    require_ext(&file, &["md", "markdown", "txt"])?;
+    let size = std::fs::metadata(&file).map_err(|error| error.to_string())?.len();
+    if size > TEXT_MAX_BYTES {
+        return Err(tr("文件不能超过 2MB", "File must be 2MB or smaller").to_string());
+    }
+    std::fs::read_to_string(&file).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn write_text_file(path: String, content: String) -> Result<(), String> {
+    let file = PathBuf::from(&path);
+    require_ext(&file, &["md", "markdown", "txt"])?;
+    if content.len() > TEXT_WRITE_MAX_BYTES {
+        return Err(tr("内容不能超过 5MB", "Content must be 5MB or smaller").to_string());
+    }
+    let parent = file.parent().ok_or_else(|| tr("路径无效", "Invalid path").to_string())?;
+    if !parent.is_dir() {
+        return Err(tr("目录不存在", "Directory does not exist").to_string());
+    }
+    let name = file
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| tr("文件名无效", "Invalid file name").to_string())?;
+    let tmp = parent.join(format!(".{name}.tmp"));
+    std::fs::write(&tmp, content.as_bytes()).map_err(|error| error.to_string())?;
+    std::fs::rename(&tmp, &file).map_err(|error| {
+        let _ = std::fs::remove_file(&tmp);
+        error.to_string()
+    })
+}
+
+#[tauri::command]
+pub fn save_practice_bg(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let source = PathBuf::from(&path);
+    if !source.is_file() {
+        return Err(tr("图片不存在", "Image does not exist").to_string());
+    }
+    let allowed = ["png", "jpg", "jpeg", "webp", "bmp"];
+    require_ext(&source, &allowed)?;
+    let size = std::fs::metadata(&source).map_err(|error| error.to_string())?.len();
+    if size > 25 * 1024 * 1024 {
+        return Err(tr("背景图片不能超过 25MB", "Background image must be 25MB or smaller").to_string());
+    }
+    let ext = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .unwrap_or_default();
+    let dir = crate::db::base_dir(&app)?.join("backgrounds");
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    let target = dir.join(format!("practice-bg.{ext}"));
+    for old in allowed {
+        let candidate = dir.join(format!("practice-bg.{old}"));
+        if candidate != target && candidate.exists() {
+            let _ = std::fs::remove_file(candidate);
+        }
+    }
+    std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().to_string())
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub async fn open_mini_window(app: tauri::AppHandle, session_id: String, index: usize) -> Result<(), String> {
+    use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+    let safe_id: String = session_id
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
+        .collect();
+    if let Some(window) = app.get_webview_window("practice-mini") {
+        let _ = window.emit(
+            "mini-open",
+            serde_json::json!({ "sessionId": session_id, "index": index }),
+        );
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let url = WebviewUrl::App(format!("index.html?mini=1&session={safe_id}&index={index}").into());
+    WebviewWindowBuilder::new(&app, "practice-mini", url)
+        .title(tr("卡片刷题", "Card practice"))
+        .inner_size(420.0, 640.0)
+        .min_inner_size(320.0, 420.0)
+        .resizable(true)
+        .decorations(false)
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+pub async fn open_mini_window(_app: tauri::AppHandle, _session_id: String, _index: usize) -> Result<(), String> {
+    Err(tr("该功能仅限桌面端使用", "This feature is available only on desktop").to_string())
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub fn close_mini_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("practice-mini") {
+        window.destroy().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+pub fn close_mini_window(_app: tauri::AppHandle) -> Result<(), String> {
+    Ok(())
 }
 
 #[tauri::command]
@@ -2369,6 +2481,19 @@ mod tests {
     fn sanitizes_font_file_names() {
         assert_eq!(sanitize_font_name("My Font/v2"), "My-Font_v2");
         assert_eq!(sanitize_font_name(""), "font");
+    }
+
+    #[test]
+    fn text_file_roundtrip_and_extension_guard() {
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/text-file-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("note.md");
+        let path = file.to_string_lossy().to_string();
+        super::write_text_file(path.clone(), "# hi".to_string()).unwrap();
+        assert_eq!(super::read_text_file(path).unwrap(), "# hi");
+        let exe = dir.join("note.exe").to_string_lossy().to_string();
+        assert!(super::write_text_file(exe, "x".to_string()).is_err());
+        let _ = std::fs::remove_file(&file);
     }
 
     #[test]

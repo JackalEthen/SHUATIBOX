@@ -21,6 +21,8 @@ import {
   type Profile,
 } from './api';
 import { FontSettings } from './FontSettings';
+import { BackgroundSettings } from './BackgroundSettings';
+import { ShortcutSettings } from './ShortcutSettings';
 import { AiConfigDialog } from './AiConfigDialog';
 import { BankRenameDialog } from './BankRenameDialog';
 import { Icon } from './icons';
@@ -270,9 +272,11 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
                   ))}
                 </div>
               </div>
+              <BackgroundSettings onNotice={onNotice} />
             </div>
           </div>
 
+          <div className="flex flex-col gap-4">
           <div className="card p-5">
             <h2 className="text-[13.5px] font-semibold">{t("刷题")}</h2>
             <div className="mt-4 space-y-4">
@@ -315,9 +319,37 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
                 </div>
               </div>
               <div className="text-[10.5px] text-[var(--muted)] leading-5">
-                {t("快捷键：A–H 选择，← → 翻题，F 收藏，标记按钮记录疑问题。")}
+                {t("做题页快捷键可在下方“快捷键”卡片中自定义。")}
               </div>
             </div>
+          </div>
+
+          <div className="card p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-[13.5px] font-semibold">{t("界面语言")}</h2>
+                <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("切换后立即生效")}</div>
+              </div>
+              <div className="seg">
+                <button className={lang === 'zh' ? 'active' : ''} onClick={() => setLang('zh')}>{t("中文")}</button>
+                <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>English</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-5">
+            <h2 className="text-[13.5px] font-semibold">{t("AI 设置")}</h2>
+            <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
+              {t("用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。")}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="chip">{data.settings.ai_model ? data.settings.ai_model : t("未配置模型")}</span>
+              <span className="chip">{data.settings.ai_url ? t("接口已填写") : t("接口未填写")}</span>
+            </div>
+            <button className="btn btn-soft btn-sm mt-3" onClick={() => setAiConfigOpen(true)}>
+              {t("配置 AI 模型")}
+            </button>
+          </div>
           </div>
         </div>
 
@@ -328,23 +360,6 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
           setPracticeFont={setPracticeFont}
           onNotice={onNotice}
         />
-
-        <div className="card mt-4 p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-[13.5px] font-semibold">{t("界面语言")}</h2>
-              <div className="text-[10.5px] text-[var(--muted)] mt-1">{t("切换后立即生效")}</div>
-            </div>
-          <div className="seg">
-              <button className={lang === 'zh' ? 'active' : ''} onClick={() => setLang('zh')}>{t("中文")}</button>
-              <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>English</button>
-            </div>
-          </div>
-
-
-        </div>
-
-
 
         <div className="card mt-4 p-5">
           <div className="flex items-center justify-between gap-4">
@@ -445,20 +460,6 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
         </div>
 
         <div className="card mt-4 p-5">
-          <h2 className="text-[13.5px] font-semibold">{t("AI 设置")}</h2>
-          <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
-            {t("用于 AI 转换导入和题目 AI 讲解。建议使用支持图片识别的模型（GPT-4o、Claude、Gemini、Qwen-VL 等），否则带图题目可能无法正常讲解。密钥仅保存在本机。")}
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <span className="chip">{data.settings.ai_model ? data.settings.ai_model : t("未配置模型")}</span>
-            <span className="chip">{data.settings.ai_url ? t("接口已填写") : t("接口未填写")}</span>
-          </div>
-          <button className="btn btn-soft btn-sm mt-3" onClick={() => setAiConfigOpen(true)}>
-            {t("配置 AI 模型")}
-          </button>
-        </div>
-
-        <div className="card mt-4 p-5">
           <h2 className="text-[13.5px] font-semibold">{t("数据")}</h2>
           <div className="text-[10.5px] text-[var(--muted)] mt-1 leading-5">
             {t("进度、错题、笔记、收藏保存在本地；备份不含题库图片，换设备后重新导入题库即可。")}
@@ -490,6 +491,8 @@ export function DesktopSettings({ data, appearance, profile, onProfileChange, on
             </div>
           </div>
         </div>
+
+        {isAndroid ? null : <ShortcutSettings />}
 
         <UpdateCard onNotice={onNotice} />
 

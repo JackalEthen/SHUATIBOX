@@ -1,4 +1,4 @@
-﻿package com.shuatibox.app.safcopy
+package com.shuatibox.app.safcopy
 
 import android.app.Activity
 import android.content.Context
@@ -21,9 +21,9 @@ import java.io.File
 class CopyTreeArgs {
     lateinit var uri: String
     var maxDepth: Int? = null
+    var ext: String? = null
 }
 
-// ponytail: SAF tree/file -> app cache, depth capped at 6; upgrade path is streaming straight into assets
 @TauriPlugin
 class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
 
@@ -142,7 +142,10 @@ class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
                     copyDirectory(activity, rootUri, dest, maxDepth)
                     dest.absolutePath
                 } else {
-                    val name = DocumentsContract.getDocumentId(source).substringAfterLast(':').substringAfterLast('/').ifEmpty { "input.zip" }
+                    var name = displayName(activity, source)
+                        ?: DocumentsContract.getDocumentId(source).substringAfterLast(':').substringAfterLast('/')
+                    if (name.isEmpty()) name = "input.zip"
+                    if (!name.contains('.') && !args.ext.isNullOrBlank()) name = "$name.${args.ext}"
                     val target = File(dest, sanitize(name))
                     copyFile(activity, source, target)
                     target.absolutePath
@@ -203,6 +206,15 @@ class SafCopyPlugin(private val activity: Activity) : Plugin(activity) {
         input.use { stream ->
             target.outputStream().use { output -> stream.copyTo(output) }
         }
+    }
+
+    private fun displayName(context: Context, uri: Uri): String? = try {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    } catch (error: Exception) {
+        Log.e("SafCopy", "displayName failed", error)
+        null
     }
 
     private fun sanitize(value: String): String = value.replace('/', '_').replace('\\', '_')

@@ -2,23 +2,14 @@
 
 <p align="center">
   <b>本地优先的离线刷题应用</b><br>
-  Windows / Android  · 自行导入题库
+  Windows / Android · 无需服务器 · 无需账号 · 自带题库
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19">
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9">
-  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 8">
   <img src="https://img.shields.io/badge/Rust-1.88+-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust">
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows">
-  <img src="https://img.shields.io/badge/Android-3DDC84?style=flat-square&logo=android&logoColor=black" alt="Android">
-  <img src="https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite">
-  <img src="https://img.shields.io/badge/Server-none-2ea043?style=flat-square" alt="No server">
-  <img src="https://img.shields.io/badge/Offline-100%25-2ea043?style=flat-square" alt="Offline">
   <img src="https://img.shields.io/badge/License-MIT-2ea043?style=flat-square" alt="MIT License">
 </p>
 
@@ -40,25 +31,16 @@
 
 ## 功能
 
-- 练习模式：随机练习、整卷练习、模拟考试、自定义组卷、错题重做、收藏练习
-- 练习设置：模块练习开始前可自定义题量（1–500，默认 20），并可选择混入当前模块的待攻克错题（约 25%，向上取整、至少 1 题，最近答错优先）
-- 复习：艾宾浩斯复习计划（1/2/4/7/15/30/60 天），可设置每日复习上限
-- 桌面侧栏：支持折叠为仅图标窄栏，折叠状态自动记忆
-- 判分：逐题即时判分或交卷统一判分；支持单选、多选、判断、2–8 个选项
-- 答题卡：做题页标记旁打开，按题号显示未答、正确/错误、已答与标记状态；考试和延迟判分模式下已答统一绿色
-- 学习管理：错题本（待攻克 / 已掌握）、收藏、笔记
-- 检索：题干、选项、解析、qid、试卷名全文搜索，材料内容可预览
-- 统计：每日题量、正确率、薄弱题型、历史考试
-- 外观：浅色/深色、5 种主题色、4 档阅读字号；全应用与做题页可分别设置系统默认、黑体、宋体或导入字体
-- 界面语言：设置中可切换中文 / English，默认跟随系统语言；英文界面下 AI 讲解与导入提示同步英文
-- 题库管理：多题库导入与切换；支持直接选择单个或多个 `.md` / `.txt` / `.html` / `.htm` / `.docx` 文件导入（图片自动复制），也可导入文件夹或 `zip` / `tar` / `tar.gz` / `tgz` 压缩包；txt 与 html 自动转换为题库格式，docx 自动识别标题、选项与图片；支持题库重命名；导入时可追加到当前题库、已有题库或新建题库，重复题目自动跳过（不覆盖），导入报告列出无效题与缺图
-- 题库存储位置：可在设置中把题库数据库与图片迁移到自定义目录（Windows 任选空文件夹，Android 使用 `Android/data/com.shuatibox.app/files/banks`），迁移后题目、图片与练习记录照常可用
-- AI 题目讲解：做题页可对当前题目发起讲解，自动带入材料、题干、选项和参考答案；支持多轮追问、图片题与随时取消，回答以 Markdown 展示
-- AI 设置：配置 OpenAI 兼容接口，保存后自动检测连通性与读图能力；AI 转换导入可把不规范的 Markdown 自动整理成题库格式，分块转换、单文件失败隔离，输出转换报告，同样可选择导入目标题库
-- 题目编辑：做题时直接修改题干、选项、答案、解析，保存写回本地题库，错题本与搜索同步更新
-- 更新：支持自动/手动检查 GitHub 最新版；发现新版弹窗提示，GitHub 不通时自动切换镜像，Android 可下载到 Download 目录并通知安装
-- 移动端：适配 Android 状态栏与导航栏安全区，优化弹窗与字号
-- 数据备份：学习记录可导出 / 导入（不含题库图片）
+- 练习模式：随机、整卷、模考、自选题组、错题重做、收藏练习
+- 判分：即时判分或交卷统一判分，支持单选、多选、判断
+- 复习：艾宾浩斯间隔复习（1/2/4/7/15/30/60 天）
+- 学习工具：错题本、收藏、笔记、全文搜索、统计
+- 题库管理：导入 md/txt/html/docx 或 zip/tar 压缩包，支持多题库切换与目录迁移
+- 外观：明暗主题、5 种主色、字体与字号、做题页背景（纯色 / 内置图 / 本地图片）
+- 快捷键：做题页全部快捷键可自定义，Android 支持硬件键盘
+- 卡片刷题：Windows 做题页可打开置顶迷你窗
+- Markdown 阅读器：Windows 桌面侧栏、Android「我的」入口，支持阅读与编辑（Android 只读）
+- AI：AI 讲解、AI 转换导入、更新检查
 
 ## 技术栈
 
@@ -66,13 +48,14 @@
 | --- | --- |
 | 应用壳 | Tauri 2 |
 | 前端 | React 19 + TypeScript + Vite + Tailwind CSS |
-| 内容渲染 | marked + DOMPurify |
+| 渲染 | marked + DOMPurify |
+| Markdown 编辑 | @toast-ui/editor |
 | 后端 | Rust + rusqlite (SQLite) + zip + tar + sha2 + reqwest |
 | 平台 | Windows、Android |
 
 ## 快速开始
 
-要求：Node.js 20+、Rust 1.88+；Windows 需要 WebView2 运行时。
+要求 Node.js 20+、Rust 1.88+，Windows 需 WebView2 运行时。
 
 ```bash
 npm install
@@ -80,90 +63,40 @@ npm run tauri dev      # 开发模式
 npm run tauri build    # 构建安装包
 ```
 
-Android 构建（需要 Android SDK、NDK 与 JDK 21）：
-
-```powershell
-$env:ANDROID_HOME = "C:\path\to\Android\Sdk"
-$env:NDK_HOME = "$env:ANDROID_HOME\ndk\<version>"
-npm run tauri -- android build --debug --target aarch64 --apk
-```
-
 ## 题库格式
 
-导入一个 Markdown 文件夹、单个或多个 `.md` 文件，或 zip / tar / tar.gz。每个 `.md` 文件是一张试卷的一个模块，文件头使用 frontmatter：
+每个 `.md` 文件是一个模块，支持 frontmatter 与中英文标题：
 
 ```markdown
 ---
-试卷: "2023年国考《行测》题"
+试卷: "2023 年国考行测"
 年份: "2023"
-地区: "国考"
-模块: "言语理解与表达"
-考试类型: "国考"
+模块: "言语理解"
 ---
 
-## 第 1 题 · 逻辑填空
+## 第 1 题 逻辑填空
 
-题干正文，可包含 Markdown、HTML 与图片。
+题干文字，支持 Markdown、HTML 和图片。
 
 - **A**. 选项一
 - **B**. 选项二
-- **C**. 选项三
 
 **答案**：B
 
 **官方解析**
 
-解析正文……故正确答案为B。
+解析内容。
 ```
 
-规则摘要：
+完整格式约定见 [`import-format.md`](import-format.md)。
 
-- 选项标签只能是 `A`–`H`，必须从 A 开始连续，数量 2–8
-- 多选答案写 `A,C`，也接受 `A、C`、`A C`、`AC`
-- 判断题可写一行 `- （选项）[]`，答案 A 表示正确、B 表示错误
-- 材料题使用 `## 材料 1` + `### 第 1 题`
-- 同时支持英文别名：`Paper / Module / Question N / Material N`、`**Answer**`、`**Explanation**`
-- 图片使用相对路径 `![描述](images/1.png)`，支持 `png jpg jpeg jfif gif webp`
-- 答案缺失时题目仍导入，但不参与判分
-- `README.md` 自动跳过
-
-目录示例：
-
-```text
-题库/
-  01-言语理解与表达/
-    2023年国考行测.md
-    90-图片/
-      q1.png
-  02-数量关系/
-    2023年国考行测.md
-  README.md
-```
-
-完整格式契约见 [`import-format.md`](import-format.md)。
-
-## 数据存放
+## 数据位置
 
 | 环境 | 路径 |
 | --- | --- |
-| 开发模式 | 项目根目录 `data/` |
-| Windows 安装版 | `%APPDATA%\com.shuatibox.app`（默认，可在设置中迁移） |
-| Android | 应用私有目录（可在设置中迁至 `Android/data/com.shuatibox.app/files/banks`） |
-
-题库目录可在「设置 → 数据 → 题库存储位置」迁移，目标目录需为空；迁移会复制题库数据库与图片。
-
-题库数据库与图片都保存在该目录。卸载 Windows 安装版时会自动删除该目录下的题库、图片、做题记录和设置。
-
-## 目录结构
-
-```text
-src/                    前端源码（Desktop*.tsx 与 Mobile*.tsx 两套界面）
-src-tauri/src/          Rust 后端：commands / db / importer / models / saf
-src-tauri/gen/android/  Android 工程与 SAF 原生插件
-tools/import-parser/    Markdown 解析器与命令行导入工具
-import-format.md        题库导入格式完整契约
-docs/                   验收与设计记录（本地）
-```
+| 开发 | 项目根目录 `data/` |
+| Windows 安装版 | `%APPDATA%\com.shuatibox.app`（可在设置中迁移） |
+| Android | 应用私有目录（可迁移到 `Android/data/com.shuatibox.app/files/banks`） |
 
 ## 测试
 
@@ -171,17 +104,9 @@ docs/                   验收与设计记录（本地）
 npm run test:parser    # 导入解析
 npm run test:grade     # 判分逻辑
 npx tsc --noEmit       # 类型检查
-cd src-tauri && cargo check
+cd src-tauri && cargo test
 ```
 
 ## 许可证
 
 [MIT](LICENSE)
-
-## 说明
-
-- 无服务端、无账号；检查更新会访问 GitHub，AI 功能需主动配置接口
-- 追加导入按「试卷|年份|地区」识别，已存在的整卷跳过，不覆盖已有数据
-- 题库与图片全部本地存储，导入时按内容 SHA-256 去重
-- 同一道题可能出现在多张试卷中，编辑只影响当前试卷里的这一条记录
-- 编辑题目时不支持新增图片，已有图片引用保持不变
